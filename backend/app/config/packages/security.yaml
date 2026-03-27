@@ -1,0 +1,48 @@
+security:
+    # https://symfony.com/doc/current/security.html#registering-the-user-hashing-passwords
+    password_hashers:
+        App\Entity\User: "auto"
+
+    # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
+    providers:
+        app_user_provider:
+            entity:
+                class: App\Entity\User
+                property: email
+
+    firewalls:
+        dev:
+            # Ensure dev tools and static assets are always allowed
+            pattern: ^/(_profiler|_wdt|assets|build)/
+            security: false
+        main:
+            stateless: true
+            entry_point: jwt
+            lazy: true
+            provider: app_user_provider
+
+            json_login:
+                check_path: auth_login
+                username_path: email
+                password_path: password
+                success_handler: App\Security\JwtLoginSuccessHandler
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+
+            jwt: ~
+
+    # Note: Only the *first* matching rule is applied
+    access_control:
+        - { path: ^/api/auth/register$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/refresh$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/logout$, roles: PUBLIC_ACCESS }
+        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
+
+when@test:
+    security:
+        password_hashers:
+            App\Entity\User:
+                algorithm: auto
+                cost: 4 # Lowest possible value for bcrypt
+                time_cost: 3 # Lowest possible value for argon
+                memory_cost: 10 # Lowest possible value for argon

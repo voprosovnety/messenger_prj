@@ -1,0 +1,38 @@
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Symfony
+/backend/app/var/
+/backend/app/vendor/
+/backend/app/.env.local
+/backend/app/.env.*.local
+/backend/app/.env.dev
+/backend/app/.env.prod
+/backend/app/.env.prod.local
+
+# Logs / cache
+*.log
+
+# JWT keys (secret!)
+/backend/app/config/jwt/*.pem
+
+# Node (если появится фронт)
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.env.local
+/frontend/.env.*.local
+
+# Docker
+**/.dockerignore
+
+# DB dumps
+*.sql
+*.dump
+
+# Composer artifacts (оставляем composer.lock, но игнорируем phar если появится)
+composer.phar
+
+# Local secrets for docker-compose
+.env
