@@ -42,7 +42,6 @@ services:
       MERCURE_SUBSCRIBER_JWT_KEY: $MERCURE_JWT_SECRET
       MERCURE_EXTRA_DIRECTIVES: |
         cors_origins http://localhost
-        anonymous
     ports:
       - "3000:80"
 
