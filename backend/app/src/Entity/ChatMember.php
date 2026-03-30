@@ -28,6 +28,9 @@ class ChatMember
     #[ORM\Column]
     private ?\DateTimeImmutable $joinedAt = null;
 
+    #[ORM\Column(type: 'uuid', nullable: true)]
+    private ?Uuid $lastReadMessageId = null;
+
     public function __construct()
     {
         $this->id = Uuid::v7();
@@ -78,5 +81,16 @@ class ChatMember
     public function getJoinedAt(): ?\DateTimeImmutable
     {
         return $this->joinedAt;
+    }
+
+    public function getLastReadMessageId(): ?Uuid
+    {
+        return $this->lastReadMessageId;
+    }
+
+    public function setLastReadMessageId(?Uuid $lastReadMessageId): static
+    {
+        $this->lastReadMessageId = $lastReadMessageId;
+        return $this;
     }
 }
