@@ -31,6 +31,9 @@ class ChatMember
     #[ORM\Column(type: 'uuid', nullable: true)]
     private ?Uuid $lastReadMessageId = null;
 
+    #[ORM\Column(type: 'uuid', nullable: true)]
+    private ?Uuid $lastDeliveredMessageId = null;
+
     public function __construct()
     {
         $this->id = Uuid::v7();
@@ -91,6 +94,17 @@ class ChatMember
     public function setLastReadMessageId(?Uuid $lastReadMessageId): static
     {
         $this->lastReadMessageId = $lastReadMessageId;
+        return $this;
+    }
+
+    public function getLastDeliveredMessageId(): ?Uuid
+    {
+        return $this->lastDeliveredMessageId;
+    }
+
+    public function setLastDeliveredMessageId(?Uuid $lastDeliveredMessageId): static
+    {
+        $this->lastDeliveredMessageId = $lastDeliveredMessageId;
         return $this;
     }
 }
