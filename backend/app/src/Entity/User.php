@@ -22,11 +22,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255)]
     private ?string $password = null;
 
+    #[ORM\Column(length: 50, unique: true)]
+    private string $username;
+
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
 
-    #[ORM\Column(length: 100)]
-    private ?string $name = null;
 
     public function __construct()
     {
@@ -68,7 +69,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getUserIdentifier(): string
     {
-        return (string) $this->email;
+        return $this->username;
     }
 
     /**
@@ -84,15 +85,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         // no-op
     }
 
-    public function getName(): ?string
+
+    public function getUsername(): string
     {
-        return $this->name;
+        return $this->username;
     }
 
-    public function setName(string $name): static
+    public function setUsername(string $username): static
     {
-        $this->name = $name;
-
+        $this->username = $username;
         return $this;
     }
 }

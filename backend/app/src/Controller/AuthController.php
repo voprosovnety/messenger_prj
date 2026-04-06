@@ -21,21 +21,26 @@ final class AuthController
 
         $email = $data['email'] ?? null;
         $password = $data['password'] ?? null;
-        $name = $data['name'] ?? null;
+        $username = $data['username'] ?? null;
 
-        if (!$email || !$password || !$name) {
-            return new JsonResponse(['error' => 'email, password, name are required'], 400);
+        if (!$email || !$password || !$username) {
+            return new JsonResponse(['error' => 'email, password, username are required'], 400);
         }
 
         // простая проверка на существование email
-        $exists = $em->getRepository(User::class)->findOneBy(['email' => $email]);
-        if ($exists) {
+        $existsEmail = $em->getRepository(User::class)->findOneBy(['email' => $email]);
+        if ($existsEmail) {
             return new JsonResponse(['error' => 'email already exists'], 409);
+        }
+
+        $existsUsername = $em->getRepository(User::class)->findOneBy(['username' => $username]);
+        if ($existsUsername) {
+            return new JsonResponse(['error' => 'username already exists'], 409);
         }
 
         $user = new User();
         $user->setEmail($email);
-        $user->setName($name);
+        $user->setUsername($username);
 
         $user->setPassword($hasher->hashPassword($user, $password));
 
@@ -45,7 +50,7 @@ final class AuthController
         return new JsonResponse([
             'id' => (string) $user->getId(),
             'email' => $user->getEmail(),
-            'name' => $user->getName(),
+            'username' => $user->getUsername(),
         ], 201);
     }
 }

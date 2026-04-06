@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-const name = ref('')
+const username = ref('')
 const email = ref('')
 const password = ref('')
 const error = ref('')
@@ -13,15 +13,15 @@ async function submit() {
   error.value = ''
   ok.value = ''
 
-  if (!name.value || !email.value || !password.value) {
-    error.value = 'name, email and password are required'
+  if (!username.value || !email.value || !password.value) {
+    error.value = 'username, email and password are required'
     return
   }
 
   const res = await fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: name.value, email: email.value, password: password.value }),
+    body: JSON.stringify({ username: username.value, email: email.value, password: password.value }),
   })
 
   const json = await res.json().catch(() => ({}))
@@ -33,14 +33,14 @@ async function submit() {
 
   ok.value = 'registered, now login...'
 
-  // auto login right after register
+  // auto login right after register (login supports username/email via identifier)
   const loginRes = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email.value, password: password.value }),
+    body: JSON.stringify({ identifier: username.value, password: password.value }),
   })
 
-  const loginJson = await loginRes.json()
+  const loginJson = await loginRes.json().catch(() => ({}))
   if (!loginRes.ok) {
     router.push('/login')
     return
@@ -59,7 +59,7 @@ async function submit() {
     <div v-if="error" style="color: red; margin-bottom: 12px;">{{ error }}</div>
     <div v-if="ok" style="color: green; margin-bottom: 12px;">{{ ok }}</div>
 
-    <input v-model="name" placeholder="name" style="width:100%; padding:8px; margin-bottom:8px;" />
+    <input v-model="username" placeholder="username" style="width:100%; padding:8px; margin-bottom:8px;" />
     <input v-model="email" placeholder="email" style="width:100%; padding:8px; margin-bottom:8px;" />
     <input v-model="password" type="password" placeholder="password" style="width:100%; padding:8px; margin-bottom:12px;" />
 

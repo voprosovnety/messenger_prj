@@ -5,10 +5,19 @@ security:
 
     # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
     providers:
-        app_user_provider:
+        app_user_provider_username:
+            entity:
+                class: App\Entity\User
+                property: username
+
+        app_user_provider_email:
             entity:
                 class: App\Entity\User
                 property: email
+
+        app_user_provider:
+            chain:
+                providers: [app_user_provider_username, app_user_provider_email]
 
     firewalls:
         dev:
@@ -21,8 +30,8 @@ security:
             lazy: true
             provider: app_user_provider
             json_login:
-                check_path: auth_login
-                username_path: email
+                check_path: /api/auth/login
+                username_path: identifier
                 password_path: password
                 success_handler: App\Security\JwtLoginSuccessHandler
                 failure_handler: lexik_jwt_authentication.handler.authentication_failure
@@ -36,7 +45,6 @@ security:
         - { path: ^/api/auth/refresh$, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/logout$, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
-        - { path: ^/api/chats/.*/mercure-token$, roles: IS_AUTHENTICATED_FULLY }
 
 when@test:
     security:
