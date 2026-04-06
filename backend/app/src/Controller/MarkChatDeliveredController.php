@@ -84,7 +84,7 @@ final class MarkChatDeliveredController
             ],
         ], JSON_UNESCAPED_SLASHES);
 
-        $hub->publish(new Update($topic, $payload));
+        $hub->publish(new Update($topic, $payload, true));
 
         return new JsonResponse(['ok' => true], 200);
     }

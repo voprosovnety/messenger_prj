@@ -18,11 +18,19 @@
 # JWT keys (secret!)
 /backend/app/config/jwt/*.pem
 
-# Node (если появится фронт)
-/frontend/node_modules/
-/frontend/dist/
-/frontend/.env.local
-/frontend/.env.*.local
+# Frontend (Vite/Vue)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# Optional: logs
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
 
 # Docker
 **/.dockerignore

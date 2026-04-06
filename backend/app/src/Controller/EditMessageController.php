@@ -77,7 +77,7 @@ final class EditMessageController
             ],
         ], JSON_UNESCAPED_SLASHES);
 
-        $hub->publish(new Update($topic, $payload));
+        $hub->publish(new Update($topic, $payload, true));
 
         return new JsonResponse([
             'id' => (string) $msg->getId(),
