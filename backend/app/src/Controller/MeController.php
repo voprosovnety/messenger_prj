@@ -15,8 +15,9 @@ final class MeController
             return new JsonResponse(['error' => 'unauthorized'], 401);
         }
 
+        /** @var \App\Entity\User $user */
         return new JsonResponse([
-            'user' => $user->getUserIdentifier(),
+            'username' => $user->getUsername(),
             'roles' => $user->getRoles(),
         ]);
     }

@@ -110,4 +110,18 @@ export const api = {
             body: JSON.stringify({ last_read_message_id: msgId }),
         })
     },
+
+    createChat: async ({ isGroup, title, participants }) => {
+        const res = await request('/api/chats', {
+            method: 'POST',
+            body: JSON.stringify({
+                is_group: !!isGroup,
+                title: isGroup ? title : null,
+                participants: participants || [],
+            }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'create chat failed')
+        return json
+    },
 }

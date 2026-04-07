@@ -61,7 +61,7 @@ final class CreateMessageController
             'data' => [
                 'id' => (string) $msg->getId(),
                 'chat_id' => (string) $chat->getId(),
-                'sender' => $me->getEmail(),
+                'sender' => $me->getUsername(),
                 'content' => $msg->getContent(),
                 'created_at' => $msg->getCreatedAt()?->format(DATE_ATOM),
             ],
@@ -72,7 +72,7 @@ final class CreateMessageController
         return new JsonResponse([
             'id' => (string) $msg->getId(),
             'chat_id' => (string) $chat->getId(),
-            'sender' => $me->getEmail(),
+            'sender' => $me->getUsername(),
             'content' => $msg->getContent(),
             'created_at' => $msg->getCreatedAt()?->format(DATE_ATOM),
         ], 201);

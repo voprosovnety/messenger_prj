@@ -33,9 +33,11 @@ final class JwtLoginSuccessHandler implements AuthenticationSuccessHandlerInterf
         $this->em->persist($refresh);
         $this->em->flush();
 
+        /** @var \App\Entity\User $user */
         return new JsonResponse([
             'access_token' => $accessToken,
             'refresh_token' => $refreshValue,
+            'username' => $user->getUsername(),
         ]);
     }
 }

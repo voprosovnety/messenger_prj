@@ -24,21 +24,21 @@ final class CreateChatController
 
         $isGroup = (bool) ($data['is_group'] ?? false);
         $title = $data['title'] ?? null;
-        $emails = $data['participants'] ?? [];
+        $participants = $data['participants'] ?? [];
 
-        if (!is_array($emails)) {
-            return new JsonResponse(['error' => 'participants must be array of emails'], 400);
+        if (!is_array($participants)) {
+            return new JsonResponse(['error' => 'participants must be array of usernames/emails'], 400);
         }
 
         if ($isGroup) {
             if (!$title || !is_string($title)) {
                 return new JsonResponse(['error' => 'title is required for group chat'], 400);
             }
-            if (count($emails) < 1) {
+            if (count($participants) < 1) {
                 return new JsonResponse(['error' => 'group chat requires at least 1 participant'], 400);
             }
         } else {
-            if (count($emails) !== 1) {
+            if (count($participants) !== 1) {
                 return new JsonResponse(['error' => 'for 1:1 chat provide exactly 1 participant'], 400);
             }
         }
@@ -55,14 +55,23 @@ final class CreateChatController
         $owner->setRole('OWNER');
         $em->persist($owner);
 
-        foreach ($emails as $email) {
-            if (!is_string($email) || $email === $me->getEmail()) {
+        foreach ($participants as $ident) {
+            if (!is_string($ident) || trim($ident) === '') {
                 continue;
             }
 
-            $u = $em->getRepository(User::class)->findOneBy(['email' => $email]);
+            $ident = trim($ident);
+
+
+            if ($ident === $me->getEmail() || $ident === $me->getUsername()) {
+                continue;
+            }
+
+            $u = $em->getRepository(User::class)->findOneBy(['username' => $ident])
+                ?? $em->getRepository(User::class)->findOneBy(['email' => $ident]);
+
             if (!$u) {
-                return new JsonResponse(['error' => "user not found: $email"], 404);
+                return new JsonResponse(['error' => "user not found: $ident"], 404);
             }
 
             $m = new ChatMember();

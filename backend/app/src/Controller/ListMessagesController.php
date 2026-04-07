@@ -85,7 +85,7 @@ final class ListMessagesController
         foreach ($rows as $m) {
             $items[] = [
                 'id' => (string) $m->getId(),
-                'sender' => $m->getSender()->getEmail(),
+                'sender' => $m->getSender()->getUsername(),
                 'content' => $m->getContent(),
                 'created_at' => $m->getCreatedAt()->format(DATE_ATOM),
                 'edited_at' => $m->getEditedAt()?->format(DATE_ATOM),
