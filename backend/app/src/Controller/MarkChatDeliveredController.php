@@ -78,7 +78,7 @@ final class MarkChatDeliveredController
             'type' => 'chat.delivered',
             'data' => [
                 'chat_id' => (string) $chat->getId(),
-                'user' => $me->getEmail(),
+                'user' => $me->getUsername(),
                 'last_delivered_message_id' => (string) $deliveredUuid,
                 'at' => (new \DateTimeImmutable())->format(DATE_ATOM),
             ],

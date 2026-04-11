@@ -79,7 +79,7 @@ final class MarkChatReadController
             'type' => 'chat.read',
             'data' => [
                 'chat_id' => (string) $chat->getId(),
-                'user' => $me->getEmail(),
+                'user' => $me->getUsername(),
                 'last_read_message_id' => (string) $lastReadUuid,
                 'at' => (new \DateTimeImmutable())->format(DATE_ATOM),
             ],

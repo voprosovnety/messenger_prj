@@ -124,4 +124,8 @@ export const api = {
         if (!res.ok) throw new Error(json.error || 'create chat failed')
         return json
     },
+    me: async () => {
+        const res = await request('/api/me')
+        return res.json()
+    },
 }
