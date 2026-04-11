@@ -1,9 +1,10 @@
 <script setup>
 import { onMounted, onBeforeUnmount, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 
 const route = useRoute()
+const router = useRouter()
 const chatId = route.params.chatId
 
 const messages = ref([])
@@ -77,11 +78,22 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (es) es.close()
 })
+
+function onKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    send()
+  }
+}
+
 </script>
 
 <template>
   <div style="max-width: 720px; margin: 20px auto;">
-    <h2>Chat {{ chatId }}</h2>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2>Chat {{ chatId }}</h2>
+      <button @click="router.push('/')">Back to chats</button>
+    </div>
 
     <div style="border:1px solid #ddd; padding:12px; min-height:240px;">
       <div v-for="m in messages" :key="m.id" style="margin-bottom:10px;">
@@ -93,13 +105,14 @@ onBeforeUnmount(() => {
     </div>
 
     <div style="display:flex; gap:8px; margin-top:12px;">
-      <input v-model="input" style="flex:1; padding:8px;" placeholder="message..." />
+      <textarea
+        v-model="input"
+        rows="2"
+        style="flex:1; padding:8px; resize:vertical;"
+        placeholder="message..."
+        @keydown="onKeydown"
+      />
       <button @click="send">Send</button>
     </div>
-
-    <p style="margin-top:12px; opacity:.7;">
-      SSE subscription via JWT header is not possible with native EventSource.
-      Next step: implement Mercure subscribe via cookie.
-    </p>
   </div>
 </template>
