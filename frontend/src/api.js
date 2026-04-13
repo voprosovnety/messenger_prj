@@ -137,4 +137,10 @@ export const api = {
         const res = await request('/api/me')
         return res.json()
     },
+    deleteChat: async (chatId) => {
+        const res = await request(`/api/chats/${chatId}`, { method: 'DELETE' })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'delete chat failed')
+        return json
+    },
 }

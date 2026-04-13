@@ -185,6 +185,12 @@ async function send() {
   await api.sendMessage(chatId, text)
 }
 
+async function deleteChat() {
+  if (!confirm('Delete this chat permanently?')) return
+  await api.deleteChat(chatId)
+  router.push('/')
+}
+
 function onKeydown(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
@@ -214,6 +220,7 @@ onBeforeUnmount(() => {
         <div class="sub">{{ chatId }}</div>
       </div>
       <button class="btn" @click="router.push('/')">Back</button>
+      <button class="btn danger" @click="deleteChat">Delete</button>
     </header>
 
     <main class="chat">
@@ -406,5 +413,10 @@ onBeforeUnmount(() => {
 
 .btn.primary {
   background: rgba(120, 100, 255, 0.18);
+}
+
+.btn.danger {
+  border-color: #7a1f1f;
+  background: rgba(255, 80, 80, 0.12);
 }
 </style>
