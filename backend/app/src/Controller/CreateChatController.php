@@ -43,6 +43,44 @@ final class CreateChatController
             }
         }
 
+        if (!$isGroup) {
+            $ident = trim((string) $participants[0]);
+
+            $peer = $em->getRepository(User::class)->findOneBy(['username' => $ident])
+                ?? $em->getRepository(User::class)->findOneBy(['email' => $ident]);
+
+            if (!$peer) {
+                return new JsonResponse(['error' => "user not found: $ident"], 404);
+            }
+
+            if ((string)$peer->getId() === (string)$me->getId()) {
+                return new JsonResponse(['error' => 'cannot create DM with yourself'], 400);
+            }
+
+            $existing = $em->createQueryBuilder()
+                ->select('c')
+                ->from(Chat::class, 'c')
+                ->join(ChatMember::class, 'cmMe', 'WITH', 'cmMe.chat = c')
+                ->join(ChatMember::class, 'cmPeer', 'WITH', 'cmPeer.chat = c')
+                ->where('c.isGroup = false')
+                ->andWhere('cmMe.member = :me')
+                ->andWhere('cmPeer.member = :peer')
+                ->setParameter('me', $me)
+                ->setParameter('peer', $peer)
+                ->setMaxResults(1)
+                ->getQuery()
+                ->getOneOrNullResult();
+
+            if ($existing) {
+                return new JsonResponse([
+                    'id' => (string) $existing->getId(),
+                    'is_group' => false,
+                    'title' => null,
+                    'already_exists' => true,
+                ], 200);
+            }
+        }
+
         $chat = new Chat();
         $chat->setIsGroup($isGroup);
         $chat->setTitle($isGroup ? $title : null);

@@ -15,10 +15,9 @@ final class ListChatsController
     public function __invoke(EntityManagerInterface $em, UserInterface $me): JsonResponse
     {
         /** @var User $me */
-        $qb = $em->createQueryBuilder();
 
         /** @var ChatMember[] $memberships */
-        $memberships = $qb
+        $memberships = $em->createQueryBuilder()
             ->select('cm', 'c')
             ->from(ChatMember::class, 'cm')
             ->join('cm.chat', 'c')
@@ -29,13 +28,41 @@ final class ListChatsController
             ->getResult();
 
         $items = [];
+
         foreach ($memberships as $cm) {
             $chat = $cm->getChat();
+
+            $displayName = $chat->isGroup()
+                ? ($chat->getTitle() ?: 'Group chat')
+                : 'DM';
+
+            $peerUsername = null;
+
+            if (!$chat->isGroup()) {
+                $peer = $em->createQueryBuilder()
+                    ->select('u')
+                    ->from(User::class, 'u')
+                    ->join(ChatMember::class, 'cm2', 'WITH', 'cm2.member = u')
+                    ->where('cm2.chat = :chat')
+                    ->andWhere('u != :me')
+                    ->setParameter('chat', $chat)
+                    ->setParameter('me', $me)
+                    ->setMaxResults(1)
+                    ->getQuery()
+                    ->getOneOrNullResult();
+
+                if ($peer instanceof User) {
+                    $peerUsername = $peer->getUsername();
+                    $displayName = $peerUsername;
+                }
+            }
 
             $items[] = [
                 'id' => (string) $chat->getId(),
                 'is_group' => $chat->isGroup(),
                 'title' => $chat->getTitle(),
+                'display_name' => $displayName,
+                'peer_username' => $peerUsername, // null для group
                 'created_at' => $chat->getCreatedAt()?->format(DATE_ATOM),
                 'my_role' => $cm->getRole(),
                 'joined_at' => $cm->getJoinedAt()?->format(DATE_ATOM),

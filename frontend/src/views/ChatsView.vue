@@ -10,11 +10,16 @@ const error = ref('')
 const creating = ref(false)
 const isGroup = ref(false)
 const title = ref('')
-const participantsText = ref('') // ввод строкой
+const participantsText = ref('')
 
 async function loadChats() {
-  const data = await api.listChats()
-  chats.value = data.items || []
+  error.value = ''
+  try {
+    const data = await api.listChats()
+    chats.value = data.items || []
+  } catch (e) {
+    error.value = e.message || 'failed to load chats'
+  }
 }
 
 onMounted(loadChats)
@@ -85,19 +90,12 @@ async function createChat() {
       </label>
 
       <div v-if="isGroup" style="margin-bottom:10px;">
-        <input
-          v-model="title"
-          placeholder="group title"
-          style="width:100%; padding:8px;"
-        />
+        <input v-model="title" placeholder="group title" style="width:100%; padding:8px;" />
       </div>
 
-      <textarea
-        v-model="participantsText"
+      <textarea v-model="participantsText"
         :placeholder="isGroup ? 'participants (usernames/emails), separated by comma or space' : 'username or email'"
-        rows="3"
-        style="width:100%; padding:8px; margin-bottom:10px;"
-      />
+        rows="3" style="width:100%; padding:8px; margin-bottom:10px;" />
 
       <button @click="createChat" :disabled="creating" style="padding:8px 12px;">
         {{ creating ? 'Creating...' : 'Create' }}
@@ -107,7 +105,7 @@ async function createChat() {
     <ul>
       <li v-for="c in chats" :key="c.id" style="margin: 10px 0;">
         <a href="#" @click.prevent="router.push(`/chats/${c.id}`)">
-          {{ c.is_group ? 'Group' : 'DM' }} — {{ c.title || c.id }} (role: {{ c.my_role }})
+          {{ c.is_group ? 'Group' : 'DM' }} — {{ c.display_name || c.title || c.id }}
         </a>
       </li>
     </ul>

@@ -71,7 +71,16 @@ export const api = {
 
     listChats: async () => {
         const res = await request('/api/chats')
-        return res.json()
+        const text = await res.text()
+
+
+        try {
+            const json = JSON.parse(text)
+            if (!res.ok) throw new Error(json.error || json.message || 'failed to load chats')
+            return json
+        } catch {
+            throw new Error(text.slice(0, 120) || 'failed to load chats')
+        }
     },
 
     listMessages: async (chatId) => {
