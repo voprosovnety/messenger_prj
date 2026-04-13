@@ -85,7 +85,9 @@ export const api = {
 
     listMessages: async (chatId) => {
         const res = await request(`/api/chats/${chatId}/messages`)
-        return res.json()
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || json.message || 'failed to load messages')
+        return json
     },
 
     sendMessage: async (chatId, content) => {
@@ -103,7 +105,9 @@ export const api = {
 
     getMercureCookie: async (chatId) => {
         const res = await request(`/api/chats/${chatId}/mercure-subscribe`, { method: 'POST' })
-        return res.json()
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || json.message || 'failed to subscribe')
+        return json
     },
 
     markDelivered: async (chatId, msgId) => {

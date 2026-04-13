@@ -96,10 +96,15 @@ async function scrollToBottom() {
 
 // ---------- delivered/read ----------
 async function load() {
-  const data = await api.listMessages(chatId)
-  messages.value = data.items || []
+  try {
+    const data = await api.listMessages(chatId)
+    messages.value = data.items || []
+  } catch (e) {
+    // чат удалён или нет доступа
+    router.push('/')
+    return
+  }
 
-  // delivered на старте: доставили последнее, если есть
   const last = messages.value[messages.value.length - 1]
   if (last) {
     await api.markDelivered(chatId, last.id)
@@ -116,7 +121,15 @@ async function markReadIfPossible() {
 }
 
 async function connectSse() {
-  const { topic } = await api.getMercureCookie(chatId)
+  let topic
+  try {
+    const res = await api.getMercureCookie(chatId)
+    topic = res.topic
+  } catch (e) {
+    router.push('/')
+    return
+  }
+
   const url = `/.well-known/mercure?topic=${encodeURIComponent(topic)}`
   es = new EventSource(url, { withCredentials: true })
 
