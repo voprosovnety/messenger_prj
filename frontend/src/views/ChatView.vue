@@ -13,12 +13,16 @@ const participants = ref([])
 const participantInput = ref('')
 const busy = ref(false)
 const error = ref('')
+const showMembersPanel = ref(false)
+const showAddParticipant = ref(false)
 
 const peerDeliveredId = ref(null)
 const peerReadId = ref(null)
 
 const messages = ref([])
 const input = ref('')
+const editingId = ref(null)
+const editingText = ref('')
 let es = null
 
 const listEl = ref(null)
@@ -31,6 +35,10 @@ function myId() {
 
 function isMine(m) {
   return m.sender === myId()
+}
+
+function isEditing(m) {
+  return editingId.value === m.id
 }
 
 const chatTitle = computed(() => chat.value?.display_name || 'Chat')
@@ -228,6 +236,57 @@ async function send() {
   await api.sendMessage(chatId, text)
 }
 
+function startEdit(message) {
+  if (message.deleted_at) return
+  editingId.value = message.id
+  editingText.value = message.content || ''
+}
+
+function cancelEdit() {
+  editingId.value = null
+  editingText.value = ''
+}
+
+async function saveEdit(message) {
+  const text = editingText.value.trim()
+  if (!text) return
+
+  busy.value = true
+  error.value = ''
+  try {
+    const updated = await api.editMessage(chatId, message.id, text)
+    const i = messages.value.findIndex(m => m.id === message.id)
+    if (i !== -1) {
+      messages.value[i].content = updated.content
+      messages.value[i].edited_at = updated.edited_at
+    }
+    cancelEdit()
+  } catch (e) {
+    error.value = e.message || 'Failed to edit message'
+  } finally {
+    busy.value = false
+  }
+}
+
+async function removeMessage(message) {
+  if (!confirm('Delete this message?')) return
+
+  busy.value = true
+  error.value = ''
+  try {
+    await api.deleteMessage(chatId, message.id)
+    const i = messages.value.findIndex(m => m.id === message.id)
+    if (i !== -1) {
+      messages.value[i].deleted_at = new Date().toISOString()
+    }
+    if (editingId.value === message.id) cancelEdit()
+  } catch (e) {
+    error.value = e.message || 'Failed to delete message'
+  } finally {
+    busy.value = false
+  }
+}
+
 async function addParticipant() {
   const ident = participantInput.value.trim()
   if (!ident) return
@@ -237,6 +296,7 @@ async function addParticipant() {
   try {
     await api.addChatMember(chatId, ident)
     participantInput.value = ''
+    showAddParticipant.value = false
     const data = await api.getChat(chatId)
     chat.value = data
     participants.value = data.participants || []
@@ -297,83 +357,115 @@ onBeforeUnmount(() => {
         <div v-if="isGroup" class="sub">{{ participants.length }} participants</div>
       </div>
       <div class="actions">
+        <button v-if="isGroup" class="btn" @click="showMembersPanel = !showMembersPanel">
+          {{ showMembersPanel ? 'Hide participants' : 'Participants' }}
+        </button>
         <button class="btn" @click="router.push('/')">Back</button>
         <button v-if="canDeleteChat" class="btn danger" @click="deleteChat">Delete</button>
       </div>
     </header>
 
     <main class="chat">
-      <section v-if="isGroup" class="members">
-        <div class="members-head">
-          <div class="members-title">Participants</div>
-          <div v-if="isOwner" class="owner-badge">owner</div>
+      <div class="chatBody">
+        <div class="chatMain">
+          <div ref="listEl" class="list">
+            <template v-for="g in grouped" :key="g.key">
+              <div class="day">{{ g.title }}</div>
+
+              <div v-for="m in g.items" :key="m.id" class="row" :class="{ mine: isMine(m) }">
+                <div class="bubble">
+                  <div class="meta">
+                    <span class="sender">{{ m.sender }}</span>
+                    <span class="time">{{ formatTime(m.created_at) }}</span>
+                  </div>
+
+                  <div v-if="m.deleted_at" class="deleted">deleted</div>
+                  <template v-else-if="isEditing(m)">
+                    <textarea
+                      v-model="editingText"
+                      class="input editInput"
+                      rows="3"
+                      :disabled="busy"
+                      @keydown.esc.prevent="cancelEdit"
+                    />
+                    <div class="messageActions">
+                      <button class="btn primary" :disabled="busy || !editingText.trim()" @click="saveEdit(m)">Save</button>
+                      <button class="btn" :disabled="busy" @click="cancelEdit">Cancel</button>
+                    </div>
+                  </template>
+                  <div v-else class="text">{{ m.content }}</div>
+
+                  <div class="flags">
+                    <span v-if="m.edited_at && !m.deleted_at" class="edited">edited</span>
+
+                    <span v-if="isMine(m) && !m.deleted_at" class="status">
+                      <span v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</span>
+                      <span v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</span>
+                    </span>
+                  </div>
+
+                  <div v-if="isMine(m) && !m.deleted_at && !isEditing(m)" class="messageActions">
+                    <button class="actionLink" @click="startEdit(m)">Edit</button>
+                    <button class="actionLink dangerText" @click="removeMessage(m)">Delete</button>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <div class="composer">
+            <textarea v-model="input" class="input composerInput" rows="2" placeholder="message..." @keydown="onKeydown" />
+            <button class="btn primary" @click="send">Send</button>
+          </div>
         </div>
 
-        <div class="members-list">
-          <div v-for="p in participants" :key="p.id" class="member-item">
+        <aside v-if="isGroup && showMembersPanel" class="membersSidebar">
+          <div class="members-head">
             <div>
-              <div class="member-name">
-                {{ p.username }}
-                <span v-if="p.is_me" class="member-me">you</span>
-              </div>
-              <div class="member-role">{{ p.role }}</div>
+              <div class="members-title">Participants</div>
+              <div class="members-sub">{{ participants.length }} in chat</div>
             </div>
+            <div v-if="isOwner" class="owner-badge">owner</div>
+          </div>
 
-            <button
-              v-if="isOwner && !p.is_me && p.role !== 'OWNER'"
-              class="btn member-remove"
+          <button v-if="isOwner" class="btn membersAction" @click="showAddParticipant = !showAddParticipant">
+            {{ showAddParticipant ? 'Cancel add' : 'Add participant' }}
+          </button>
+
+          <div v-if="isOwner && showAddParticipant" class="memberAddCard">
+            <input
+              v-model="participantInput"
+              class="input sidebarInput"
+              placeholder="username or email"
               :disabled="busy"
-              @click="removeParticipant(p.id)"
-            >
-              Remove
-            </button>
+              @keydown.enter.prevent="addParticipant"
+            />
+            <button class="btn primary" :disabled="busy" @click="addParticipant">Add</button>
           </div>
-        </div>
 
-        <div v-if="isOwner" class="member-add">
-          <input
-            v-model="participantInput"
-            class="input"
-            placeholder="username or email"
-            :disabled="busy"
-            @keydown.enter.prevent="addParticipant"
-          />
-          <button class="btn" :disabled="busy" @click="addParticipant">Add</button>
-        </div>
-
-        <div v-if="error" class="members-error">{{ error }}</div>
-      </section>
-
-      <div ref="listEl" class="list">
-        <template v-for="g in grouped" :key="g.key">
-          <div class="day">{{ g.title }}</div>
-
-          <div v-for="m in g.items" :key="m.id" class="row" :class="{ mine: isMine(m) }">
-            <div class="bubble">
-              <div class="meta">
-                <span class="sender">{{ m.sender }}</span>
-                <span class="time">{{ formatTime(m.created_at) }}</span>
+          <div class="members-list">
+            <div v-for="p in participants" :key="p.id" class="member-item">
+              <div class="member-info">
+                <div class="member-name">
+                  {{ p.username }}
+                  <span v-if="p.is_me" class="member-me">you</span>
+                </div>
+                <div class="member-role">{{ p.role }}</div>
               </div>
 
-              <div v-if="m.deleted_at" class="deleted">deleted</div>
-              <div v-else class="text">{{ m.content }}</div>
-
-              <div class="flags">
-                <span v-if="m.edited_at && !m.deleted_at" class="edited">edited</span>
-
-                <span v-if="isMine(m) && !m.deleted_at" class="status">
-                  <span v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</span>
-                  <span v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</span>
-                </span>
-              </div>
+              <button
+                v-if="isOwner && !p.is_me && p.role !== 'OWNER'"
+                class="btn member-remove"
+                :disabled="busy"
+                @click="removeParticipant(p.id)"
+              >
+                Remove
+              </button>
             </div>
           </div>
-        </template>
-      </div>
 
-      <div class="composer">
-        <textarea v-model="input" class="input" rows="2" placeholder="message..." @keydown="onKeydown" />
-        <button class="btn primary" @click="send">Send</button>
+          <div v-if="error" class="members-error">{{ error }}</div>
+        </aside>
       </div>
     </main>
   </div>
@@ -414,69 +506,6 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
-.members {
-  padding: 12px;
-  border-bottom: 1px solid #2a2a2a;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.members-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.members-title {
-  font-size: 13px;
-  font-weight: 700;
-  opacity: 0.85;
-}
-
-.owner-badge,
-.member-role,
-.member-me {
-  font-size: 12px;
-  opacity: 0.7;
-}
-
-.members-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.member-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border: 1px solid #2a2a2a;
-  border-radius: 12px;
-  padding: 8px 10px;
-  min-width: 220px;
-}
-
-.member-name {
-  font-weight: 600;
-}
-
-.member-add {
-  display: flex;
-  gap: 10px;
-}
-
-.member-remove {
-  padding: 6px 10px;
-}
-
-.members-error {
-  color: #ff8d8d;
-  font-size: 12px;
-}
-
 .chat {
   margin-top: 12px;
   border: 1px solid #2a2a2a;
@@ -484,9 +513,22 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  /* важно для внутреннего скролла */
   flex: 1;
   overflow: hidden;
+}
+
+.chatBody {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.chatMain {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .list {
@@ -549,6 +591,11 @@ onBeforeUnmount(() => {
   word-break: break-word;
 }
 
+.editInput {
+  width: 100%;
+  margin-top: 2px;
+}
+
 .deleted {
   opacity: 0.6;
   font-style: italic;
@@ -571,6 +618,27 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.messageActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.actionLink {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0.72;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+}
+
+.dangerText {
+  color: #ff9a9a;
+}
+
 .composer {
   display: flex;
   gap: 10px;
@@ -587,6 +655,11 @@ onBeforeUnmount(() => {
   resize: none;
   background: transparent;
   color: inherit;
+  box-sizing: border-box;
+}
+
+.composerInput {
+  min-width: 0;
 }
 
 .btn {
@@ -605,5 +678,117 @@ onBeforeUnmount(() => {
 .btn.danger {
   border-color: #7a1f1f;
   background: rgba(255, 80, 80, 0.12);
+}
+
+.membersSidebar {
+  width: 300px;
+  border-left: 1px solid #2a2a2a;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.members-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.members-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.members-sub,
+.owner-badge,
+.member-role,
+.member-me {
+  font-size: 12px;
+  opacity: 0.68;
+}
+
+.membersAction {
+  width: 100%;
+}
+
+.memberAddCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #2a2a2a;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.sidebarInput {
+  width: 100%;
+}
+
+.members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  min-height: 0;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.member-info {
+  min-width: 0;
+}
+
+.member-name {
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.member-remove {
+  padding: 6px 10px;
+  flex-shrink: 0;
+}
+
+.members-error {
+  color: #ff8d8d;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 0 12px;
+  }
+
+  .chatBody {
+    flex-direction: column;
+  }
+
+  .membersSidebar {
+    width: auto;
+    border-left: 0;
+    border-top: 1px solid #2a2a2a;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+  }
 }
 </style>

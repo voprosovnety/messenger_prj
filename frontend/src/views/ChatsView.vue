@@ -15,6 +15,7 @@ const creating = ref(false)
 const isGroup = ref(false)
 const title = ref('')
 const participantsText = ref('')
+const createError = ref('')
 
 const me = ref(null)
 let es = null
@@ -75,7 +76,7 @@ function openChat(c) {
 }
 
 function openCreate() {
-  error.value = ''
+  createError.value = ''
   showCreate.value = true
 }
 
@@ -85,6 +86,7 @@ function closeCreate() {
   isGroup.value = false
   title.value = ''
   participantsText.value = ''
+  createError.value = ''
 }
 
 const canCreate = computed(() => {
@@ -94,7 +96,7 @@ const canCreate = computed(() => {
 })
 
 async function createChat() {
-  error.value = ''
+  createError.value = ''
   creating.value = true
   try {
     const participants = parseParticipants(participantsText.value)
@@ -116,7 +118,7 @@ async function createChat() {
     await loadChats()
     router.push(`/chats/${chat.id}`)
   } catch (e) {
-    error.value = e.message || 'create chat failed'
+    createError.value = e.message || 'create chat failed'
   } finally {
     creating.value = false
   }
@@ -235,14 +237,17 @@ onBeforeUnmount(() => {
     <div v-if="showCreate" class="overlay" @click.self="closeCreate">
       <div class="modal">
         <div class="modalHead">
-          <div class="modalTitle">New chat</div>
-          <button class="btn" @click="closeCreate">Close</button>
+          <div>
+            <div class="modalTitle">New chat</div>
+            <div class="modalSub">Start a direct message or create a group.</div>
+          </div>
+          <button class="btn ghost" @click="closeCreate">Close</button>
         </div>
 
-        <label class="check">
-          <input type="checkbox" v-model="isGroup" />
-          <span>Group chat</span>
-        </label>
+        <div class="modeSwitch">
+          <button class="modeBtn" :class="{ active: !isGroup }" type="button" @click="isGroup = false">Direct</button>
+          <button class="modeBtn" :class="{ active: isGroup }" type="button" @click="isGroup = true">Group</button>
+        </div>
 
         <div v-if="isGroup" class="field">
           <div class="label">Title</div>
@@ -250,14 +255,29 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="field">
-          <div class="label">
-            Participants (username/email)
+          <div class="label">{{ isGroup ? 'Participants' : 'Username or Email' }}</div>
+          <input
+            v-if="!isGroup"
+            v-model="participantsText"
+            class="input"
+            placeholder="username or email"
+          />
+          <textarea
+            v-else
+            v-model="participantsText"
+            class="input inputArea"
+            rows="4"
+            placeholder="user1, user2, user3"
+          />
+          <div class="hint">
+            {{ isGroup ? 'Separate participants with commas, spaces, or new lines.' : 'Enter exactly one username or email.' }}
           </div>
-          <textarea v-model="participantsText" class="input" rows="3"
-            :placeholder="isGroup ? 'user1 user2 user3' : 'username or email'" />
         </div>
 
+        <div v-if="createError" class="error modalError">{{ createError }}</div>
+
         <div class="modalActions">
+          <button class="btn ghost" @click="closeCreate">Cancel</button>
           <button class="btn primary" :disabled="creating || !canCreate" @click="createChat">
             {{ creating ? 'Creating...' : 'Create' }}
           </button>
@@ -389,63 +409,108 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 18px;
+  padding: 24px;
 }
 
 .modal {
   width: 100%;
-  max-width: 520px;
+  max-width: 560px;
   border: 1px solid #2a2a2a;
-  border-radius: 14px;
-  padding: 12px;
-  background: #0f0f0f;
+  border-radius: 22px;
+  padding: 22px;
+  background: linear-gradient(180deg, #141519 0%, #101115 100%);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .modalHead {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 16px;
 }
 
 .modalTitle {
-  font-size: 16px;
+  font-size: 30px;
   font-weight: 700;
 }
 
-.check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  opacity: .9;
+.modalSub {
+  font-size: 13px;
+  opacity: .68;
+  margin-top: 4px;
+}
+
+.modeSwitch {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px;
+  border: 1px solid #2a2a2a;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.modeBtn {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  border-radius: 999px;
+  padding: 10px 16px;
+  cursor: pointer;
+  opacity: .72;
+}
+
+.modeBtn.active {
+  background: rgba(120, 100, 255, 0.18);
+  opacity: 1;
 }
 
 .field {
-  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .label {
   font-size: 12px;
   opacity: .75;
-  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .input {
   width: 100%;
+  box-sizing: border-box;
   border: 1px solid #2a2a2a;
-  border-radius: 12px;
-  padding: 10px 12px;
+  border-radius: 16px;
+  padding: 14px 16px;
   background: transparent;
   color: inherit;
-  resize: vertical;
+  resize: none;
+  min-width: 0;
+}
+
+.inputArea {
+  min-height: 120px;
+}
+
+.hint {
+  font-size: 12px;
+  opacity: .65;
+}
+
+.modalError {
+  margin: -4px 0 0;
 }
 
 .modalActions {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 6px;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
 }
 
 .btn {
@@ -461,8 +526,38 @@ onBeforeUnmount(() => {
   background: rgba(120, 100, 255, 0.18);
 }
 
+.btn.ghost {
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .btn:disabled {
   opacity: .5;
   cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .modal {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .modalHead {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .modeSwitch {
+    width: 100%;
+  }
+
+  .modeBtn {
+    flex: 1;
+    text-align: center;
+  }
+
+  .modalActions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
 }
 </style>

@@ -105,10 +105,25 @@ export const api = {
         return res.json()
     },
 
-    getMercureToken: async (chatId) => {
-        const res = await request(`/api/chats/${chatId}/mercure-token`)
-        return res.json()
+    editMessage: async (chatId, messageId, content) => {
+        const res = await request(`/api/chats/${chatId}/messages/${messageId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ content }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'edit message failed')
+        return json
     },
+
+    deleteMessage: async (chatId, messageId) => {
+        const res = await request(`/api/chats/${chatId}/messages/${messageId}`, {
+            method: 'DELETE',
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'delete message failed')
+        return json
+    },
+
 
     getMercureCookie: async (chatId) => {
         const res = await request(`/api/chats/${chatId}/mercure-subscribe`, { method: 'POST' })
