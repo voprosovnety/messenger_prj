@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 
@@ -16,7 +16,9 @@ const isGroup = ref(false)
 const title = ref('')
 const participantsText = ref('')
 
-onMounted(loadChats)
+const me = ref(null)
+let es = null
+
 
 async function loadChats() {
   error.value = ''
@@ -55,6 +57,10 @@ function formatTime(iso) {
 function lastPreview(c) {
   const lm = c.last_message
   if (!lm) return 'No messages yet'
+
+  // если вдруг пришла строка
+  if (typeof lm === 'string') return lm
+
   const content = lm.content || ''
   if (c.is_group) {
     const who = lm.sender_username || 'someone'
@@ -64,6 +70,7 @@ function lastPreview(c) {
 }
 
 function openChat(c) {
+  bumpChat(c.id, { unread_count: 0 })
   router.push(`/chats/${c.id}`)
 }
 
@@ -114,6 +121,69 @@ async function createChat() {
     creating.value = false
   }
 }
+
+function myId() {
+  return me.value?.username || me.value?.user || ''
+}
+
+function bumpChat(chatId, patch) {
+  const idx = chats.value.findIndex(c => c.id === chatId)
+  if (idx === -1) return
+  chats.value[idx] = { ...chats.value[idx], ...patch }
+  chats.value.sort((a, b) => {
+    const ta = a.last_at ? Date.parse(a.last_at) : Date.parse(a.created_at || 0)
+    const tb = b.last_at ? Date.parse(b.last_at) : Date.parse(b.created_at || 0)
+    return tb - ta
+  })
+}
+
+async function connectAllChatsSse() {
+  const sub = await api.subscribeAllChats()
+
+  // Mercure: несколько topic параметров
+  const params = new URLSearchParams()
+  for (const t of sub.topics || []) params.append('topic', t)
+
+  es = new EventSource(`/.well-known/mercure?${params.toString()}`, { withCredentials: true })
+
+  es.onmessage = (evt) => {
+    const payload = JSON.parse(evt.data)
+
+    if (payload.type === 'message.created') {
+      const m = payload.data
+      const fromMe = m.sender === myId()
+
+      // last message preview
+      const cur = chats.value.find(c => c.id === m.chat_id)
+      const prevUnread = cur?.unread_count || 0
+
+      bumpChat(m.chat_id, {
+        last_at: m.created_at,
+        last_message: {
+          content: m.content,
+          created_at: m.created_at,
+          sender_username: m.sender, // у тебя sender уже username
+        },
+        unread_count: fromMe ? prevUnread : (prevUnread + 1),
+      })
+    }
+
+    // Можно добавить обработку deleted/edited тоже — обновлять preview если надо
+  }
+
+  es.onerror = (e) => console.log('Chats SSE error', e)
+}
+
+onMounted(async () => {
+  await loadChats()
+  me.value = await api.me()
+  await connectAllChatsSse()
+})
+
+onBeforeUnmount(() => {
+  if (es) es.close()
+})
+
 </script>
 
 <template>
@@ -143,7 +213,7 @@ async function createChat() {
             </div>
 
             <div class="metaRight">
-              <span class="time">{{ formatTime(c.last_message?.created_at) }}</span>
+              <span class="time">{{ formatTime(c.last_message?.created_at || c.last_at) }}</span>
               <span v-if="(c.unread_count || 0) > 0" class="badge">{{ c.unread_count }}</span>
             </div>
           </div>

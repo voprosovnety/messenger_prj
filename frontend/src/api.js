@@ -147,4 +147,10 @@ export const api = {
         if (!res.ok) throw new Error(json.error || 'delete chat failed')
         return json
     },
+    subscribeAllChats: async () => {
+        const res = await request('/api/chats/mercure-subscribe', { method: 'POST' })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'failed to subscribe')
+        return json
+    },
 }
