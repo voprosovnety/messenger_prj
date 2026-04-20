@@ -90,6 +90,13 @@ export const api = {
         return json
     },
 
+    getChat: async (chatId) => {
+        const res = await request(`/api/chats/${chatId}`)
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || json.message || 'failed to load chat')
+        return json
+    },
+
     sendMessage: async (chatId, content) => {
         const res = await request(`/api/chats/${chatId}/messages`, {
             method: 'POST',
@@ -145,6 +152,21 @@ export const api = {
         const res = await request(`/api/chats/${chatId}`, { method: 'DELETE' })
         const json = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(json.error || 'delete chat failed')
+        return json
+    },
+    addChatMember: async (chatId, identifier) => {
+        const res = await request(`/api/chats/${chatId}/members`, {
+            method: 'POST',
+            body: JSON.stringify({ identifier }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'add member failed')
+        return json
+    },
+    removeChatMember: async (chatId, userId) => {
+        const res = await request(`/api/chats/${chatId}/members/${userId}`, { method: 'DELETE' })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'remove member failed')
         return json
     },
     subscribeAllChats: async () => {

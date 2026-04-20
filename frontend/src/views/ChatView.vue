@@ -8,6 +8,11 @@ const router = useRouter()
 const chatId = route.params.chatId
 
 const me = ref(null)
+const chat = ref(null)
+const participants = ref([])
+const participantInput = ref('')
+const busy = ref(false)
+const error = ref('')
 
 const peerDeliveredId = ref(null)
 const peerReadId = ref(null)
@@ -28,9 +33,28 @@ function isMine(m) {
   return m.sender === myId()
 }
 
+const chatTitle = computed(() => chat.value?.display_name || 'Chat')
+const isGroup = computed(() => !!chat.value?.is_group)
+const isOwner = computed(() => chat.value?.my_role === 'OWNER')
+const canDeleteChat = computed(() => !isGroup.value || isOwner.value)
+
 function idLE(a, b) {
   if (!a || !b) return false
   return String(a) <= String(b)
+}
+
+function updatePeerDelivered(id) {
+  if (!id) return
+  if (!peerDeliveredId.value || String(id) > String(peerDeliveredId.value)) {
+    peerDeliveredId.value = id
+  }
+}
+
+function updatePeerRead(id) {
+  if (!id) return
+  if (!peerReadId.value || String(id) > String(peerReadId.value)) {
+    peerReadId.value = id
+  }
 }
 
 function parseDateIso(iso) {
@@ -97,8 +121,14 @@ async function scrollToBottom() {
 // ---------- delivered/read ----------
 async function load() {
   try {
+    const chatData = await api.getChat(chatId)
+    chat.value = chatData
+    participants.value = chatData.participants || []
+
     const data = await api.listMessages(chatId)
     messages.value = data.items || []
+    peerDeliveredId.value = data.peer_delivered_message_id || null
+    peerReadId.value = data.peer_read_message_id || null
   } catch (e) {
     // чат удалён или нет доступа
     router.push('/')
@@ -173,14 +203,14 @@ async function connectSse() {
 
     if (payload.type === 'chat.delivered') {
       if (payload.data?.user && payload.data.user !== myId()) {
-        peerDeliveredId.value = payload.data.last_delivered_message_id || null
+        updatePeerDelivered(payload.data.last_delivered_message_id || null)
       }
       return
     }
 
     if (payload.type === 'chat.read') {
       if (payload.data?.user && payload.data.user !== myId()) {
-        peerReadId.value = payload.data.last_read_message_id || null
+        updatePeerRead(payload.data.last_read_message_id || null)
       }
       return
     }
@@ -196,6 +226,40 @@ async function send() {
   if (!text) return
   input.value = ''
   await api.sendMessage(chatId, text)
+}
+
+async function addParticipant() {
+  const ident = participantInput.value.trim()
+  if (!ident) return
+
+  busy.value = true
+  error.value = ''
+  try {
+    await api.addChatMember(chatId, ident)
+    participantInput.value = ''
+    const data = await api.getChat(chatId)
+    chat.value = data
+    participants.value = data.participants || []
+  } catch (e) {
+    error.value = e.message || 'Failed to add participant'
+  } finally {
+    busy.value = false
+  }
+}
+
+async function removeParticipant(userId) {
+  busy.value = true
+  error.value = ''
+  try {
+    await api.removeChatMember(chatId, userId)
+    const data = await api.getChat(chatId)
+    chat.value = data
+    participants.value = data.participants || []
+  } catch (e) {
+    error.value = e.message || 'Failed to remove participant'
+  } finally {
+    busy.value = false
+  }
 }
 
 async function deleteChat() {
@@ -229,14 +293,57 @@ onBeforeUnmount(() => {
   <div class="page">
     <header class="topbar">
       <div class="title">
-        <div class="h">Chat</div>
-        <div class="sub">{{ chatId }}</div>
+        <div class="h">{{ chatTitle }}</div>
+        <div v-if="isGroup" class="sub">{{ participants.length }} participants</div>
       </div>
-      <button class="btn" @click="router.push('/')">Back</button>
-      <button class="btn danger" @click="deleteChat">Delete</button>
+      <div class="actions">
+        <button class="btn" @click="router.push('/')">Back</button>
+        <button v-if="canDeleteChat" class="btn danger" @click="deleteChat">Delete</button>
+      </div>
     </header>
 
     <main class="chat">
+      <section v-if="isGroup" class="members">
+        <div class="members-head">
+          <div class="members-title">Participants</div>
+          <div v-if="isOwner" class="owner-badge">owner</div>
+        </div>
+
+        <div class="members-list">
+          <div v-for="p in participants" :key="p.id" class="member-item">
+            <div>
+              <div class="member-name">
+                {{ p.username }}
+                <span v-if="p.is_me" class="member-me">you</span>
+              </div>
+              <div class="member-role">{{ p.role }}</div>
+            </div>
+
+            <button
+              v-if="isOwner && !p.is_me && p.role !== 'OWNER'"
+              class="btn member-remove"
+              :disabled="busy"
+              @click="removeParticipant(p.id)"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+
+        <div v-if="isOwner" class="member-add">
+          <input
+            v-model="participantInput"
+            class="input"
+            placeholder="username or email"
+            :disabled="busy"
+            @keydown.enter.prevent="addParticipant"
+          />
+          <button class="btn" :disabled="busy" @click="addParticipant">Add</button>
+        </div>
+
+        <div v-if="error" class="members-error">{{ error }}</div>
+      </section>
+
       <div ref="listEl" class="list">
         <template v-for="g in grouped" :key="g.key">
           <div class="day">{{ g.title }}</div>
@@ -255,8 +362,8 @@ onBeforeUnmount(() => {
                 <span v-if="m.edited_at && !m.deleted_at" class="edited">edited</span>
 
                 <span v-if="isMine(m) && !m.deleted_at" class="status">
-                  <span v-if="peerReadId && idLE(m.id, peerReadId)">✓✓ read</span>
-                  <span v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓ delivered</span>
+                  <span v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</span>
+                  <span v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</span>
                 </span>
               </div>
             </div>
@@ -300,7 +407,74 @@ onBeforeUnmount(() => {
 .title .sub {
   opacity: 0.7;
   font-size: 12px;
-  word-break: break-all;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.members {
+  padding: 12px;
+  border-bottom: 1px solid #2a2a2a;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.members-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.members-title {
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.owner-badge,
+.member-role,
+.member-me {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.members-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 8px 10px;
+  min-width: 220px;
+}
+
+.member-name {
+  font-weight: 600;
+}
+
+.member-add {
+  display: flex;
+  gap: 10px;
+}
+
+.member-remove {
+  padding: 6px 10px;
+}
+
+.members-error {
+  color: #ff8d8d;
+  font-size: 12px;
 }
 
 .chat {

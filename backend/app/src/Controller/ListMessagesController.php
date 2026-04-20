@@ -35,6 +35,25 @@ final class ListMessagesController
             return new JsonResponse(['error' => 'forbidden'], 403);
         }
 
+        $peerDeliveredId = null;
+        $peerReadId = null;
+        $memberships = $em->getRepository(ChatMember::class)->findBy(['chat' => $chat]);
+        foreach ($memberships as $chatMember) {
+            if ($chatMember->getMember()?->getId()?->equals($me->getId())) {
+                continue;
+            }
+
+            $deliveredId = $chatMember->getLastDeliveredMessageId();
+            if ($deliveredId && (!$peerDeliveredId || (string) $deliveredId > $peerDeliveredId)) {
+                $peerDeliveredId = (string) $deliveredId;
+            }
+
+            $readId = $chatMember->getLastReadMessageId();
+            if ($readId && (!$peerReadId || (string) $readId > $peerReadId)) {
+                $peerReadId = (string) $readId;
+            }
+        }
+
         $limit = (int) $request->query->get('limit', 50);
         if ($limit < 1) $limit = 50;
         if ($limit > 100) $limit = 100;
@@ -102,6 +121,8 @@ final class ListMessagesController
         return new JsonResponse([
             'items' => $items,
             'next_cursor' => $nextCursor,
+            'peer_delivered_message_id' => $peerDeliveredId,
+            'peer_read_message_id' => $peerReadId,
         ]);
     }
 }
