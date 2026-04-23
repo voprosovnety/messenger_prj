@@ -1,0 +1,10 @@
+services:
+    App\Tests\Support\NullHub: ~
+
+    mercure.hub.default:
+        class: App\Tests\Support\NullHub
+        public: true
+
+    Symfony\Component\Mercure\HubInterface:
+        alias: App\Tests\Support\NullHub
+        public: true
