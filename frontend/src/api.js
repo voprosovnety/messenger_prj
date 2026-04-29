@@ -9,7 +9,6 @@ async function request(path, options = {}) {
 
     const res = await fetch(path, { ...options, headers })
 
-    // auto refresh если access истёк
     if (res.status === 401) {
         const refreshed = await tryRefresh()
         if (refreshed) {
@@ -51,7 +50,7 @@ export const api = {
             body: JSON.stringify({ identifier, password }),
         })
         const json = await res.json()
-        if (!res.ok) throw new Error(json.error || 'login failed')
+        if (!res.ok) throw new Error(json.error || 'Login failed')
         localStorage.setItem('access_token', json.access_token)
         localStorage.setItem('refresh_token', json.refresh_token)
     },
@@ -63,37 +62,99 @@ export const api = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ refresh_token: refresh }),
-            })
+            }).catch(() => {})
         }
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
     },
 
+    me: async () => {
+        const res = await request('/api/me')
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to load profile')
+        return json
+    },
+
+    updateProfile: async ({ username, avatarUrl }) => {
+        const body = {}
+        if (username !== undefined) body.username = username
+        if (avatarUrl !== undefined) body.avatar_url = avatarUrl
+        const res = await request('/api/me', {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to update profile')
+        return json
+    },
+
+    ping: async () => {
+        await request('/api/me/ping', { method: 'POST' })
+    },
+
     listChats: async () => {
         const res = await request('/api/chats')
         const text = await res.text()
-
-
         try {
             const json = JSON.parse(text)
-            if (!res.ok) throw new Error(json.error || json.message || 'failed to load chats')
+            if (!res.ok) throw new Error(json.error || json.message || 'Failed to load chats')
             return json
         } catch {
-            throw new Error(text.slice(0, 120) || 'failed to load chats')
+            throw new Error(text.slice(0, 120) || 'Failed to load chats')
         }
-    },
-
-    listMessages: async (chatId) => {
-        const res = await request(`/api/chats/${chatId}/messages`)
-        const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json.error || json.message || 'failed to load messages')
-        return json
     },
 
     getChat: async (chatId) => {
         const res = await request(`/api/chats/${chatId}`)
         const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json.error || json.message || 'failed to load chat')
+        if (!res.ok) throw new Error(json.error || json.message || 'Failed to load chat')
+        return json
+    },
+
+    createChat: async ({ isGroup, title, description, participants }) => {
+        const res = await request('/api/chats', {
+            method: 'POST',
+            body: JSON.stringify({
+                is_group: !!isGroup,
+                title: isGroup ? title : null,
+                description: description || null,
+                participants: participants || [],
+            }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to create chat')
+        return json
+    },
+
+    deleteChat: async (chatId) => {
+        const res = await request(`/api/chats/${chatId}`, { method: 'DELETE' })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to delete chat')
+        return json
+    },
+
+    addChatMember: async (chatId, identifier) => {
+        const res = await request(`/api/chats/${chatId}/members`, {
+            method: 'POST',
+            body: JSON.stringify({ identifier }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to add member')
+        return json
+    },
+
+    removeChatMember: async (chatId, userId) => {
+        const res = await request(`/api/chats/${chatId}/members/${userId}`, { method: 'DELETE' })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to remove member')
+        return json
+    },
+
+    listMessages: async (chatId, params = {}) => {
+        const qs = new URLSearchParams(params).toString()
+        const res = await request(`/api/chats/${chatId}/messages${qs ? '?' + qs : ''}`)
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to load messages')
         return json
     },
 
@@ -111,7 +172,7 @@ export const api = {
             body: JSON.stringify({ content }),
         })
         const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json.error || 'edit message failed')
+        if (!res.ok) throw new Error(json.error || 'Failed to edit message')
         return json
     },
 
@@ -120,15 +181,25 @@ export const api = {
             method: 'DELETE',
         })
         const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json.error || 'delete message failed')
+        if (!res.ok) throw new Error(json.error || 'Failed to delete message')
         return json
     },
 
+    sendTyping: async (chatId) => {
+        await request(`/api/chats/${chatId}/typing`, { method: 'POST' })
+    },
 
     getMercureCookie: async (chatId) => {
         const res = await request(`/api/chats/${chatId}/mercure-subscribe`, { method: 'POST' })
         const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json.error || json.message || 'failed to subscribe')
+        if (!res.ok) throw new Error(json.error || 'Failed to subscribe')
+        return json
+    },
+
+    subscribeAllChats: async () => {
+        const res = await request('/api/chats/mercure-subscribe', { method: 'POST' })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to subscribe')
         return json
     },
 
@@ -144,50 +215,5 @@ export const api = {
             method: 'POST',
             body: JSON.stringify({ last_read_message_id: msgId }),
         })
-    },
-
-    createChat: async ({ isGroup, title, participants }) => {
-        const res = await request('/api/chats', {
-            method: 'POST',
-            body: JSON.stringify({
-                is_group: !!isGroup,
-                title: isGroup ? title : null,
-                participants: participants || [],
-            }),
-        })
-        const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json.error || 'create chat failed')
-        return json
-    },
-    me: async () => {
-        const res = await request('/api/me')
-        return res.json()
-    },
-    deleteChat: async (chatId) => {
-        const res = await request(`/api/chats/${chatId}`, { method: 'DELETE' })
-        const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json.error || 'delete chat failed')
-        return json
-    },
-    addChatMember: async (chatId, identifier) => {
-        const res = await request(`/api/chats/${chatId}/members`, {
-            method: 'POST',
-            body: JSON.stringify({ identifier }),
-        })
-        const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json.error || 'add member failed')
-        return json
-    },
-    removeChatMember: async (chatId, userId) => {
-        const res = await request(`/api/chats/${chatId}/members/${userId}`, { method: 'DELETE' })
-        const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json.error || 'remove member failed')
-        return json
-    },
-    subscribeAllChats: async () => {
-        const res = await request('/api/chats/mercure-subscribe', { method: 'POST' })
-        const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json.error || 'failed to subscribe')
-        return json
     },
 }

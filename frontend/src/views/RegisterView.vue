@@ -1,3 +1,62 @@
+<template>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon">💬</div>
+        <span class="auth-logo-name">RealtimeChat</span>
+      </div>
+
+      <h1>Create account</h1>
+      <p class="subtitle">Join RealtimeChat and start messaging</p>
+
+      <div v-if="error" class="auth-error">{{ error }}</div>
+
+      <form @submit.prevent="submit">
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input
+            v-model="username"
+            class="input"
+            type="text"
+            placeholder="cooluser42"
+            autocomplete="username"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input
+            v-model="email"
+            class="input"
+            type="email"
+            placeholder="you@example.com"
+            autocomplete="email"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input
+            v-model="password"
+            class="input"
+            type="password"
+            placeholder="••••••••"
+            autocomplete="new-password"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px" :disabled="loading">
+          {{ loading ? 'Creating account…' : 'Create account' }}
+        </button>
+      </form>
+
+      <p class="auth-footer">
+        Already have an account? <RouterLink to="/login">Sign in</RouterLink>
+      </p>
+    </div>
+  </div>
+</template>
+
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -7,66 +66,44 @@ const username = ref('')
 const email = ref('')
 const password = ref('')
 const error = ref('')
-const ok = ref('')
+const loading = ref(false)
 
 async function submit() {
   error.value = ''
-  ok.value = ''
-
   if (!username.value || !email.value || !password.value) {
-    error.value = 'username, email and password are required'
+    error.value = 'All fields are required'
     return
   }
-
-  const res = await fetch('/api/auth/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: username.value, email: email.value, password: password.value }),
-  })
-
-  const json = await res.json().catch(() => ({}))
-
-  if (!res.ok) {
-    error.value = json.error || json.message || 'register failed'
-    return
+  loading.value = true
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username.value, email: email.value, password: password.value }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      error.value = json.error || json.message || 'Registration failed'
+      return
+    }
+    // auto-login
+    const loginRes = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier: username.value, password: password.value }),
+    })
+    const loginJson = await loginRes.json().catch(() => ({}))
+    if (!loginRes.ok) {
+      router.push('/login')
+      return
+    }
+    localStorage.setItem('access_token', loginJson.access_token)
+    localStorage.setItem('refresh_token', loginJson.refresh_token)
+    router.push('/')
+  } catch (e) {
+    error.value = e.message || 'Registration failed'
+  } finally {
+    loading.value = false
   }
-
-  ok.value = 'registered, now login...'
-
-  // auto login right after register (login supports username/email via identifier)
-  const loginRes = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identifier: username.value, password: password.value }),
-  })
-
-  const loginJson = await loginRes.json().catch(() => ({}))
-  if (!loginRes.ok) {
-    router.push('/login')
-    return
-  }
-
-  localStorage.setItem('access_token', loginJson.access_token)
-  localStorage.setItem('refresh_token', loginJson.refresh_token)
-  router.push('/')
 }
 </script>
-
-<template>
-  <div style="max-width: 420px; margin: 40px auto;">
-    <h2>Register</h2>
-
-    <div v-if="error" style="color: red; margin-bottom: 12px;">{{ error }}</div>
-    <div v-if="ok" style="color: green; margin-bottom: 12px;">{{ ok }}</div>
-
-    <input v-model="username" placeholder="username" style="width:100%; padding:8px; margin-bottom:8px;" />
-    <input v-model="email" placeholder="email" style="width:100%; padding:8px; margin-bottom:8px;" />
-    <input v-model="password" type="password" placeholder="password" style="width:100%; padding:8px; margin-bottom:12px;" />
-
-    <button @click="submit" style="padding:8px 12px;">Create account</button>
-
-    <div style="margin-top: 12px;">
-      <a href="#" @click.prevent="router.push('/login')">Already have an account? Login</a>
-    </div>
-  </div>
-</template>

@@ -56,25 +56,18 @@ final class CreateMessageController
 
         $topic = sprintf('/chats/%s/messages', (string) $chat->getId());
 
-        $payload = json_encode([
-            'type' => 'message.created',
-            'data' => [
-                'id' => (string) $msg->getId(),
-                'chat_id' => (string) $chat->getId(),
-                'sender' => $me->getUsername(),
-                'content' => $msg->getContent(),
-                'created_at' => $msg->getCreatedAt()?->format(DATE_ATOM),
-            ],
-        ], JSON_UNESCAPED_SLASHES);
-
-        $hub->publish(new Update($topic, $payload, true));
-
-        return new JsonResponse([
+        $msgData = [
             'id' => (string) $msg->getId(),
             'chat_id' => (string) $chat->getId(),
             'sender' => $me->getUsername(),
+            'sender_avatar_url' => $me->getAvatarUrl(),
             'content' => $msg->getContent(),
             'created_at' => $msg->getCreatedAt()?->format(DATE_ATOM),
-        ], 201);
+        ];
+
+        $payload = json_encode(['type' => 'message.created', 'data' => $msgData], JSON_UNESCAPED_SLASHES);
+        $hub->publish(new Update($topic, $payload, true));
+
+        return new JsonResponse($msgData, 201);
     }
 }

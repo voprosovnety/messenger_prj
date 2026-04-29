@@ -1,35 +1,72 @@
+<template>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon">💬</div>
+        <span class="auth-logo-name">RealtimeChat</span>
+      </div>
+
+      <h1>Welcome back</h1>
+      <p class="subtitle">Sign in to your account to continue</p>
+
+      <div v-if="error" class="auth-error">{{ error }}</div>
+
+      <form @submit.prevent="submit">
+        <div class="form-group">
+          <label class="form-label">Email or username</label>
+          <input
+            v-model="identifier"
+            class="input"
+            type="text"
+            placeholder="you@example.com"
+            autocomplete="username"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input
+            v-model="password"
+            class="input"
+            type="password"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px" :disabled="loading">
+          {{ loading ? 'Signing in…' : 'Sign in' }}
+        </button>
+      </form>
+
+      <p class="auth-footer">
+        Don't have an account? <RouterLink to="/register">Create one</RouterLink>
+      </p>
+    </div>
+  </div>
+</template>
+
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 
 const router = useRouter()
-const identifier = ref('test1@example.com')
-const password = ref('Secret123!')
+const identifier = ref('')
+const password = ref('')
 const error = ref('')
+const loading = ref(false)
 
 async function submit() {
   error.value = ''
+  loading.value = true
   try {
     await api.login(identifier.value, password.value)
     router.push('/')
   } catch (e) {
-    error.value = e.message || 'login failed'
+    error.value = e.message || 'Login failed'
+  } finally {
+    loading.value = false
   }
 }
 </script>
-
-<template>
-  <div style="max-width: 420px; margin: 40px auto;">
-    <h2>Login</h2>
-    <div v-if="error" style="color: red; margin-bottom: 12px;">{{ error }}</div>
-
-    <input v-model="identifier" placeholder="email or username" style="width:100%; padding:8px; margin-bottom:8px;" />
-    <input v-model="password" type="password" placeholder="password" style="width:100%; padding:8px; margin-bottom:12px;" />
-
-    <button @click="submit" style="padding:8px 12px;">Sign in</button>
-  </div>
-  <div style="margin-top: 12px;">
-    <a href="#" @click.prevent="router.push('/register')">Create account</a>
-  </div>
-</template>

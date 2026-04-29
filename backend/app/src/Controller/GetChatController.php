@@ -51,6 +51,8 @@ final class GetChatController
                 'id' => (string) $member->getId(),
                 'username' => $member->getUsername(),
                 'email' => $member->getEmail(),
+                'avatar_url' => $member->getAvatarUrl(),
+                'last_seen_at' => $member->getLastSeenAt()?->format(DATE_ATOM),
                 'role' => $membership->getRole(),
                 'is_me' => $isMe,
             ];
@@ -60,6 +62,7 @@ final class GetChatController
             'id' => (string) $chat->getId(),
             'is_group' => $chat->isGroup(),
             'title' => $chat->getTitle(),
+            'description' => $chat->getDescription(),
             'display_name' => $chat->isGroup() ? ($chat->getTitle() ?: 'Group chat') : ($peerUsername ?: 'DM'),
             'peer_username' => $peerUsername,
             'my_role' => $chat->isGroup() ? $myMembership->getRole() : null,

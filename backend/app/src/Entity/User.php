@@ -28,6 +28,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
 
+    #[ORM\Column(length: 500, nullable: true)]
+    private ?string $avatarUrl = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $lastSeenAt = null;
 
     public function __construct()
     {
@@ -94,6 +99,28 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setUsername(string $username): static
     {
         $this->username = $username;
+        return $this;
+    }
+
+    public function getAvatarUrl(): ?string
+    {
+        return $this->avatarUrl;
+    }
+
+    public function setAvatarUrl(?string $avatarUrl): static
+    {
+        $this->avatarUrl = $avatarUrl;
+        return $this;
+    }
+
+    public function getLastSeenAt(): ?\DateTimeImmutable
+    {
+        return $this->lastSeenAt;
+    }
+
+    public function setLastSeenAt(?\DateTimeImmutable $lastSeenAt): static
+    {
+        $this->lastSeenAt = $lastSeenAt;
         return $this;
     }
 }

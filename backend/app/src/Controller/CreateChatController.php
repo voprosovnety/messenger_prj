@@ -24,6 +24,7 @@ final class CreateChatController
 
         $isGroup = (bool) ($data['is_group'] ?? false);
         $title = $data['title'] ?? null;
+        $description = $data['description'] ?? null;
         $participants = $data['participants'] ?? [];
 
         if (!is_array($participants)) {
@@ -84,6 +85,7 @@ final class CreateChatController
         $chat = new Chat();
         $chat->setIsGroup($isGroup);
         $chat->setTitle($isGroup ? $title : null);
+        $chat->setDescription($description !== '' ? $description : null);
         $em->persist($chat);
 
         // creator = OWNER
