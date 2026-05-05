@@ -312,12 +312,6 @@ let es = null
 let chatSseStopped = false
 let chatSseDelay = 1000
 let chatSseTimer = null
-
-let sidebarEs = null
-let sidebarSseStopped = false
-let sidebarSseDelay = 1000
-let sidebarSseTimer = null
-
 let pingInterval = null
 
 // ─── computed ────────────────────────────────────────────────────
@@ -507,12 +501,6 @@ function stopChatSse() {
   if (es) { es.close(); es = null }
 }
 
-function stopSidebarSse() {
-  sidebarSseStopped = true
-  clearTimeout(sidebarSseTimer)
-  if (sidebarEs) { sidebarEs.close(); sidebarEs = null }
-}
-
 async function connectSse() {
   chatSseStopped = false
   chatSseDelay = 1000
@@ -520,49 +508,75 @@ async function connectSse() {
   const attempt = async () => {
     if (chatSseStopped) return
     try {
-      const res = await api.getMercureCookie(chatId.value)
-      const url = `/.well-known/mercure?topic=${encodeURIComponent(res.topic)}`
-      const source = new EventSource(url, { withCredentials: true })
+      const sub = await api.subscribeAllChats()
+      const params = new URLSearchParams()
+      for (const t of sub.topics || []) params.append('topic', t)
+      const source = new EventSource(`/.well-known/mercure?${params.toString()}`, { withCredentials: true })
       es = source
 
       source.onopen = () => { chatSseDelay = 1000 }
       source.onmessage = async (evt) => {
         const payload = JSON.parse(evt.data)
+        const d = payload.data
+
+        // Sidebar update for every message.created regardless of chat
+        if (payload.type === 'message.created') {
+          const fromMe = d.sender === myId()
+          const idx = sidebarChats.value.findIndex(c => c.id === d.chat_id)
+          if (idx !== -1) {
+            const cur = sidebarChats.value[idx]
+            const arr = sidebarChats.value.map((c, i) => i === idx ? {
+              ...cur,
+              last_message: { content: d.content, created_at: d.created_at, sender_username: d.sender },
+              unread_count: (d.chat_id === chatId.value || fromMe) ? cur.unread_count : (cur.unread_count || 0) + 1,
+            } : c)
+            arr.sort((a, b) => {
+              const ta = a.last_message?.created_at ? Date.parse(a.last_message.created_at) : Date.parse(a.created_at || 0)
+              const tb = b.last_message?.created_at ? Date.parse(b.last_message.created_at) : Date.parse(b.created_at || 0)
+              return tb - ta
+            })
+            sidebarChats.value = arr
+          }
+        }
+
+        // All other logic only applies to the currently open chat
+        const eventChatId = d?.chat_id ?? d?.chatId
+        if (eventChatId && eventChatId !== chatId.value) return
+
         const shouldStick = isNearBottom()
 
         if (payload.type === 'message.created') {
-          messages.value.push(payload.data)
-          await api.markDelivered(chatId.value, payload.data.id).catch(() => {})
+          messages.value.push(d)
+          await api.markDelivered(chatId.value, d.id).catch(() => {})
           await markReadIfPossible()
           if (shouldStick) await scrollToBottom()
           return
         }
         if (payload.type === 'message.edited') {
-          const i = messages.value.findIndex(m => m.id === payload.data.id)
-          if (i !== -1) Object.assign(messages.value[i], payload.data)
+          const i = messages.value.findIndex(m => m.id === d.id)
+          if (i !== -1) Object.assign(messages.value[i], d)
           return
         }
         if (payload.type === 'message.deleted') {
-          const i = messages.value.findIndex(m => m.id === payload.data.id)
-          if (i !== -1) messages.value[i].deleted_at = payload.data.deleted_at
+          const i = messages.value.findIndex(m => m.id === d.id)
+          if (i !== -1) messages.value[i].deleted_at = d.deleted_at
           return
         }
         if (payload.type === 'chat.delivered') {
-          if (payload.data?.user && payload.data.user !== myId()) {
-            const id = payload.data.last_delivered_message_id
+          if (d?.user && d.user !== myId()) {
+            const id = d.last_delivered_message_id
             if (id && (!peerDeliveredId.value || String(id) > String(peerDeliveredId.value))) peerDeliveredId.value = id
           }
           return
         }
         if (payload.type === 'chat.read') {
-          if (payload.data?.user && payload.data.user !== myId()) {
-            const id = payload.data.last_read_message_id
+          if (d?.user && d.user !== myId()) {
+            const id = d.last_read_message_id
             if (id && (!peerReadId.value || String(id) > String(peerReadId.value))) peerReadId.value = id
           }
           return
         }
         if (payload.type === 'user.typing') {
-          const d = payload.data
           if (d.username !== myId()) {
             typingUser.value = d.username
             clearTimeout(typingTimeout)
@@ -581,58 +595,6 @@ async function connectSse() {
       if (chatSseStopped) return
       chatSseTimer = setTimeout(attempt, chatSseDelay)
       chatSseDelay = Math.min(chatSseDelay * 2, 30000)
-    }
-  }
-
-  await attempt()
-}
-
-async function connectSidebarSse() {
-  sidebarSseStopped = false
-  sidebarSseDelay = 1000
-
-  const attempt = async () => {
-    if (sidebarSseStopped) return
-    try {
-      const sub = await api.subscribeAllChats()
-      const params = new URLSearchParams()
-      for (const t of sub.topics || []) params.append('topic', t)
-      const source = new EventSource(`/.well-known/mercure?${params.toString()}`, { withCredentials: true })
-      sidebarEs = source
-
-      source.onopen = () => { sidebarSseDelay = 1000 }
-      source.onmessage = (evt) => {
-        const payload = JSON.parse(evt.data)
-        if (payload.type === 'message.created') {
-          const m = payload.data
-          const fromMe = m.sender === myId()
-          const idx = sidebarChats.value.findIndex(c => c.id === m.chat_id)
-          if (idx !== -1) {
-            const cur = sidebarChats.value[idx]
-            const arr = sidebarChats.value.map((c, i) => i === idx ? {
-              ...cur,
-              last_message: { content: m.content, created_at: m.created_at, sender_username: m.sender },
-              unread_count: (m.chat_id === chatId.value || fromMe) ? cur.unread_count : (cur.unread_count || 0) + 1,
-            } : c)
-            arr.sort((a, b) => {
-              const ta = a.last_message?.created_at ? Date.parse(a.last_message.created_at) : Date.parse(a.created_at || 0)
-              const tb = b.last_message?.created_at ? Date.parse(b.last_message.created_at) : Date.parse(b.created_at || 0)
-              return tb - ta
-            })
-            sidebarChats.value = arr
-          }
-        }
-      }
-      source.onerror = () => {
-        source.close()
-        if (sidebarSseStopped) return
-        sidebarSseTimer = setTimeout(attempt, sidebarSseDelay)
-        sidebarSseDelay = Math.min(sidebarSseDelay * 2, 30000)
-      }
-    } catch {
-      if (sidebarSseStopped) return
-      sidebarSseTimer = setTimeout(attempt, sidebarSseDelay)
-      sidebarSseDelay = Math.min(sidebarSseDelay * 2, 30000)
     }
   }
 
@@ -787,7 +749,7 @@ onMounted(async () => {
   [me.value] = await Promise.all([api.me()])
   await Promise.all([load(), loadSidebarChats()])
   clearCurrentChatUnread()
-  await Promise.all([connectSse(), connectSidebarSse()])
+  await connectSse()
   await markReadIfPossible()
   document.addEventListener('visibilitychange', markReadIfPossible)
   api.ping().catch(() => {})
@@ -796,7 +758,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   stopChatSse()
-  stopSidebarSse()
   if (pingInterval) clearInterval(pingInterval)
   clearTimeout(typingTimeout)
   clearTimeout(typingDebounce)
