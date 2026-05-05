@@ -446,6 +446,13 @@ textarea.input {
   gap: 2px;
 }
 
+.load-more-spinner {
+  text-align: center;
+  padding: 8px 0 4px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
 .date-separator {
   display: flex;
   align-items: center;

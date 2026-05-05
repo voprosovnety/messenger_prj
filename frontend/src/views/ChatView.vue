@@ -76,7 +76,8 @@
       <div style="display:flex;flex:1;min-height:0;overflow:hidden">
         <!-- Messages -->
         <div style="display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden">
-          <div ref="listEl" class="messages-area">
+          <div ref="listEl" class="messages-area" @scroll="onScroll">
+            <div v-if="loadingMore" class="load-more-spinner">Loading…</div>
             <template v-for="g in grouped" :key="g.key">
               <div class="date-separator">
                 <span class="date-separator-text">{{ g.title }}</span>
@@ -282,6 +283,9 @@ const peerDeliveredId = ref(null)
 const peerReadId = ref(null)
 
 const messages = ref([])
+const nextCursor = ref(null)
+const hasMore = ref(false)
+const loadingMore = ref(false)
 const input = ref('')
 const editingId = ref(null)
 const editingText = ref('')
@@ -421,6 +425,8 @@ async function load() {
     chat.value = chatData
     participants.value = chatData.participants || []
     messages.value = msgData.items || []
+    nextCursor.value = msgData.next_cursor || null
+    hasMore.value = !!msgData.has_more
     peerDeliveredId.value = msgData.peer_delivered_message_id || null
     peerReadId.value = msgData.peer_read_message_id || null
   } catch {
@@ -430,6 +436,31 @@ async function load() {
   const last = messages.value[messages.value.length - 1]
   if (last) await api.markDelivered(chatId.value, last.id).catch(() => {})
   await scrollToBottom()
+}
+
+async function loadMore() {
+  if (loadingMore.value || !hasMore.value || !nextCursor.value) return
+  loadingMore.value = true
+  const el = listEl.value
+  const prevScrollHeight = el ? el.scrollHeight : 0
+  try {
+    const data = await api.listMessages(chatId.value, { before: nextCursor.value, limit: 50 })
+    const older = data.items || []
+    if (older.length) {
+      messages.value = [...older, ...messages.value]
+      nextCursor.value = data.next_cursor || null
+      hasMore.value = !!data.has_more
+      await nextTick()
+      if (el) el.scrollTop = el.scrollHeight - prevScrollHeight
+    }
+  } catch {}
+  finally { loadingMore.value = false }
+}
+
+function onScroll() {
+  if (listEl.value && listEl.value.scrollTop < 120 && hasMore.value && !loadingMore.value) {
+    loadMore()
+  }
 }
 
 async function loadSidebarChats() {
@@ -677,6 +708,9 @@ watch(chatId, async (newId, oldId) => {
   clearTimeout(typingTimeout)
   clearTimeout(typingDebounce)
   messages.value = []
+  nextCursor.value = null
+  hasMore.value = false
+  loadingMore.value = false
   chat.value = null
   participants.value = []
   peerDeliveredId.value = null
