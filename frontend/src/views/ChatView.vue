@@ -439,6 +439,12 @@ async function loadSidebarChats() {
   } catch {}
 }
 
+function clearCurrentChatUnread() {
+  const idx = sidebarChats.value.findIndex(c => c.id === chatId.value)
+  if (idx === -1) return
+  sidebarChats.value = sidebarChats.value.map((c, i) => i === idx ? { ...c, unread_count: 0 } : c)
+}
+
 // ─── receipts ─────────────────────────────────────────────────────
 async function markReadIfPossible() {
   if (document.visibilityState !== 'visible') return
@@ -527,11 +533,17 @@ async function connectSidebarSse() {
         const idx = sidebarChats.value.findIndex(c => c.id === m.chat_id)
         if (idx !== -1) {
           const cur = sidebarChats.value[idx]
-          sidebarChats.value[idx] = {
+          const arr = sidebarChats.value.map((c, i) => i === idx ? {
             ...cur,
             last_message: { content: m.content, created_at: m.created_at, sender_username: m.sender },
             unread_count: (m.chat_id === chatId.value || fromMe) ? cur.unread_count : (cur.unread_count || 0) + 1,
-          }
+          } : c)
+          arr.sort((a, b) => {
+            const ta = a.last_message?.created_at ? Date.parse(a.last_message.created_at) : Date.parse(a.created_at || 0)
+            const tb = b.last_message?.created_at ? Date.parse(b.last_message.created_at) : Date.parse(b.created_at || 0)
+            return tb - ta
+          })
+          sidebarChats.value = arr
         }
       }
     }
@@ -674,6 +686,7 @@ watch(chatId, async (newId, oldId) => {
   error.value = ''
   showMembersPanel.value = false
   await load()
+  clearCurrentChatUnread()
   await connectSse()
   await markReadIfPossible()
 }, { immediate: false })
@@ -682,6 +695,7 @@ watch(chatId, async (newId, oldId) => {
 onMounted(async () => {
   [me.value] = await Promise.all([api.me()])
   await Promise.all([load(), loadSidebarChats()])
+  clearCurrentChatUnread()
   await Promise.all([connectSse(), connectSidebarSse()])
   await markReadIfPossible()
   document.addEventListener('visibilitychange', markReadIfPossible)

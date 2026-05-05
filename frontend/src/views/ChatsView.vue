@@ -264,12 +264,13 @@ async function createChat() {
 function bumpChat(chatId, patch) {
   const idx = chats.value.findIndex(c => c.id === chatId)
   if (idx === -1) return
-  chats.value[idx] = { ...chats.value[idx], ...patch }
-  chats.value.sort((a, b) => {
+  const arr = chats.value.map((c, i) => i === idx ? { ...c, ...patch } : c)
+  arr.sort((a, b) => {
     const ta = a.last_message?.created_at ? Date.parse(a.last_message.created_at) : Date.parse(a.created_at || 0)
     const tb = b.last_message?.created_at ? Date.parse(b.last_message.created_at) : Date.parse(b.created_at || 0)
     return tb - ta
   })
+  chats.value = arr
 }
 
 async function connectAllChatsSse() {

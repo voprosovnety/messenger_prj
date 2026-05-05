@@ -486,6 +486,9 @@ textarea.input {
   width: 28px;
   flex-shrink: 0;
 }
+.message-row.own .message-avatar-slot {
+  display: none;
+}
 
 .message-bubble-wrap {
   max-width: 68%;
@@ -553,16 +556,16 @@ textarea.input {
 .message-ticks.read { color: var(--accent); }
 
 .message-bubble-outer {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-.message-row.own .message-bubble-outer {
-  flex-direction: row-reverse;
 }
 
 .message-actions {
-  display: flex;
+  position: absolute;
+  right: calc(100% + 6px);
+  bottom: 0;
+  display: none;
   flex-direction: row;
   gap: 2px;
   background: var(--surface-3);
@@ -570,14 +573,11 @@ textarea.input {
   border-radius: var(--radius-sm);
   padding: 2px 4px;
   box-shadow: var(--shadow-sm);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--transition);
-  flex-shrink: 0;
+  white-space: nowrap;
+  z-index: 1;
 }
 .message-bubble-wrap:hover .message-actions {
-  opacity: 1;
-  pointer-events: auto;
+  display: flex;
 }
 
 /* ─── Typing indicator ───────────────────────────────────────── */
