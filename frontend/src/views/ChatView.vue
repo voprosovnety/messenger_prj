@@ -426,7 +426,7 @@ async function load() {
     participants.value = chatData.participants || []
     messages.value = msgData.items || []
     nextCursor.value = msgData.next_cursor || null
-    hasMore.value = !!msgData.has_more
+    hasMore.value = !!msgData.next_cursor
     peerDeliveredId.value = msgData.peer_delivered_message_id || null
     peerReadId.value = msgData.peer_read_message_id || null
   } catch {
@@ -449,7 +449,7 @@ async function loadMore() {
     if (older.length) {
       messages.value = [...older, ...messages.value]
       nextCursor.value = data.next_cursor || null
-      hasMore.value = !!data.has_more
+      hasMore.value = !!data.next_cursor
       await nextTick()
       if (el) el.scrollTop = el.scrollHeight - prevScrollHeight
     }
