@@ -146,6 +146,9 @@ const createError = ref('')
 
 const me = ref(null)
 let es = null
+let sseStopped = false
+let sseDelay = 1000
+let sseTimer = null
 let pingInterval = null
 
 async function loadChats() {
@@ -274,24 +277,46 @@ function bumpChat(chatId, patch) {
 }
 
 async function connectAllChatsSse() {
-  const sub = await api.subscribeAllChats()
-  const params = new URLSearchParams()
-  for (const t of sub.topics || []) params.append('topic', t)
-  es = new EventSource(`/.well-known/mercure?${params.toString()}`, { withCredentials: true })
-  es.onmessage = (evt) => {
-    const payload = JSON.parse(evt.data)
-    if (payload.type === 'message.created') {
-      const m = payload.data
-      const fromMe = m.sender === me.value?.username
-      const cur = chats.value.find(c => c.id === m.chat_id)
-      const prevUnread = cur?.unread_count || 0
-      bumpChat(m.chat_id, {
-        last_message: { content: m.content, created_at: m.created_at, sender_username: m.sender },
-        unread_count: fromMe ? prevUnread : (prevUnread + 1),
-      })
+  sseStopped = false
+  sseDelay = 1000
+
+  const attempt = async () => {
+    if (sseStopped) return
+    try {
+      const sub = await api.subscribeAllChats()
+      const params = new URLSearchParams()
+      for (const t of sub.topics || []) params.append('topic', t)
+      const source = new EventSource(`/.well-known/mercure?${params.toString()}`, { withCredentials: true })
+      es = source
+
+      source.onopen = () => { sseDelay = 1000 }
+      source.onmessage = (evt) => {
+        const payload = JSON.parse(evt.data)
+        if (payload.type === 'message.created') {
+          const m = payload.data
+          const fromMe = m.sender === me.value?.username
+          const cur = chats.value.find(c => c.id === m.chat_id)
+          const prevUnread = cur?.unread_count || 0
+          bumpChat(m.chat_id, {
+            last_message: { content: m.content, created_at: m.created_at, sender_username: m.sender },
+            unread_count: fromMe ? prevUnread : (prevUnread + 1),
+          })
+        }
+      }
+      source.onerror = () => {
+        source.close()
+        if (sseStopped) return
+        sseTimer = setTimeout(attempt, sseDelay)
+        sseDelay = Math.min(sseDelay * 2, 30000)
+      }
+    } catch {
+      if (sseStopped) return
+      sseTimer = setTimeout(attempt, sseDelay)
+      sseDelay = Math.min(sseDelay * 2, 30000)
     }
   }
-  es.onerror = () => {}
+
+  await attempt()
 }
 
 onMounted(async () => {
@@ -304,6 +329,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  sseStopped = true
+  clearTimeout(sseTimer)
   if (es) es.close()
   if (pingInterval) clearInterval(pingInterval)
 })
