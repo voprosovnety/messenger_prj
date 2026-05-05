@@ -39,6 +39,7 @@ async function tryRefresh() {
 
     const json = await res.json()
     localStorage.setItem('access_token', json.access_token)
+    if (json.refresh_token) localStorage.setItem('refresh_token', json.refresh_token)
     return true
 }
 

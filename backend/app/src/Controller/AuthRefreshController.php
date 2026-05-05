@@ -35,8 +35,20 @@ final class AuthRefreshController
             return new JsonResponse(['error' => 'refresh_token expired'], 401);
         }
 
+        $refresh->setRevokedAt(new \DateTimeImmutable());
+
+        $newRefreshValue = bin2hex(random_bytes(32));
+        $newRefresh = new RefreshToken();
+        $newRefresh->setToken($newRefreshValue);
+        $newRefresh->setOwner($refresh->getOwner());
+        $newRefresh->setExpiresAt(new \DateTimeImmutable('+7 days'));
+
+        $em->persist($newRefresh);
+        $em->flush();
+
         return new JsonResponse([
             'access_token' => $jwtManager->create($refresh->getOwner()),
+            'refresh_token' => $newRefreshValue,
         ]);
     }
 }
