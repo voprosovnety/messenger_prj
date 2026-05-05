@@ -81,10 +81,9 @@ final class ListMessagesController
             ->setParameter('chat', $chat)
             ->orderBy('m.createdAt', 'DESC')
             ->addOrderBy('m.id', 'DESC')
-            ->setMaxResults($limit + 1); // +1 чтобы понять, есть ли следующая страница
+            ->setMaxResults($limit + 1);
 
         if ($beforeDt && $beforeId) {
-            // (createdAt, id) строго меньше курсора
             $qb->andWhere('(m.createdAt < :beforeDt) OR (m.createdAt = :beforeDt AND m.id < :beforeId)')
                 ->setParameter('beforeDt', $beforeDt)
                 ->setParameter('beforeId', $beforeId);
@@ -97,7 +96,6 @@ final class ListMessagesController
             array_pop($rows);
         }
 
-        // сейчас rows идут новые->старые, отдаём старые->новые
         $rows = array_reverse($rows);
 
         $items = [];
@@ -115,7 +113,7 @@ final class ListMessagesController
 
         $nextCursor = null;
         if ($hasMore && $rows) {
-            $oldest = $rows[0]; // самый старый в текущей странице
+            $oldest = $rows[0];
             $nextCursor = $oldest->getCreatedAt()->format(DATE_ATOM) . '|' . (string) $oldest->getId();
         }
 

@@ -8,3 +8,7 @@ services:
     Symfony\Component\Mercure\HubInterface:
         alias: App\Tests\Support\NullHub
         public: true
+
+    Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface:
+        alias: security.user_password_hasher
+        public: true

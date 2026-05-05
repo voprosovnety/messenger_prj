@@ -5,8 +5,11 @@ namespace App\Tests\Api;
 use App\Entity\Chat;
 use App\Entity\ChatMember;
 use App\Entity\Message;
+use App\Entity\RefreshToken;
 use App\Entity\User;
 use App\Tests\Support\NullHub;
+use App\Tests\Support\StringUuidType;
+use Doctrine\DBAL\Types\Type;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
@@ -20,6 +23,7 @@ abstract class ApiTestCase extends WebTestCase
 {
     protected KernelBrowser $client;
     protected EntityManagerInterface $em;
+    protected NullHub $hub;
 
     protected function setUp(): void
     {
@@ -27,14 +31,24 @@ abstract class ApiTestCase extends WebTestCase
 
         static::ensureKernelShutdown();
         static::bootKernel();
-        $nullHub = new NullHub();
-        $this->forcePrivateService('mercure.hub.default.traceable', $nullHub);
-        $this->forcePrivateService('mercure.hub.default.traceable.inner', $nullHub);
-        $this->forcePrivateService(HubInterface::class, $nullHub);
+        $this->hub = new NullHub();
+        $this->forcePrivateService('mercure.hub.default.traceable', $this->hub);
+        $this->forcePrivateService('mercure.hub.default.traceable.inner', $this->hub);
+        $this->forcePrivateService(HubInterface::class, $this->hub);
         $this->client = new KernelBrowser(static::$kernel, [], new History(), new CookieJar());
+        $this->client->disableReboot();
 
         $this->em = $this->service(EntityManagerInterface::class, 'doctrine.orm.entity_manager');
         $this->resetDatabase();
+
+        // Doctrine's AbstractUidType uses BLOB on SQLite (no native GUID platform),
+        // which breaks DQL parameter comparison. Override AFTER the connection is
+        // initialized (ConnectionFactory::initializeTypes runs during resetDatabase).
+        if (Type::hasType('uuid')) {
+            Type::overrideType('uuid', StringUuidType::class);
+        } else {
+            Type::addType('uuid', StringUuidType::class);
+        }
     }
 
     protected function createAuthenticatedClient(User $user): KernelBrowser
@@ -60,6 +74,39 @@ abstract class ApiTestCase extends WebTestCase
         $this->em->flush();
 
         return $user;
+    }
+
+    protected function createHashedUser(
+        string $username,
+        string $password = 'password123',
+        ?string $email = null,
+    ): User {
+        $this->client->jsonRequest('POST', '/api/auth/register', [
+            'email'    => $email ?? sprintf('%s@example.test', $username),
+            'password' => $password,
+            'username' => $username,
+        ]);
+        $this->em->clear();
+
+        return $this->em->getRepository(User::class)->findOneBy(['username' => $username]);
+    }
+
+    protected function makeRefreshToken(
+        User $user,
+        ?\DateTimeImmutable $expiresAt = null,
+        ?\DateTimeImmutable $revokedAt = null,
+    ): RefreshToken {
+        $token = new RefreshToken();
+        $token->setToken(bin2hex(random_bytes(32)));
+        $token->setOwner($user);
+        $token->setExpiresAt($expiresAt ?? new \DateTimeImmutable('+7 days'));
+        if ($revokedAt !== null) {
+            $token->setRevokedAt($revokedAt);
+        }
+        $this->em->persist($token);
+        $this->em->flush();
+
+        return $token;
     }
 
     protected function createGroupChat(User $owner, array $members = [], string $title = 'Test Group'): Chat
