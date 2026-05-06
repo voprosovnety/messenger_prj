@@ -39,6 +39,15 @@ class Message
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?Message $replyTo = null;
 
+    #[ORM\Column(length: 500, nullable: true)]
+    private ?string $attachmentUrl = null;
+
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $attachmentType = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $attachmentName = null;
+
     public function __construct()
     {
         $this->id = Uuid::v7();
@@ -126,4 +135,13 @@ class Message
 
         return $this;
     }
+
+    public function getAttachmentUrl(): ?string { return $this->attachmentUrl; }
+    public function setAttachmentUrl(?string $v): static { $this->attachmentUrl = $v; return $this; }
+
+    public function getAttachmentType(): ?string { return $this->attachmentType; }
+    public function setAttachmentType(?string $v): static { $this->attachmentType = $v; return $this; }
+
+    public function getAttachmentName(): ?string { return $this->attachmentName; }
+    public function setAttachmentName(?string $v): static { $this->attachmentName = $v; return $this; }
 }

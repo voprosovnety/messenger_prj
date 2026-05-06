@@ -117,6 +117,9 @@ final class ListMessagesController
                     'content' => $r->getDeletedAt() ? null : $r->getContent(),
                     'deleted' => $r->getDeletedAt() !== null,
                 ] : null,
+                'attachment_url'  => $m->getAttachmentUrl(),
+                'attachment_type' => $m->getAttachmentType(),
+                'attachment_name' => $m->getAttachmentName(),
             ];
         }
 

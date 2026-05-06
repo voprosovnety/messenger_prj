@@ -883,6 +883,57 @@ textarea.input {
   left: calc(100% + 6px);
 }
 
+/* ─── Composer attach button ─────────────────────────────────── */
+.composer-attach {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  color: var(--text-3);
+  transition: color var(--transition);
+}
+.composer-attach:hover { color: var(--accent); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Attachment rendering in bubble ─────────────────────────── */
+.attachment { margin-top: 4px; }
+.attachment-img {
+  max-width: 260px;
+  max-height: 300px;
+  border-radius: 8px;
+  display: block;
+  cursor: zoom-in;
+  object-fit: cover;
+}
+.attachment-video {
+  max-width: 260px;
+  border-radius: 8px;
+  display: block;
+}
+.attachment-audio {
+  max-width: 260px;
+  width: 100%;
+  display: block;
+}
+.attachment-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 13px;
+  text-decoration: none;
+  max-width: 220px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.attachment-file:hover { background: var(--surface-3, var(--surface-2)); }
+
 /* ─── Reply bar (above composer) ────────────────────────────── */
 .reply-bar {
   display: flex;

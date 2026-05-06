@@ -2,7 +2,7 @@ async function request(path, options = {}) {
     const access = localStorage.getItem('access_token')
     const headers = { ...(options.headers || {}) }
 
-    if (!headers['Content-Type'] && options.body) {
+    if (!headers['Content-Type'] && options.body && !(options.body instanceof FormData)) {
         headers['Content-Type'] = 'application/json'
     }
     if (access) headers['Authorization'] = `Bearer ${access}`
@@ -166,9 +166,23 @@ export const api = {
         return json
     },
 
-    sendMessage: async (chatId, content, replyToId = null) => {
+    uploadFile: async (file) => {
+        const form = new FormData()
+        form.append('file', file)
+        const res = await request('/api/upload', { method: 'POST', body: form })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Upload failed')
+        return json
+    },
+
+    sendMessage: async (chatId, content, replyToId = null, attachment = null) => {
         const body = { content }
         if (replyToId) body.reply_to_id = replyToId
+        if (attachment) {
+            body.attachment_url  = attachment.url
+            body.attachment_type = attachment.type
+            body.attachment_name = attachment.name
+        }
         const res = await request(`/api/chats/${chatId}/messages`, {
             method: 'POST',
             body: JSON.stringify(body),

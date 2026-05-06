@@ -8,6 +8,8 @@ services:
     depends_on:
       - php
       - mercure
+    volumes:
+      - uploads:/var/www/uploads
 
   php:
     build:
@@ -16,6 +18,7 @@ services:
     working_dir: /var/www/backend/app
     volumes:
       - jwt_keys:/var/www/backend/app/config/jwt
+      - uploads:/var/www/uploads
     environment:
       APP_ENV: ${APP_ENV:-dev}
       MERCURE_URL: http://mercure/.well-known/mercure
@@ -43,3 +46,4 @@ services:
 volumes:
   pgdata:
   jwt_keys:
+  uploads:

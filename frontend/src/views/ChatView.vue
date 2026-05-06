@@ -148,7 +148,18 @@
                             <span class="reply-quote-content">{{ m.reply_to.deleted ? 'Message deleted' : m.reply_to.content }}</span>
                           </div>
                           <span v-if="m.deleted_at" style="font-style:italic">Message deleted</span>
-                          <span v-else style="white-space:pre-wrap;word-break:break-word">{{ m.content }}</span>
+                          <template v-else>
+                            <span v-if="m.content" style="white-space:pre-wrap;word-break:break-word">{{ m.content }}</span>
+                            <div v-if="m.attachment_url" class="attachment">
+                              <img v-if="m.attachment_type === 'image'" :src="m.attachment_url" class="attachment-img" @click="window.open(m.attachment_url, '_blank')" />
+                              <video v-else-if="m.attachment_type === 'video'" :src="m.attachment_url" controls class="attachment-video" />
+                              <audio v-else-if="m.attachment_type === 'audio'" :src="m.attachment_url" controls class="attachment-audio" />
+                              <a v-else :href="m.attachment_url" target="_blank" download class="attachment-file">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                {{ m.attachment_name || 'Download file' }}
+                              </a>
+                            </div>
+                          </template>
                         </div>
                       </div>
 
@@ -183,8 +194,23 @@
             </button>
           </div>
 
+          <!-- Pending file preview -->
+          <div v-if="pendingFile" class="reply-bar">
+            <img v-if="pendingFile.previewUrl" :src="pendingFile.previewUrl" style="height:40px;width:40px;object-fit:cover;border-radius:4px;flex-shrink:0" />
+            <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            <span class="reply-bar-text" style="font-size:13px">{{ pendingFile.name }}</span>
+            <button class="btn-icon" style="padding:4px" @click="cancelFile">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+
           <!-- Composer -->
           <div class="composer">
+            <input ref="fileInputEl" type="file" style="display:none" @change="onFileSelect" />
+            <button class="btn-icon composer-attach" title="Attach file" :disabled="uploading" @click="fileInputEl.click()">
+              <svg v-if="!uploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            </button>
             <textarea
               ref="composerEl"
               v-model="input"
@@ -194,7 +220,7 @@
               @keydown="onKeydown"
               @input="onTyping"
             />
-            <button class="composer-send" :disabled="!input.trim()" @click="send">
+            <button class="composer-send" :disabled="!input.trim() && !pendingFile" @click="send">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
           </div>
@@ -331,6 +357,9 @@ let typingDebounce = null
 
 const listEl = ref(null)
 const composerEl = ref(null)
+const fileInputEl = ref(null)
+const pendingFile = ref(null) // { url, type, name, previewUrl }
+const uploading = ref(false)
 let es = null
 let chatSseStopped = false
 let chatSseDelay = 1000
@@ -426,7 +455,12 @@ function sidebarPreview(c) {
   const lm = c.last_message
   if (!lm) return 'No messages'
   const prefix = c.is_group && lm.sender_username ? lm.sender_username + ': ' : (lm.sender_username === me.value?.username ? 'You: ' : '')
-  return prefix + (lm.content || '')
+  if (lm.content) return prefix + lm.content
+  if (lm.attachment_type === 'image') return prefix + '🖼 Photo'
+  if (lm.attachment_type === 'video') return prefix + '🎬 Video'
+  if (lm.attachment_type === 'audio') return prefix + '🎵 Audio'
+  if (lm.attachment_url) return prefix + '📎 File'
+  return prefix || 'No messages'
 }
 
 // ─── scrolling ────────────────────────────────────────────────────
@@ -638,11 +672,37 @@ async function connectSse() {
 // ─── actions ──────────────────────────────────────────────────────
 async function send() {
   const text = input.value.trim()
-  if (!text) return
+  const att = pendingFile.value
+  if (!text && !att) return
   const replyId = replyingTo.value?.id ?? null
   input.value = ''
   replyingTo.value = null
-  await api.sendMessage(chatId.value, text, replyId).catch(() => {})
+  pendingFile.value = null
+  await api.sendMessage(chatId.value, text, replyId, att).catch(() => {})
+}
+
+async function onFileSelect(e) {
+  const file = e.target.files[0]
+  e.target.value = ''
+  if (!file) return
+  uploading.value = true
+  try {
+    const result = await api.uploadFile(file)
+    pendingFile.value = {
+      url: result.url,
+      type: result.type,
+      name: result.name || file.name,
+      previewUrl: result.type === 'image' ? result.url : null,
+    }
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    uploading.value = false
+  }
+}
+
+function cancelFile() {
+  pendingFile.value = null
 }
 
 function onKeydown(e) {
@@ -791,6 +851,7 @@ watch(chatId, async (newId, oldId) => {
   typingUser.value = ''
   cancelEdit()
   cancelReply()
+  cancelFile()
   error.value = ''
   showMembersPanel.value = false
   await load()
