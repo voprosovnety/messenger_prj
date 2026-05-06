@@ -25,6 +25,10 @@ final class MercureSubscribeAllChatsCookieController
         $memberships = $em->getRepository(ChatMember::class)->findBy(['member' => $me]);
 
         $topics = [];
+
+        // Personal user topic — receives chat.created notifications
+        $topics[] = sprintf('/users/%s', (string) $me->getId());
+
         foreach ($memberships as $cm) {
             $chat = $cm->getChat();
             if (!$chat) continue;

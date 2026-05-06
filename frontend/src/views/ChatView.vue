@@ -519,6 +519,13 @@ async function connectSse() {
         const payload = JSON.parse(evt.data)
         const d = payload.data
 
+        if (payload.type === 'chat.created') {
+          await loadSidebarChats()
+          stopChatSse()
+          await connectSse()
+          return
+        }
+
         // Sidebar update for every message.created regardless of chat
         if (payload.type === 'message.created') {
           const fromMe = d.sender === myId()

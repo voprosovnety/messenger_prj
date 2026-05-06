@@ -264,6 +264,13 @@ async function createChat() {
   }
 }
 
+async function reconnectSse() {
+  sseStopped = true
+  clearTimeout(sseTimer)
+  if (es) { es.close(); es = null }
+  await connectAllChatsSse()
+}
+
 function bumpChat(chatId, patch) {
   const idx = chats.value.findIndex(c => c.id === chatId)
   if (idx === -1) return
@@ -290,8 +297,13 @@ async function connectAllChatsSse() {
       es = source
 
       source.onopen = () => { sseDelay = 1000 }
-      source.onmessage = (evt) => {
+      source.onmessage = async (evt) => {
         const payload = JSON.parse(evt.data)
+        if (payload.type === 'chat.created') {
+          await loadChats()
+          await reconnectSse()
+          return
+        }
         if (payload.type === 'message.created') {
           const m = payload.data
           const fromMe = m.sender === me.value?.username

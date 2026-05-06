@@ -8,6 +8,8 @@ use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Mercure\HubInterface;
+use Symfony\Component\Mercure\Update;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -18,6 +20,7 @@ final class CreateChatController
         Request $request,
         EntityManagerInterface $em,
         UserInterface $me,
+        HubInterface $hub,
     ): JsonResponse {
         /** @var User $me */
         $data = json_decode($request->getContent(), true);
@@ -122,6 +125,17 @@ final class CreateChatController
         }
 
         $em->flush();
+
+        $chatPayload = json_encode([
+            'type' => 'chat.created',
+            'data' => ['chat_id' => (string) $chat->getId()],
+        ], JSON_UNESCAPED_SLASHES);
+
+        $members = $em->getRepository(ChatMember::class)->findBy(['chat' => $chat]);
+        foreach ($members as $member) {
+            $topic = sprintf('/users/%s', (string) $member->getMember()->getId());
+            $hub->publish(new Update($topic, $chatPayload, true));
+        }
 
         return new JsonResponse([
             'id' => (string) $chat->getId(),
