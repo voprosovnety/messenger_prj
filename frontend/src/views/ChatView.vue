@@ -178,9 +178,10 @@
             </template>
           </div>
 
-          <!-- Typing indicator -->
+          <!-- Typing indicator / inline error -->
           <div class="typing-indicator">
-            <span v-if="typingUser">{{ typingUser }} is typing…</span>
+            <span v-if="composerError" style="color:var(--danger);cursor:pointer" @click="composerError=''">⚠ {{ composerError }}</span>
+            <span v-else-if="typingUser">{{ typingUser }} is typing…</span>
           </div>
 
           <!-- Reply bar -->
@@ -380,6 +381,7 @@ const composerEl = ref(null)
 const fileInputEl = ref(null)
 const pendingFile = ref(null) // { url, type, name, previewUrl }
 const uploading = ref(false)
+const composerError = ref('')
 const recording = ref(false)
 const recordingTime = ref(0)
 let mediaRecorder = null
@@ -742,15 +744,31 @@ function releaseStream() {
 }
 
 async function startRecording() {
-  try {
-    recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-  } catch {
-    error.value = 'Microphone access denied'
+  composerError.value = ''
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+    composerError.value = 'Voice recording requires HTTPS — works on localhost or via a secure URL'
     return
   }
+  let stream
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+  } catch (e) {
+    composerError.value = e.name === 'NotAllowedError'
+      ? 'Microphone permission denied'
+      : `Microphone error: ${e.message}`
+    return
+  }
+  recordingStream = stream
+
   const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', '']
     .find(t => !t || MediaRecorder.isTypeSupported(t))
-  mediaRecorder = new MediaRecorder(recordingStream, mimeType ? { mimeType } : {})
+  try {
+    mediaRecorder = new MediaRecorder(recordingStream, mimeType ? { mimeType } : {})
+  } catch (e) {
+    composerError.value = `Recording not supported: ${e.message}`
+    releaseStream()
+    return
+  }
   recordingChunks = []
   mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordingChunks.push(e.data) }
   mediaRecorder.onstop = handleRecordingStop
