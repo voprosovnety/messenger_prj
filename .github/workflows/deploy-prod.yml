@@ -20,7 +20,7 @@ jobs:
 
       - name: Install Composer dependencies
         working-directory: backend/app
-        run: composer install --no-interaction
+        run: composer install --no-interaction --no-scripts
 
       - name: Generate JWT keys
         working-directory: backend/app
