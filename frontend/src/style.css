@@ -884,7 +884,8 @@ textarea.input {
 }
 
 /* ─── Composer attach button ─────────────────────────────────── */
-.composer-attach {
+.composer-attach,
+.composer-mic {
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -892,7 +893,29 @@ textarea.input {
   color: var(--text-3);
   transition: color var(--transition);
 }
-.composer-attach:hover { color: var(--accent); }
+.composer-attach:hover,
+.composer-mic:hover { color: var(--accent); }
+
+/* ─── Recording indicator ────────────────────────────────────── */
+.recording-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  flex-shrink: 0;
+  animation: rec-pulse 1.2s ease-in-out infinite;
+}
+@keyframes rec-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.5); }
+}
+.recording-time {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--danger);
+  letter-spacing: 0.03em;
+}
 
 @keyframes spin { to { transform: rotate(360deg); } }
 

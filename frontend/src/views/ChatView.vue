@@ -206,23 +206,42 @@
 
           <!-- Composer -->
           <div class="composer">
-            <input ref="fileInputEl" type="file" style="display:none" @change="onFileSelect" />
-            <button class="btn-icon composer-attach" title="Attach file" :disabled="uploading" @click="fileInputEl.click()">
-              <svg v-if="!uploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-            </button>
-            <textarea
-              ref="composerEl"
-              v-model="input"
-              class="composer-input"
-              placeholder="Type a message…"
-              rows="1"
-              @keydown="onKeydown"
-              @input="onTyping"
-            />
-            <button class="composer-send" :disabled="!input.trim() && !pendingFile" @click="send">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            </button>
+            <!-- Normal mode -->
+            <template v-if="!recording">
+              <input ref="fileInputEl" type="file" style="display:none" @change="onFileSelect" />
+              <button class="btn-icon composer-attach" title="Attach file" :disabled="uploading" @click="fileInputEl.click()">
+                <svg v-if="!uploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              </button>
+              <textarea
+                ref="composerEl"
+                v-model="input"
+                class="composer-input"
+                placeholder="Type a message…"
+                rows="1"
+                @keydown="onKeydown"
+                @input="onTyping"
+              />
+              <button class="btn-icon composer-mic" title="Record voice message" :disabled="uploading" @click="startRecording">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+              </button>
+              <button class="composer-send" :disabled="!input.trim() && !pendingFile" @click="send">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </template>
+
+            <!-- Recording mode -->
+            <template v-else>
+              <span class="recording-dot"></span>
+              <span class="recording-time">{{ fmtRecTime(recordingTime) }}</span>
+              <span style="flex:1" />
+              <button class="btn-icon" style="color:var(--danger);padding:6px 8px" title="Cancel" @click="cancelRecording">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+              <button class="composer-send" title="Stop and send" @click="stopRecording">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+              </button>
+            </template>
           </div>
         </div>
 
@@ -361,6 +380,12 @@ const composerEl = ref(null)
 const fileInputEl = ref(null)
 const pendingFile = ref(null) // { url, type, name, previewUrl }
 const uploading = ref(false)
+const recording = ref(false)
+const recordingTime = ref(0)
+let mediaRecorder = null
+let recordingChunks = []
+let recordingStream = null
+let recordingTimer = null
 let es = null
 let chatSseStopped = false
 let chatSseDelay = 1000
@@ -707,6 +732,70 @@ function cancelFile() {
   pendingFile.value = null
 }
 
+function fmtRecTime(s) {
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+}
+
+function releaseStream() {
+  recordingStream?.getTracks().forEach(t => t.stop())
+  recordingStream = null
+}
+
+async function startRecording() {
+  try {
+    recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+  } catch {
+    error.value = 'Microphone access denied'
+    return
+  }
+  const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', '']
+    .find(t => !t || MediaRecorder.isTypeSupported(t))
+  mediaRecorder = new MediaRecorder(recordingStream, mimeType ? { mimeType } : {})
+  recordingChunks = []
+  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordingChunks.push(e.data) }
+  mediaRecorder.onstop = handleRecordingStop
+  mediaRecorder.start()
+  recording.value = true
+  recordingTime.value = 0
+  recordingTimer = setInterval(() => recordingTime.value++, 1000)
+}
+
+async function stopRecording() {
+  clearInterval(recordingTimer)
+  recording.value = false
+  mediaRecorder?.stop()
+  releaseStream()
+}
+
+function cancelRecording() {
+  clearInterval(recordingTimer)
+  recording.value = false
+  recordingTime.value = 0
+  if (mediaRecorder) {
+    mediaRecorder.onstop = null
+    mediaRecorder.stop()
+  }
+  recordingChunks = []
+  releaseStream()
+}
+
+async function handleRecordingStop() {
+  const type = recordingChunks[0]?.type || 'audio/webm'
+  const blob = new Blob(recordingChunks, { type })
+  recordingChunks = []
+  uploading.value = true
+  try {
+    const ext = type.includes('ogg') ? 'ogg' : 'webm'
+    const file = new File([blob], `voice-${Date.now()}.${ext}`, { type })
+    const result = await api.uploadFile(file)
+    pendingFile.value = { url: result.url, type: 'audio', name: 'Voice message', previewUrl: null }
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    uploading.value = false
+  }
+}
+
 function onKeydown(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
@@ -854,6 +943,7 @@ watch(chatId, async (newId, oldId) => {
   cancelEdit()
   cancelReply()
   cancelFile()
+  cancelRecording()
   error.value = ''
   showMembersPanel.value = false
   await load()
@@ -880,5 +970,6 @@ onBeforeUnmount(() => {
   clearTimeout(typingTimeout)
   clearTimeout(typingDebounce)
   document.removeEventListener('visibilitychange', markReadIfPossible)
+  cancelRecording()
 })
 </script>
