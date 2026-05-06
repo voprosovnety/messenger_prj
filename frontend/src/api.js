@@ -134,6 +134,13 @@ export const api = {
         return json
     },
 
+    leaveChat: async (chatId) => {
+        const res = await request(`/api/chats/${chatId}/leave`, { method: 'POST' })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to leave chat')
+        return json
+    },
+
     addChatMember: async (chatId, identifier) => {
         const res = await request(`/api/chats/${chatId}/members`, {
             method: 'POST',
