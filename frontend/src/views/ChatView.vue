@@ -11,6 +11,26 @@
       </div>
 
       <div class="sidebar-chats">
+        <!-- AI Assistant entry -->
+        <button
+          class="chat-item"
+          :class="{ active: chatId.value === 'ai' }"
+          type="button"
+          @click="router.push('/chats/ai')"
+        >
+          <div class="ai-chat-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><circle cx="9" cy="14" r="1" fill="currentColor"/><circle cx="15" cy="14" r="1" fill="currentColor"/></svg>
+          </div>
+          <div class="chat-item-info">
+            <div class="chat-item-top">
+              <span class="chat-item-name">AI Assistant</span>
+            </div>
+            <div class="chat-item-top" style="margin-top:1px">
+              <span class="chat-item-preview">Ask me anything</span>
+            </div>
+          </div>
+        </button>
+
         <p v-if="sidebarChats.length" class="chats-section-label">Conversations</p>
         <button
           v-for="c in sidebarChats"
@@ -131,7 +151,7 @@
                     <template v-else>
                       <div class="message-bubble-outer">
                         <!-- Actions -->
-                        <div v-if="!m.deleted_at" class="message-actions">
+                        <div v-if="!m.deleted_at && !isAiChat" class="message-actions">
                           <button v-if="isMine(m)" class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Edit" @click="startEdit(m)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                           </button>
@@ -180,7 +200,8 @@
 
           <!-- Typing indicator / inline error -->
           <div class="typing-indicator">
-            <span v-if="composerError" style="color:var(--danger);cursor:pointer" @click="composerError=''">⚠ {{ composerError }}</span>
+            <span v-if="isAiChat && aiLoading" class="ai-thinking">AI Assistant is thinking…</span>
+            <span v-else-if="composerError" style="color:var(--danger);cursor:pointer" @click="composerError=''">⚠ {{ composerError }}</span>
             <span v-else-if="typingUser">{{ typingUser }} is typing…</span>
           </div>
 
@@ -210,7 +231,7 @@
             <!-- Normal mode -->
             <template v-if="!recording">
               <input ref="fileInputEl" type="file" style="display:none" @change="onFileSelect" />
-              <button class="btn-icon composer-attach" title="Attach file" :disabled="uploading" @click="fileInputEl.click()">
+              <button v-if="!isAiChat" class="btn-icon composer-attach" title="Attach file" :disabled="uploading" @click="fileInputEl.click()">
                 <svg v-if="!uploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
               </button>
@@ -223,10 +244,10 @@
                 @keydown="onKeydown"
                 @input="onTyping"
               />
-              <button class="btn-icon composer-mic" title="Record voice message" :disabled="uploading" @click="startRecording">
+              <button v-if="!isAiChat" class="btn-icon composer-mic" title="Record voice message" :disabled="uploading" @click="startRecording">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
               </button>
-              <button class="composer-send" :disabled="!input.trim() && !pendingFile" @click="send">
+              <button class="composer-send" :disabled="isAiChat ? (!input.trim() || aiLoading) : (!input.trim() && !pendingFile)" @click="send">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
             </template>
@@ -383,6 +404,8 @@ const pendingFile = ref(null) // { url, type, name, previewUrl }
 const uploading = ref(false)
 const composerError = ref('')
 const recording = ref(false)
+const aiMessages = ref([])
+const aiLoading = ref(false)
 const recordingTime = ref(0)
 let mediaRecorder = null
 let recordingChunks = []
@@ -396,10 +419,12 @@ let chatSseGen = 0
 let pingInterval = null
 
 // ─── computed ────────────────────────────────────────────────────
-const chatTitle = computed(() => chat.value?.display_name || 'Chat')
+const isAiChat = computed(() => chatId.value === 'ai')
+const chatTitle = computed(() => isAiChat.value ? 'AI Assistant' : (chat.value?.display_name || 'Chat'))
 const isGroup = computed(() => !!chat.value?.is_group)
 const isOwner = computed(() => chat.value?.my_role === 'OWNER')
 const canDeleteChat = computed(() => !isGroup.value || isOwner.value)
+const displayMessages = computed(() => isAiChat.value ? aiMessages.value : messages.value)
 
 const peerUser = computed(() => {
   if (isGroup.value) return null
@@ -415,7 +440,7 @@ const isPeerOnline = computed(() => peerUser.value ? isUserOnline(peerUser.value
 
 const grouped = computed(() => {
   const groups = []
-  for (const m of messages.value) {
+  for (const m of displayMessages.value) {
     const key = dayKey(m.created_at)
     const last = groups[groups.length - 1]
     if (!last || last.key !== key) {
@@ -506,6 +531,12 @@ async function scrollToBottom() {
 
 // ─── data loading ─────────────────────────────────────────────────
 async function load() {
+  if (isAiChat.value) {
+    chat.value = { display_name: 'AI Assistant', is_group: false, my_role: 'MEMBER' }
+    participants.value = []
+    await scrollToBottom()
+    return
+  }
   try {
     const [chatData, msgData] = await Promise.all([
       api.getChat(chatId.value),
@@ -700,6 +731,13 @@ async function connectSse() {
 
 // ─── actions ──────────────────────────────────────────────────────
 async function send() {
+  if (isAiChat.value) {
+    const text = input.value.trim()
+    if (!text || aiLoading.value) return
+    input.value = ''
+    await sendToAi(text)
+    return
+  }
   const text = input.value.trim()
   const att = pendingFile.value
   if (!text && !att) return
@@ -708,6 +746,45 @@ async function send() {
   replyingTo.value = null
   pendingFile.value = null
   await api.sendMessage(chatId.value, text, replyId, att).catch(() => {})
+}
+
+async function sendToAi(text) {
+  aiMessages.value.push({
+    id: 'u-' + Date.now(),
+    sender: me.value?.username || 'You',
+    sender_avatar_url: me.value?.avatar_url || null,
+    content: text,
+    created_at: new Date().toISOString(),
+  })
+  await scrollToBottom()
+  aiLoading.value = true
+
+  const msgs = aiMessages.value.map(m => ({
+    role: m.sender === 'AI Assistant' ? 'assistant' : 'user',
+    content: m.content,
+  }))
+
+  try {
+    const result = await api.aiChat(msgs)
+    aiMessages.value.push({
+      id: 'ai-' + Date.now(),
+      sender: 'AI Assistant',
+      sender_avatar_url: null,
+      content: result.reply,
+      created_at: new Date().toISOString(),
+    })
+  } catch (err) {
+    aiMessages.value.push({
+      id: 'ai-err-' + Date.now(),
+      sender: 'AI Assistant',
+      sender_avatar_url: null,
+      content: '⚠ ' + (err.message || 'Something went wrong'),
+      created_at: new Date().toISOString(),
+    })
+  } finally {
+    aiLoading.value = false
+    await scrollToBottom()
+  }
 }
 
 async function onFileSelect(e) {
@@ -963,20 +1040,25 @@ watch(chatId, async (newId, oldId) => {
   cancelFile()
   cancelRecording()
   error.value = ''
+  composerError.value = ''
   showMembersPanel.value = false
   await load()
-  clearCurrentChatUnread()
-  await connectSse()
-  await markReadIfPossible()
+  if (!isAiChat.value) {
+    clearCurrentChatUnread()
+    await connectSse()
+    await markReadIfPossible()
+  }
 }, { immediate: false })
 
 // ─── lifecycle ────────────────────────────────────────────────────
 onMounted(async () => {
   [me.value] = await Promise.all([api.me()])
   await Promise.all([load(), loadSidebarChats()])
-  clearCurrentChatUnread()
-  await connectSse()
-  await markReadIfPossible()
+  if (!isAiChat.value) {
+    clearCurrentChatUnread()
+    await connectSse()
+    await markReadIfPossible()
+  }
   document.addEventListener('visibilitychange', markReadIfPossible)
   api.ping().catch(() => {})
   pingInterval = setInterval(() => api.ping().catch(() => {}), 30000)

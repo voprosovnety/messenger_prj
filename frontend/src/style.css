@@ -883,6 +883,28 @@ textarea.input {
   left: calc(100% + 6px);
 }
 
+/* ─── AI chat sidebar icon ───────────────────────────────────── */
+.ai-chat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent) 0%, #a855f7 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+.ai-thinking {
+  background: linear-gradient(90deg, var(--accent), #a855f7, var(--accent));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: ai-shimmer 2s linear infinite;
+}
+@keyframes ai-shimmer { to { background-position: 200% center; } }
+
 /* ─── Composer attach button ─────────────────────────────────── */
 .composer-attach,
 .composer-mic {

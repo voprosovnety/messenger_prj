@@ -166,6 +166,16 @@ export const api = {
         return json
     },
 
+    aiChat: async (messages) => {
+        const res = await request('/api/ai/chat', {
+            method: 'POST',
+            body: JSON.stringify({ messages }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'AI request failed')
+        return json
+    },
+
     uploadFile: async (file) => {
         const form = new FormData()
         form.append('file', file)

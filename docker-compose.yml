@@ -24,6 +24,7 @@ services:
       MERCURE_URL: http://mercure/.well-known/mercure
       MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:-http://localhost/.well-known/mercure}
       MERCURE_JWT_SECRET: $MERCURE_JWT_SECRET
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
 
   postgres:
     image: postgres:16-alpine
