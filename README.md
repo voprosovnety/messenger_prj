@@ -10,7 +10,6 @@
 | Frontend | Vue 3 + Vite |
 | Realtime | Mercure (SSE) |
 | База данных | PostgreSQL 16 |
-| Кэш / blacklist | Redis 7 |
 | Авторизация | JWT + Refresh Token |
 | Прокси | Nginx |
 | Контейнеризация | Docker Compose |
