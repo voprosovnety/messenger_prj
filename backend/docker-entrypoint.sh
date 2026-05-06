@@ -1,8 +1,9 @@
 #!/bin/sh
 set -e
 
-echo "[entrypoint] Clearing cache..."
-php bin/console cache:clear --no-warmup
+echo "[entrypoint] Clearing and warming up cache..."
+php bin/console cache:clear
+chown -R www-data:www-data var/
 
 echo "[entrypoint] Waiting for PostgreSQL..."
 until php -r "new PDO('pgsql:host=postgres;dbname=messenger', 'messenger', 'messenger');" 2>/dev/null; do
