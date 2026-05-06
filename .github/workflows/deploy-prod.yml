@@ -52,5 +52,5 @@ jobs:
             cd /opt/messenger
             git fetch origin
             git reset --hard origin/main
-            docker compose up --build -d
-            docker compose exec -T php php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+            docker compose -f docker-compose.yml up --build -d
+            docker compose -f docker-compose.yml exec -T php php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
