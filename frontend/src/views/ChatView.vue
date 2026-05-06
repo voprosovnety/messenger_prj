@@ -151,9 +151,9 @@
                           <template v-else>
                             <span v-if="m.content" style="white-space:pre-wrap;word-break:break-word">{{ m.content }}</span>
                             <div v-if="m.attachment_url" class="attachment">
-                              <img v-if="m.attachment_type === 'image'" :src="m.attachment_url" class="attachment-img" @click="window.open(m.attachment_url, '_blank')" />
-                              <video v-else-if="m.attachment_type === 'video'" :src="m.attachment_url" controls class="attachment-video" />
-                              <audio v-else-if="m.attachment_type === 'audio'" :src="m.attachment_url" controls class="attachment-audio" />
+                              <img v-if="m.attachment_type === 'image'" :src="m.attachment_url" class="attachment-img" @click="openUrl(m.attachment_url)" />
+                              <video v-else-if="m.attachment_type === 'video'" :src="m.attachment_url" controls class="attachment-video"></video>
+                              <AudioPlayer v-else-if="m.attachment_type === 'audio'" :src="m.attachment_url" />
                               <a v-else :href="m.attachment_url" target="_blank" download class="attachment-file">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                 {{ m.attachment_name || 'Download file' }}
@@ -316,6 +316,7 @@ import { onMounted, onBeforeUnmount, ref, nextTick, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import UserAvatar from '../components/UserAvatar.vue'
+import AudioPlayer from '../components/AudioPlayer.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -400,6 +401,7 @@ const grouped = computed(() => {
 })
 
 // ─── helpers ─────────────────────────────────────────────────────
+function openUrl(url) { window.open(url, '_blank') }
 function myId() { return me.value?.username || '' }
 function isMine(m) { return m.sender === myId() }
 function isEditing(m) { return editingId.value === m.id }
