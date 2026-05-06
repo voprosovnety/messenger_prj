@@ -1,12 +1,10 @@
 services:
   nginx:
-    image: nginx:1.27-alpine
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
     ports:
       - "80:80"
-    volumes:
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./backend:/var/www/backend:ro
-      - ./frontend/dist:/var/www/frontend/dist:ro
     depends_on:
       - php
       - mercure
@@ -17,7 +15,7 @@ services:
       dockerfile: Dockerfile
     working_dir: /var/www/backend/app
     volumes:
-      - ./backend/app:/var/www/backend/app
+      - jwt_keys:/var/www/backend/app/config/jwt
     environment:
       APP_ENV: dev
       MERCURE_URL: http://mercure/.well-known/mercure
@@ -46,6 +44,6 @@ services:
     ports:
       - "3000:80"
 
-
 volumes:
   pgdata:
+  jwt_keys:

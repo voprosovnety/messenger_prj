@@ -21,24 +21,21 @@
 Создай `.env` в корне проекта:
 
 ```env
-MERCURE_JWT_SECRET=supersecret
+MERCURE_JWT_SECRET=минимум_32_символа_любая_случайная_строка
+MERCURE_PUBLIC_URL=http://<твой-домен-или-ip>/.well-known/mercure
 ```
+
+`MERCURE_PUBLIC_URL` — адрес, по которому браузер достучится до сервера. Для локальной разработки можно не указывать (по умолчанию `http://localhost/.well-known/mercure`).
 
 ### 2. Запуск
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
-Nginx поднимается на порту **80**. При первом старте Composer автоматически устанавливает зависимости внутри контейнера.
+При первом запуске Docker соберёт образы, установит зависимости, сгенерирует JWT-ключи и применит миграции автоматически. Занимает 3–5 минут.
 
-### 3. Миграции
-
-```bash
-docker compose exec php php bin/console doctrine:migrations:migrate
-```
-
-### 4. Открыть в браузере
+### 3. Открыть в браузере
 
 ```
 http://localhost
