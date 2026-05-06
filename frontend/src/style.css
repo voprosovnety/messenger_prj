@@ -583,7 +583,7 @@ textarea.input {
   white-space: nowrap;
   z-index: 1;
 }
-.message-bubble-wrap:hover .message-actions {
+.message-row:hover .message-actions {
   display: flex;
 }
 
