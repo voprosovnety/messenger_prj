@@ -50,6 +50,7 @@ jobs:
           script: |
             set -e
             cd /opt/messenger-dev
-            git pull origin dev
+            git fetch origin
+            git reset --hard origin/dev
             docker compose up --build -d
             docker compose exec -T php php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
