@@ -312,6 +312,7 @@ let es = null
 let chatSseStopped = false
 let chatSseDelay = 1000
 let chatSseTimer = null
+let chatSseGen = 0
 let pingInterval = null
 
 // ─── computed ────────────────────────────────────────────────────
@@ -497,6 +498,7 @@ function onTyping() {
 // ─── SSE ─────────────────────────────────────────────────────────
 function stopChatSse() {
   chatSseStopped = true
+  chatSseGen++
   clearTimeout(chatSseTimer)
   if (es) { es.close(); es = null }
 }
@@ -504,11 +506,13 @@ function stopChatSse() {
 async function connectSse() {
   chatSseStopped = false
   chatSseDelay = 1000
+  const gen = ++chatSseGen
 
   const attempt = async () => {
-    if (chatSseStopped) return
+    if (chatSseStopped || chatSseGen !== gen) return
     try {
       const sub = await api.subscribeAllChats()
+      if (chatSseStopped || chatSseGen !== gen) return
       const params = new URLSearchParams()
       for (const t of sub.topics || []) params.append('topic', t)
       const source = new EventSource(`/.well-known/mercure?${params.toString()}`, { withCredentials: true })
@@ -520,8 +524,8 @@ async function connectSse() {
         const d = payload.data
 
         if (payload.type === 'chat.created') {
-          await loadSidebarChats()
           stopChatSse()
+          await loadSidebarChats()
           await connectSse()
           return
         }
@@ -553,7 +557,7 @@ async function connectSse() {
         const shouldStick = isNearBottom()
 
         if (payload.type === 'message.created') {
-          messages.value.push(d)
+          if (!messages.value.find(m => m.id === d.id)) messages.value.push(d)
           await api.markDelivered(chatId.value, d.id).catch(() => {})
           await markReadIfPossible()
           if (shouldStick) await scrollToBottom()
@@ -594,12 +598,12 @@ async function connectSse() {
       }
       source.onerror = () => {
         source.close()
-        if (chatSseStopped) return
+        if (chatSseStopped || chatSseGen !== gen) return
         chatSseTimer = setTimeout(attempt, chatSseDelay)
         chatSseDelay = Math.min(chatSseDelay * 2, 30000)
       }
     } catch {
-      if (chatSseStopped) return
+      if (chatSseStopped || chatSseGen !== gen) return
       chatSseTimer = setTimeout(attempt, chatSseDelay)
       chatSseDelay = Math.min(chatSseDelay * 2, 30000)
     }

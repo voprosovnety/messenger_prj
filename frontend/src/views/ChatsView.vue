@@ -149,6 +149,7 @@ let es = null
 let sseStopped = false
 let sseDelay = 1000
 let sseTimer = null
+let sseGen = 0
 let pingInterval = null
 
 async function loadChats() {
@@ -266,6 +267,7 @@ async function createChat() {
 
 async function reconnectSse() {
   sseStopped = true
+  sseGen++
   clearTimeout(sseTimer)
   if (es) { es.close(); es = null }
   await connectAllChatsSse()
@@ -286,11 +288,13 @@ function bumpChat(chatId, patch) {
 async function connectAllChatsSse() {
   sseStopped = false
   sseDelay = 1000
+  const gen = ++sseGen
 
   const attempt = async () => {
-    if (sseStopped) return
+    if (sseStopped || sseGen !== gen) return
     try {
       const sub = await api.subscribeAllChats()
+      if (sseStopped || sseGen !== gen) return
       const params = new URLSearchParams()
       for (const t of sub.topics || []) params.append('topic', t)
       const source = new EventSource(`/.well-known/mercure?${params.toString()}`, { withCredentials: true })
@@ -300,8 +304,12 @@ async function connectAllChatsSse() {
       source.onmessage = async (evt) => {
         const payload = JSON.parse(evt.data)
         if (payload.type === 'chat.created') {
+          sseStopped = true
+          sseGen++
+          clearTimeout(sseTimer)
+          if (es) { es.close(); es = null }
           await loadChats()
-          await reconnectSse()
+          await connectAllChatsSse()
           return
         }
         if (payload.type === 'message.created') {
@@ -317,12 +325,12 @@ async function connectAllChatsSse() {
       }
       source.onerror = () => {
         source.close()
-        if (sseStopped) return
+        if (sseStopped || sseGen !== gen) return
         sseTimer = setTimeout(attempt, sseDelay)
         sseDelay = Math.min(sseDelay * 2, 30000)
       }
     } catch {
-      if (sseStopped) return
+      if (sseStopped || sseGen !== gen) return
       sseTimer = setTimeout(attempt, sseDelay)
       sseDelay = Math.min(sseDelay * 2, 30000)
     }
