@@ -21,7 +21,7 @@ services:
     environment:
       APP_ENV: dev
       MERCURE_URL: http://mercure/.well-known/mercure
-      MERCURE_PUBLIC_URL: http://localhost:3000/.well-known/mercure
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:-http://localhost/.well-known/mercure}
       MERCURE_JWT_SECRET: $MERCURE_JWT_SECRET
 
   postgres:
