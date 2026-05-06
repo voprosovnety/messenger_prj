@@ -17,7 +17,6 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\BrowserKit\CookieJar;
 use Symfony\Component\BrowserKit\History;
-use Symfony\Component\Mercure\HubInterface;
 
 abstract class ApiTestCase extends WebTestCase
 {
@@ -31,10 +30,8 @@ abstract class ApiTestCase extends WebTestCase
 
         static::ensureKernelShutdown();
         static::bootKernel();
-        $this->hub = new NullHub();
-        $this->forcePrivateService('mercure.hub.default.traceable', $this->hub);
-        $this->forcePrivateService('mercure.hub.default.traceable.inner', $this->hub);
-        $this->forcePrivateService(HubInterface::class, $this->hub);
+        $this->hub = static::getContainer()->get(NullHub::class);
+        $this->hub->reset();
         $this->client = new KernelBrowser(static::$kernel, [], new History(), new CookieJar());
         $this->client->disableReboot();
 
@@ -161,46 +158,15 @@ abstract class ApiTestCase extends WebTestCase
         $this->em->clear();
     }
 
-    private function forcePrivateService(string $id, object $service): void
-    {
-        $container = static::$kernel->getContainer();
-        $reflection = new \ReflectionObject($container);
-
-        while ($reflection) {
-            if ($reflection->hasProperty('privates')) {
-                $property = $reflection->getProperty('privates');
-                $privates = $property->getValue($container);
-                $privates[$id] = $service;
-                $property->setValue($container, $privates);
-                return;
-            }
-
-            $reflection = $reflection->getParentClass();
-        }
-    }
-
     private function service(string $id, ?string $fallbackId = null): mixed
     {
-        $container = static::$kernel->getContainer();
+        $container = static::getContainer();
         foreach (array_filter([$id, $fallbackId]) as $candidate) {
-            if ($container->has($candidate)) {
+            try {
                 return $container->get($candidate);
+            } catch (\Exception) {
+                // try next candidate
             }
-        }
-
-        $reflection = new \ReflectionObject($container);
-        while ($reflection) {
-            if ($reflection->hasProperty('privates')) {
-                $property = $reflection->getProperty('privates');
-                $privates = $property->getValue($container);
-                foreach (array_filter([$id, $fallbackId]) as $candidate) {
-                    if (isset($privates[$candidate])) {
-                        return $privates[$candidate];
-                    }
-                }
-            }
-
-            $reflection = $reflection->getParentClass();
         }
 
         throw new \RuntimeException(sprintf('Service "%s" not found.', $id));

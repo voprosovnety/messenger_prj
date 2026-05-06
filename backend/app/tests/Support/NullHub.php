@@ -31,6 +31,11 @@ final class NullHub implements HubInterface
         return 'test-update-id';
     }
 
+    public function reset(): void
+    {
+        $this->messages = [];
+    }
+
     public function count(): int
     {
         return count($this->messages);
