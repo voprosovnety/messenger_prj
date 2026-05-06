@@ -1,0 +1,55 @@
+name: Deploy → Dev
+
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, sqlite3, openssl, mbstring, xml, ctype, iconv, tokenizer, intl, bcmath
+          coverage: none
+
+      - name: Install Composer dependencies
+        working-directory: backend/app
+        run: composer install --no-interaction
+
+      - name: Generate JWT keys
+        working-directory: backend/app
+        run: |
+          mkdir -p config/jwt
+          php bin/console lexik:jwt:generate-keypair --skip-if-exists
+        env:
+          APP_ENV: test
+
+      - name: Run tests
+        working-directory: backend/app
+        run: php bin/phpunit
+        env:
+          APP_ENV: test
+
+  deploy:
+    name: Deploy to dev (port 8080)
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: root
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/messenger-dev
+            git pull origin dev
+            docker compose up --build -d
+            docker compose exec -T php php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
