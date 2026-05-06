@@ -35,6 +35,10 @@ class Message
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $deletedAt = null;
 
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Message $replyTo = null;
+
     public function __construct()
     {
         $this->id = Uuid::v7();
@@ -107,6 +111,18 @@ class Message
     public function setDeletedAt(?\DateTimeImmutable $deletedAt): static
     {
         $this->deletedAt = $deletedAt;
+
+        return $this;
+    }
+
+    public function getReplyTo(): ?self
+    {
+        return $this->replyTo;
+    }
+
+    public function setReplyTo(?self $replyTo): static
+    {
+        $this->replyTo = $replyTo;
 
         return $this;
     }

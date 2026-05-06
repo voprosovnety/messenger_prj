@@ -130,16 +130,23 @@
                     <!-- Normal bubble -->
                     <template v-else>
                       <div class="message-bubble-outer">
-                        <!-- Actions: left of bubble for own messages (flex-direction: row-reverse) -->
-                        <div v-if="isMine(m) && !m.deleted_at" class="message-actions">
-                          <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Edit" @click="startEdit(m)">
+                        <!-- Actions -->
+                        <div v-if="!m.deleted_at" class="message-actions">
+                          <button v-if="isMine(m)" class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Edit" @click="startEdit(m)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                           </button>
-                          <button class="btn-icon" style="padding:4px 6px;border-radius:4px;color:var(--danger)" title="Delete" @click="removeMessage(m)">
+                          <button v-if="isMine(m)" class="btn-icon" style="padding:4px 6px;border-radius:4px;color:var(--danger)" title="Delete" @click="removeMessage(m)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                          </button>
+                          <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Reply" @click="startReply(m)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
                           </button>
                         </div>
                         <div class="message-bubble" :class="{ deleted: !!m.deleted_at }">
+                          <div v-if="m.reply_to" class="reply-quote">
+                            <span class="reply-quote-sender">{{ m.reply_to.sender }}</span>
+                            <span class="reply-quote-content">{{ m.reply_to.deleted ? 'Message deleted' : m.reply_to.content }}</span>
+                          </div>
                           <span v-if="m.deleted_at" style="font-style:italic">Message deleted</span>
                           <span v-else style="white-space:pre-wrap;word-break:break-word">{{ m.content }}</span>
                         </div>
@@ -163,6 +170,17 @@
           <!-- Typing indicator -->
           <div class="typing-indicator">
             <span v-if="typingUser">{{ typingUser }} is typing…</span>
+          </div>
+
+          <!-- Reply bar -->
+          <div v-if="replyingTo" class="reply-bar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+            <span class="reply-bar-text">
+              <strong>{{ replyingTo.sender }}</strong>{{ replyingTo.deleted ? ' · Message deleted' : ': ' + replyingTo.content }}
+            </span>
+            <button class="btn-icon" style="padding:4px" @click="cancelReply">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
 
           <!-- Composer -->
@@ -292,6 +310,7 @@ const loadingMore = ref(false)
 const input = ref('')
 const editingId = ref(null)
 const editingText = ref('')
+const replyingTo = ref(null)
 const busy = ref(false)
 const error = ref('')
 
@@ -311,6 +330,7 @@ let typingTimeout = null
 let typingDebounce = null
 
 const listEl = ref(null)
+const composerEl = ref(null)
 let es = null
 let chatSseStopped = false
 let chatSseDelay = 1000
@@ -619,8 +639,10 @@ async function connectSse() {
 async function send() {
   const text = input.value.trim()
   if (!text) return
+  const replyId = replyingTo.value?.id ?? null
   input.value = ''
-  await api.sendMessage(chatId.value, text).catch(() => {})
+  replyingTo.value = null
+  await api.sendMessage(chatId.value, text, replyId).catch(() => {})
 }
 
 function onKeydown(e) {
@@ -628,6 +650,16 @@ function onKeydown(e) {
     e.preventDefault()
     send()
   }
+  if (e.key === 'Escape') cancelReply()
+}
+
+function startReply(m) {
+  replyingTo.value = { id: m.id, sender: m.sender, content: m.content, deleted: !!m.deleted_at }
+  composerEl.value?.focus()
+}
+
+function cancelReply() {
+  replyingTo.value = null
 }
 
 function startEdit(m) {
@@ -758,6 +790,7 @@ watch(chatId, async (newId, oldId) => {
   peerReadId.value = null
   typingUser.value = ''
   cancelEdit()
+  cancelReply()
   error.value = ''
   showMembersPanel.value = false
   await load()

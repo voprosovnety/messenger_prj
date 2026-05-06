@@ -166,10 +166,12 @@ export const api = {
         return json
     },
 
-    sendMessage: async (chatId, content) => {
+    sendMessage: async (chatId, content, replyToId = null) => {
+        const body = { content }
+        if (replyToId) body.reply_to_id = replyToId
         const res = await request(`/api/chats/${chatId}/messages`, {
             method: 'POST',
-            body: JSON.stringify({ content }),
+            body: JSON.stringify(body),
         })
         return res.json()
     },

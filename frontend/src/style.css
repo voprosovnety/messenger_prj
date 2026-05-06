@@ -843,6 +843,66 @@ textarea.input {
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
+/* ─── Reply quote (inside bubble) ───────────────────────────── */
+.reply-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 8px;
+  margin-bottom: 6px;
+  border-left: 2px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.message-row:not(.own) .reply-quote {
+  border-left-color: var(--accent);
+  background: var(--accent-dim);
+}
+.reply-quote-sender {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.message-row:not(.own) .reply-quote-sender { color: var(--accent); }
+.reply-quote-content {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.message-row:not(.own) .reply-quote-content { color: var(--text-2); }
+
+/* ─── Non-own message actions position ──────────────────────── */
+.message-row:not(.own) .message-actions {
+  right: auto;
+  left: calc(100% + 6px);
+}
+
+/* ─── Reply bar (above composer) ────────────────────────────── */
+.reply-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 20px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-2);
+}
+.reply-bar-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reply-bar-text strong { color: var(--text); }
+
 /* ─── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .sidebar { width: 100%; min-width: 0; }

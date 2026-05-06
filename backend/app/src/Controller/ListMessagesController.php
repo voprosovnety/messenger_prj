@@ -74,9 +74,11 @@ final class ListMessagesController
 
         $qb = $em->createQueryBuilder();
         $qb
-            ->select('m', 's')
+            ->select('m', 's', 'r', 'rs')
             ->from(Message::class, 'm')
             ->join('m.sender', 's')
+            ->leftJoin('m.replyTo', 'r')
+            ->leftJoin('r.sender', 'rs')
             ->where('m.chat = :chat')
             ->setParameter('chat', $chat)
             ->orderBy('m.createdAt', 'DESC')
@@ -100,6 +102,7 @@ final class ListMessagesController
 
         $items = [];
         foreach ($rows as $m) {
+            $r = $m->getReplyTo();
             $items[] = [
                 'id' => (string) $m->getId(),
                 'sender' => $m->getSender()->getUsername(),
@@ -108,6 +111,12 @@ final class ListMessagesController
                 'created_at' => $m->getCreatedAt()->format(DATE_ATOM),
                 'edited_at' => $m->getEditedAt()?->format(DATE_ATOM),
                 'deleted_at' => $m->getDeletedAt()?->format(DATE_ATOM),
+                'reply_to' => $r ? [
+                    'id'      => (string) $r->getId(),
+                    'sender'  => $r->getSender()?->getUsername(),
+                    'content' => $r->getDeletedAt() ? null : $r->getContent(),
+                    'deleted' => $r->getDeletedAt() !== null,
+                ] : null,
             ];
         }
 
