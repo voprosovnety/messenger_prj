@@ -45,4 +45,4 @@ composer.phar
 # Local secrets for docker-compose
 .env
 
-/docs
+/docsCLAUDE.md
