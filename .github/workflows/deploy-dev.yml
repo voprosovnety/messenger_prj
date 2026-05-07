@@ -50,6 +50,7 @@ jobs:
           script: |
             set -e
             cd /opt/messenger-dev
+            export NGINX_PORT=8080
             git fetch origin
             git reset --hard origin/dev
             docker compose -f docker-compose.yml down
