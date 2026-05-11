@@ -42,8 +42,9 @@ frontend/pnpm-debug.log*
 # Composer artifacts (оставляем composer.lock, но игнорируем phar если появится)
 composer.phar
 
-# Local secrets for docker-compose
+# Local secrets and dev overrides
 .env
+docker-compose.override.yml
 
 /docs
 CLAUDE.md
