@@ -1,0 +1,128 @@
+#cloud-config
+# Timeweb Cloud → Ubuntu 22.04/24.04, регион DE
+# Hostname: chat
+# Запускает весь стек + Caddy с HTTPS через sslip.io (сертификат Let's Encrypt)
+#
+# Если репозиторий приватный — замени URL клонирования на:
+#   https://<YOUR_GITHUB_TOKEN>@github.com/voprosovnety/messenger_prj.git
+
+hostname: chat
+locale: en_US.UTF-8
+timezone: Europe/Berlin
+
+package_update: true
+package_upgrade: false
+
+packages:
+  - git
+  - curl
+  - ca-certificates
+  - gnupg
+  - ufw
+  - openssl
+
+write_files:
+  - path: /opt/setup.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -eo pipefail
+      log() { echo "[setup] $*"; }
+
+      # ── Docker (официальный репозиторий) ──────────────────────
+      log "Installing Docker..."
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+        -o /etc/apt/keyrings/docker.asc
+      chmod a+r /etc/apt/keyrings/docker.asc
+      . /etc/os-release
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" \
+        > /etc/apt/sources.list.d/docker.list
+
+      # ── Caddy (официальный репозиторий) ───────────────────────
+      log "Installing Caddy..."
+      curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+        | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+      curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+        > /etc/apt/sources.list.d/caddy-stable.list
+
+      apt-get update -qq
+      apt-get install -y \
+        docker-ce docker-ce-cli containerd.io docker-compose-plugin caddy
+
+      # ── Firewall ───────────────────────────────────────────────
+      log "Configuring UFW..."
+      ufw --force enable
+      ufw allow OpenSSH
+      ufw allow 80/tcp
+      ufw allow 443/tcp
+
+      # ── Репозиторий ────────────────────────────────────────────
+      log "Cloning repo..."
+      git clone https://github.com/voprosovnety/messenger_prj.git /opt/messenger
+
+      # ── Публичный IP → sslip.io домен ─────────────────────────
+      log "Detecting public IP..."
+      IP=$(curl -sf --retry 5 --retry-delay 3 https://api.ipify.org \
+           || curl -sf https://ifconfig.me)
+      DOMAIN="${IP//./-}.sslip.io"
+      log "Domain: https://${DOMAIN}"
+
+      # ── .env ──────────────────────────────────────────────────
+      SECRET=$(openssl rand -hex 32)
+      cat > /opt/messenger/.env <<ENV
+      MERCURE_JWT_SECRET=${SECRET}
+      MERCURE_PUBLIC_URL=https://${DOMAIN}/.well-known/mercure
+      NGINX_PORT=127.0.0.1:8080
+      APP_ENV=prod
+      ANTHROPIC_API_KEY=
+      ENV
+
+      # ── Caddyfile ─────────────────────────────────────────────
+      cat > /etc/caddy/Caddyfile <<CADDY
+      ${DOMAIN} {
+          reverse_proxy localhost:8080
+      }
+      CADDY
+      systemctl enable --now caddy
+
+      # ── Systemd: автозапуск после ребута ──────────────────────
+      cat > /etc/systemd/system/messenger.service <<'UNIT'
+      [Unit]
+      Description=Messenger
+      Requires=docker.service
+      After=docker.service network-online.target
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      WorkingDirectory=/opt/messenger
+      ExecStart=/usr/bin/docker compose -f docker-compose.yml up -d
+      ExecStop=/usr/bin/docker compose -f docker-compose.yml down
+      TimeoutStartSec=300
+
+      [Install]
+      WantedBy=multi-user.target
+      UNIT
+      systemctl daemon-reload
+      systemctl enable messenger
+
+      # ── Сборка и запуск (3-5 мин) ─────────────────────────────
+      log "Building images and starting containers..."
+      cd /opt/messenger
+      docker compose -f docker-compose.yml up -d --build
+
+      log ""
+      log "============================================================"
+      log "  Ready: https://${DOMAIN}"
+      log ""
+      log "  Чтобы добавить Anthropic API key:"
+      log "    nano /opt/messenger/.env"
+      log "    systemctl restart messenger"
+      log ""
+      log "  Логи: tail -f /var/log/messenger-setup.log"
+      log "  Логи контейнеров: docker compose -C /opt/messenger logs -f"
+      log "============================================================"
+
+runcmd:
+  - bash /opt/setup.sh 2>&1 | tee /var/log/messenger-setup.log
