@@ -1046,8 +1046,10 @@ async function deleteChat() {
 
 async function leaveChat() {
   if (!confirm('Leave this chat?')) return
+  const id = chatId.value
   try {
-    await api.leaveChat(chatId.value)
+    await api.leaveChat(id)
+    sidebarChats.value = sidebarChats.value.filter(c => c.id !== id)
     router.push('/')
   } catch (e) { error.value = e.message }
 }
