@@ -647,6 +647,15 @@ async function connectSse() {
           return
         }
 
+        if (payload.type === 'chat.deleted') {
+          const deletedId = d?.chat_id
+          if (deletedId) {
+            sidebarChats.value = sidebarChats.value.filter(c => c.id !== deletedId)
+            if (chatId.value === deletedId) router.push('/')
+          }
+          return
+        }
+
         // Sidebar update for every message.created regardless of chat
         if (payload.type === 'message.created') {
           const fromMe = d.sender === myId()
@@ -973,7 +982,9 @@ async function removeParticipant(userId) {
 
 async function deleteChat() {
   if (!confirm('Delete this chat permanently?')) return
-  await api.deleteChat(chatId.value)
+  const id = chatId.value
+  await api.deleteChat(id)
+  sidebarChats.value = sidebarChats.value.filter(c => c.id !== id)
   router.push('/')
 }
 
