@@ -107,7 +107,8 @@ write_files:
       # ── Caddyfile (prod + dev) ────────────────────────────────
       printf '%s {\n    reverse_proxy localhost:8080\n}\n\n%s {\n    reverse_proxy localhost:8081\n}\n' \
         "${DOMAIN}" "${DEV_DOMAIN}" > /etc/caddy/Caddyfile
-      systemctl enable --now caddy
+      systemctl enable caddy
+      systemctl restart caddy
 
       # ── Systemd: автозапуск после ребута ──────────────────────
       systemctl daemon-reload
