@@ -48,3 +48,4 @@ docker-compose.override.yml
 
 /docs
 DESIGN.md
+CLAUDE.md
