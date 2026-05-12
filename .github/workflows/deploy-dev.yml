@@ -37,7 +37,7 @@ jobs:
           APP_ENV: test
 
   deploy:
-    name: Deploy to dev (port 8080)
+    name: Deploy to dev
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -50,11 +50,9 @@ jobs:
           script: |
             set -e
             cd /opt/messenger-dev
-            export NGINX_PORT=8080
             git fetch origin
             git reset --hard origin/dev
             docker compose -f docker-compose.yml down
-            docker ps -q --filter "publish=8080" | xargs -r docker rm -f
             docker compose -f docker-compose.yml up --build -d
             timeout 60 sh -c 'until docker compose -f docker-compose.yml exec -T php php bin/console about > /dev/null 2>&1; do sleep 3; done'
             docker compose -f docker-compose.yml exec -T php php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
