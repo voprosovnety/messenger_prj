@@ -107,7 +107,9 @@
               </div>
 
               <template v-for="(m, idx) in g.items" :key="m.id">
+                <div v-if="m.type === 'system'" class="system-notification">{{ m.content }}</div>
                 <div
+                  v-else
                   class="message-row"
                   :class="{
                     own: isMine(m),
@@ -271,6 +273,27 @@
         <div v-if="isGroup && showMembersPanel" class="members-panel">
           <div class="members-panel-header">Members</div>
 
+          <div v-if="isOwner" style="padding:10px 12px;border-bottom:1px solid var(--border)">
+            <div v-if="!showRename">
+              <button class="btn btn-ghost" style="width:100%;font-size:13px" @click="startRename">✏️ Rename group</button>
+            </div>
+            <div v-else style="display:flex;flex-direction:column;gap:8px">
+              <input
+                v-model="renameInput"
+                class="input"
+                placeholder="Group name"
+                style="font-size:13px"
+                :disabled="renaming"
+                @keydown.enter.prevent="saveRename"
+                @keydown.esc.prevent="showRename = false"
+              />
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-ghost" style="flex:1;font-size:13px" @click="showRename = false">Cancel</button>
+                <button class="btn btn-primary" style="flex:1;font-size:13px" :disabled="renaming || !renameInput.trim()" @click="saveRename">Save</button>
+              </div>
+            </div>
+          </div>
+
           <div v-if="isOwner" style="padding:10px 12px">
             <div v-if="!showAddMember">
               <button class="btn btn-ghost" style="width:100%;font-size:13px" @click="showAddMember = true">+ Add member</button>
@@ -385,6 +408,9 @@ const error = ref('')
 const showMembersPanel = ref(false)
 const showAddMember = ref(false)
 const participantInput = ref('')
+const showRename = ref(false)
+const renameInput = ref('')
+const renaming = ref(false)
 
 const showCreate = ref(false)
 const createIsGroup = ref(false)
@@ -652,6 +678,24 @@ async function connectSse() {
           if (deletedId) {
             sidebarChats.value = sidebarChats.value.filter(c => c.id !== deletedId)
             if (chatId.value === deletedId) router.push('/')
+          }
+          return
+        }
+
+        if (payload.type === 'chat.updated') {
+          const updatedId = d?.chat_id
+          const newTitle = d?.title
+          if (updatedId && newTitle) {
+            const idx = sidebarChats.value.findIndex(c => c.id === updatedId)
+            if (idx !== -1) sidebarChats.value = sidebarChats.value.map((c, i) => i === idx ? { ...c, display_name: newTitle, title: newTitle } : c)
+            if (chatId.value === updatedId) chat.value = { ...chat.value, title: newTitle, display_name: newTitle }
+          }
+          return
+        }
+
+        if (payload.type === 'chat.member_removed') {
+          if (d?.chat_id === chatId.value && d?.user_id) {
+            participants.value = participants.value.filter(p => p.id !== d.user_id)
           }
           return
         }
@@ -954,6 +998,25 @@ async function removeMessage(m) {
   finally { busy.value = false }
 }
 
+function startRename() {
+  renameInput.value = chat.value?.title || ''
+  showRename.value = true
+}
+
+async function saveRename() {
+  const title = renameInput.value.trim()
+  if (!title) return
+  renaming.value = true
+  try {
+    const res = await api.renameChat(chatId.value, title)
+    chat.value = { ...chat.value, title: res.title, display_name: res.title }
+    const idx = sidebarChats.value.findIndex(c => c.id === chatId.value)
+    if (idx !== -1) sidebarChats.value = sidebarChats.value.map((c, i) => i === idx ? { ...c, display_name: res.title, title: res.title } : c)
+    showRename.value = false
+  } catch (e) { error.value = e.message }
+  finally { renaming.value = false }
+}
+
 async function addParticipant() {
   const ident = participantInput.value.trim()
   if (!ident) return
@@ -990,8 +1053,10 @@ async function deleteChat() {
 
 async function leaveChat() {
   if (!confirm('Leave this chat?')) return
+  const id = chatId.value
   try {
-    await api.leaveChat(chatId.value)
+    await api.leaveChat(id)
+    sidebarChats.value = sidebarChats.value.filter(c => c.id !== id)
     router.push('/')
   } catch (e) { error.value = e.message }
 }
@@ -1053,6 +1118,8 @@ watch(chatId, async (newId, oldId) => {
   error.value = ''
   composerError.value = ''
   showMembersPanel.value = false
+  showRename.value = false
+  showAddMember.value = false
   await load()
   if (!isAiChat.value) {
     clearCurrentChatUnread()

@@ -20,8 +20,11 @@ class Message
     private ?Chat $chat = null;
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: true)]
     private ?User $sender = null;
+
+    #[ORM\Column(length: 10, options: ['default' => 'text'])]
+    private string $type = 'text';
 
     #[ORM\Column(type: Types::TEXT)]
     private string $content = '';
@@ -76,9 +79,21 @@ class Message
         return $this->sender;
     }
 
-    public function setSender(User $sender): static
+    public function setSender(?User $sender): static
     {
         $this->sender = $sender;
+
+        return $this;
+    }
+
+    public function getType(): string
+    {
+        return $this->type;
+    }
+
+    public function setType(string $type): static
+    {
+        $this->type = $type;
 
         return $this;
     }

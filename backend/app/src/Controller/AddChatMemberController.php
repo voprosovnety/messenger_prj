@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Chat;
 use App\Entity\ChatMember;
+use App\Entity\Message;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -68,14 +69,31 @@ final class AddChatMemberController
         $membership->setMember($user);
         $membership->setRole('MEMBER');
         $em->persist($membership);
+
+        $sysMsg = new Message();
+        $sysMsg->setChat($chat);
+        $sysMsg->setType('system');
+        $sysMsg->setContent($me->getUsername() . ' added ' . $user->getUsername() . ' to the group');
+        $em->persist($sysMsg);
+
         $em->flush();
 
-        $topic = sprintf('/users/%s', (string) $user->getId());
-        $payload = json_encode([
+        $chatTopic = sprintf('/chats/%s/messages', (string) $chat->getId());
+        $sysMsgData = [
+            'id'         => (string) $sysMsg->getId(),
+            'chat_id'    => (string) $chat->getId(),
+            'type'       => 'system',
+            'sender'     => null,
+            'content'    => $sysMsg->getContent(),
+            'created_at' => $sysMsg->getCreatedAt()->format(DATE_ATOM),
+        ];
+        $hub->publish(new Update($chatTopic, json_encode(['type' => 'message.created', 'data' => $sysMsgData], JSON_UNESCAPED_SLASHES), true));
+
+        $newMemberTopic = sprintf('/users/%s', (string) $user->getId());
+        $hub->publish(new Update($newMemberTopic, json_encode([
             'type' => 'chat.created',
             'data' => ['chat_id' => (string) $chat->getId()],
-        ], JSON_UNESCAPED_SLASHES);
-        $hub->publish(new Update($topic, $payload, true));
+        ], JSON_UNESCAPED_SLASHES), true));
 
         return new JsonResponse([
             'ok' => true,
