@@ -76,7 +76,7 @@ final class ListMessagesController
         $qb
             ->select('m', 's', 'r', 'rs')
             ->from(Message::class, 'm')
-            ->join('m.sender', 's')
+            ->leftJoin('m.sender', 's')
             ->leftJoin('m.replyTo', 'r')
             ->leftJoin('r.sender', 'rs')
             ->where('m.chat = :chat')
@@ -105,8 +105,9 @@ final class ListMessagesController
             $r = $m->getReplyTo();
             $items[] = [
                 'id' => (string) $m->getId(),
-                'sender' => $m->getSender()->getUsername(),
-                'sender_avatar_url' => $m->getSender()->getAvatarUrl(),
+                'type' => $m->getType(),
+                'sender' => $m->getSender()?->getUsername(),
+                'sender_avatar_url' => $m->getSender()?->getAvatarUrl(),
                 'content' => $m->getContent(),
                 'created_at' => $m->getCreatedAt()->format(DATE_ATOM),
                 'edited_at' => $m->getEditedAt()?->format(DATE_ATOM),

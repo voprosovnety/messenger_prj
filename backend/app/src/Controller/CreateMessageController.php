@@ -87,6 +87,7 @@ final class CreateMessageController
         $msgData = [
             'id'              => (string) $msg->getId(),
             'chat_id'         => (string) $chat->getId(),
+            'type'            => 'text',
             'sender'          => $me->getUsername(),
             'sender_avatar_url' => $me->getAvatarUrl(),
             'content'         => $msg->getContent(),

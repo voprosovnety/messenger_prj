@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Chat;
 use App\Entity\ChatMember;
+use App\Entity\Message;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -49,17 +50,34 @@ final class RenameChatController
         }
 
         $chat->setTitle($title);
+
+        $sysMsg = new Message();
+        $sysMsg->setChat($chat);
+        $sysMsg->setType('system');
+        $sysMsg->setContent($me->getUsername() . ' renamed the group to "' . $title . '"');
+        $em->persist($sysMsg);
+
         $em->flush();
 
+        $chatTopic = sprintf('/chats/%s/messages', $chatId);
+
+        $sysMsgData = [
+            'id'         => (string) $sysMsg->getId(),
+            'chat_id'    => $chatId,
+            'type'       => 'system',
+            'sender'     => null,
+            'content'    => $sysMsg->getContent(),
+            'created_at' => $sysMsg->getCreatedAt()->format(DATE_ATOM),
+        ];
+        $hub->publish(new Update($chatTopic, json_encode(['type' => 'message.created', 'data' => $sysMsgData], JSON_UNESCAPED_SLASHES), true));
+
         $members = $em->getRepository(ChatMember::class)->findBy(['chat' => $chat]);
-        $payload = json_encode([
+        $updatedPayload = json_encode([
             'type' => 'chat.updated',
             'data' => ['chat_id' => $chatId, 'title' => $title],
         ], JSON_UNESCAPED_SLASHES);
-
         foreach ($members as $member) {
-            $topic = sprintf('/users/%s', (string) $member->getMember()->getId());
-            $hub->publish(new Update($topic, $payload, true));
+            $hub->publish(new Update(sprintf('/users/%s', (string) $member->getMember()->getId()), $updatedPayload, true));
         }
 
         return new JsonResponse(['title' => $title]);

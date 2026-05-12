@@ -107,7 +107,9 @@
               </div>
 
               <template v-for="(m, idx) in g.items" :key="m.id">
+                <div v-if="m.type === 'system'" class="system-notification">{{ m.content }}</div>
                 <div
+                  v-else
                   class="message-row"
                   :class="{
                     own: isMine(m),
