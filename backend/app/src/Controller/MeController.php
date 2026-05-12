@@ -31,18 +31,6 @@ final class MeController
         /** @var User $user */
         $data = json_decode($request->getContent(), true) ?? [];
 
-        if (isset($data['username'])) {
-            $username = trim((string) $data['username']);
-            if ($username === '') {
-                return new JsonResponse(['error' => 'username cannot be empty'], 400);
-            }
-            $existing = $em->getRepository(User::class)->findOneBy(['username' => $username]);
-            if ($existing && (string) $existing->getId() !== (string) $user->getId()) {
-                return new JsonResponse(['error' => 'username already taken'], 409);
-            }
-            $user->setUsername($username);
-        }
-
         if (array_key_exists('avatar_url', $data)) {
             $user->setAvatarUrl($data['avatar_url'] !== '' ? $data['avatar_url'] : null);
         }

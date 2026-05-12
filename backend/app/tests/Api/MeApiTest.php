@@ -28,7 +28,7 @@ final class MeApiTest extends ApiTestCase
         self::assertSame(401, $this->client->getResponse()->getStatusCode());
     }
 
-    public function testPatchMeUpdatesUsername(): void
+    public function testPatchMeIgnoresUsername(): void
     {
         $user   = $this->createUser('oldname');
         $client = $this->createAuthenticatedClient($user);
@@ -38,24 +38,10 @@ final class MeApiTest extends ApiTestCase
         self::assertSame(200, $client->getResponse()->getStatusCode());
 
         $payload = json_decode($client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
-        self::assertSame('newname', $payload['username']);
+        self::assertSame('oldname', $payload['username']);
 
         $this->em->refresh($user);
-        self::assertSame('newname', $user->getUsername());
-    }
-
-    public function testPatchMeDuplicateUsernameReturns409(): void
-    {
-        $this->createUser('takenname');
-        $user   = $this->createUser('myname');
-        $client = $this->createAuthenticatedClient($user);
-
-        $client->jsonRequest('PATCH', '/api/me', ['username' => 'takenname']);
-
-        self::assertSame(409, $client->getResponse()->getStatusCode());
-
-        $payload = json_decode($client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
-        self::assertSame('username already taken', $payload['error']);
+        self::assertSame('oldname', $user->getUsername());
     }
 
     public function testPingUpdatesLastSeenAt(): void
