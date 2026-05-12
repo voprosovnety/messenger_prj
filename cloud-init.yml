@@ -10,6 +10,11 @@ hostname: chat
 locale: en_US.UTF-8
 timezone: Europe/Berlin
 
+# Публичные ключи для root (безопасно коммитить — это НЕ приватные ключи)
+# Получить свой публичный ключ: ssh-keygen -y -f ~/.ssh/<key>
+ssh_authorized_keys:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBZAo7KlybSdH/vR9nGjFzo222+J+2AvPU4gXLrpAciE danyawalker11@gmail.com
+
 package_update: true
 package_upgrade: false
 
@@ -22,8 +27,26 @@ packages:
   - openssl
 
 write_files:
+  - path: /etc/systemd/system/messenger.service
+    content: |
+      [Unit]
+      Description=Messenger
+      Requires=docker.service
+      After=docker.service network-online.target
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      WorkingDirectory=/opt/messenger
+      ExecStart=/usr/bin/docker compose -f docker-compose.yml up -d
+      ExecStop=/usr/bin/docker compose -f docker-compose.yml down
+      TimeoutStartSec=300
+
+      [Install]
+      WantedBy=multi-user.target
+
   - path: /opt/setup.sh
-    permissions: '0755'
+    permissions: "0755"
     content: |
       #!/bin/bash
       set -eo pipefail
@@ -36,7 +59,8 @@ write_files:
         -o /etc/apt/keyrings/docker.asc
       chmod a+r /etc/apt/keyrings/docker.asc
       . /etc/os-release
-      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" \
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+      https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" \
         > /etc/apt/sources.list.d/docker.list
 
       # ── Caddy (официальный репозиторий) ───────────────────────
@@ -56,10 +80,12 @@ write_files:
       ufw allow OpenSSH
       ufw allow 80/tcp
       ufw allow 443/tcp
+      ufw allow 8081/tcp
 
       # ── Репозиторий ────────────────────────────────────────────
       log "Cloning repo..."
       git clone https://github.com/voprosovnety/messenger_prj.git /opt/messenger
+      git clone https://github.com/voprosovnety/messenger_prj.git /opt/messenger-dev
 
       # ── Публичный IP → sslip.io домен ─────────────────────────
       log "Detecting public IP..."
@@ -68,42 +94,22 @@ write_files:
       DOMAIN="${IP//./-}.sslip.io"
       log "Domain: https://${DOMAIN}"
 
-      # ── .env ──────────────────────────────────────────────────
+      # ── .env prod ─────────────────────────────────────────────
       SECRET=$(openssl rand -hex 32)
-      cat > /opt/messenger/.env <<ENV
-      MERCURE_JWT_SECRET=${SECRET}
-      MERCURE_PUBLIC_URL=https://${DOMAIN}/.well-known/mercure
-      NGINX_PORT=127.0.0.1:8080
-      APP_ENV=prod
-      ANTHROPIC_API_KEY=
-      ENV
+      printf 'MERCURE_JWT_SECRET=%s\nMERCURE_PUBLIC_URL=https://%s/.well-known/mercure\nNGINX_PORT=127.0.0.1:8080\nAPP_ENV=prod\nANTHROPIC_API_KEY=\n' \
+        "${SECRET}" "${DOMAIN}" > /opt/messenger/.env
+
+      # ── .env dev ──────────────────────────────────────────────
+      DEV_SECRET=$(openssl rand -hex 32)
+      printf 'MERCURE_JWT_SECRET=%s\nMERCURE_PUBLIC_URL=http://%s:8081/.well-known/mercure\nNGINX_PORT=0.0.0.0:8081\nAPP_ENV=prod\nANTHROPIC_API_KEY=\n' \
+        "${DEV_SECRET}" "${IP}" > /opt/messenger-dev/.env
 
       # ── Caddyfile ─────────────────────────────────────────────
-      cat > /etc/caddy/Caddyfile <<CADDY
-      ${DOMAIN} {
-          reverse_proxy localhost:8080
-      }
-      CADDY
+      printf '%s {\n    reverse_proxy localhost:8080\n}\n' "${DOMAIN}" \
+        > /etc/caddy/Caddyfile
       systemctl enable --now caddy
 
       # ── Systemd: автозапуск после ребута ──────────────────────
-      cat > /etc/systemd/system/messenger.service <<'UNIT'
-      [Unit]
-      Description=Messenger
-      Requires=docker.service
-      After=docker.service network-online.target
-
-      [Service]
-      Type=oneshot
-      RemainAfterExit=yes
-      WorkingDirectory=/opt/messenger
-      ExecStart=/usr/bin/docker compose -f docker-compose.yml up -d
-      ExecStop=/usr/bin/docker compose -f docker-compose.yml down
-      TimeoutStartSec=300
-
-      [Install]
-      WantedBy=multi-user.target
-      UNIT
       systemctl daemon-reload
       systemctl enable messenger
 
@@ -121,7 +127,7 @@ write_files:
       log "    systemctl restart messenger"
       log ""
       log "  Логи: tail -f /var/log/messenger-setup.log"
-      log "  Логи контейнеров: docker compose -C /opt/messenger logs -f"
+      log "  Логи контейнеров: docker compose -f /opt/messenger/docker-compose.yml logs -f"
       log "============================================================"
 
 runcmd:
