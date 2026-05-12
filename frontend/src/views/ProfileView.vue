@@ -27,7 +27,8 @@
         <form @submit.prevent="save">
           <div class="form-group">
             <label class="form-label">Username</label>
-            <input v-model="username" class="input" type="text" placeholder="username" required />
+            <input :value="username" class="input" type="text" disabled style="opacity:0.5;cursor:not-allowed" />
+            <p style="font-size:12px;color:var(--text-3);margin-top:4px">Username cannot be changed.</p>
           </div>
           <div class="form-group">
             <label class="form-label">Avatar URL <span style="color:var(--text-3)">(optional)</span></label>
@@ -88,7 +89,6 @@ async function save() {
   saving.value = true
   try {
     await api.updateProfile({
-      username: username.value.trim(),
       avatarUrl: avatarUrl.value.trim() || null,
     })
     success.value = true
