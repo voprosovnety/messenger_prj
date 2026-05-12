@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Design system
+
+All visual decisions are documented in `DESIGN.md` (project root). When making any frontend change that touches colors, typography, spacing, or component styles:
+
+1. Use only the tokens defined in `DESIGN.md` (CSS variables in `frontend/src/style.css`).
+2. If a new token or visual pattern is introduced, update `DESIGN.md` to stay in sync.
+3. Never add a color outside the palette, a gradient (except the AI icon), or an external CSS framework.
+
 ## How to work (token efficiency)
 
 **Diagnose before touching code.** When given a bug or task, first identify the root cause and state what exactly will be changed — do not edit files until the plan is clear. One targeted change beats multiple speculative iterations.
