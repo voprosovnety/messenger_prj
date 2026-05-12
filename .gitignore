@@ -47,4 +47,3 @@ composer.phar
 docker-compose.override.yml
 
 /docs
-CLAUDE.md
