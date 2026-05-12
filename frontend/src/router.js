@@ -10,7 +10,7 @@ const router = createRouter({
     routes: [
         { path: '/login', component: LoginView },
         { path: '/register', component: RegisterView },
-        { path: '/', component: ChatsView },
+        { path: '/', redirect: '/chats/ai' },
         { path: '/chats/:chatId', component: ChatView },
         { path: '/profile', component: ProfileView },
     ],
