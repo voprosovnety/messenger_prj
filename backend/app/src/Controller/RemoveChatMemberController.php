@@ -80,6 +80,16 @@ final class RemoveChatMemberController
         ];
         $hub->publish(new Update($chatTopic, json_encode(['type' => 'message.created', 'data' => $sysMsgData], JSON_UNESCAPED_SLASHES), true));
 
+        $hub->publish(new Update($chatTopic, json_encode([
+            'type' => 'chat.member_removed',
+            'data' => ['chat_id' => $chatId, 'user_id' => $userId],
+        ], JSON_UNESCAPED_SLASHES), true));
+
+        $hub->publish(new Update(sprintf('/users/%s', $userId), json_encode([
+            'type' => 'chat.deleted',
+            'data' => ['chat_id' => $chatId],
+        ], JSON_UNESCAPED_SLASHES), true));
+
         return new JsonResponse(['ok' => true]);
     }
 }
