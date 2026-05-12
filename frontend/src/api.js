@@ -127,6 +127,16 @@ export const api = {
         return json
     },
 
+    renameChat: async (chatId, title) => {
+        const res = await request(`/api/chats/${chatId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ title }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to rename chat')
+        return json
+    },
+
     deleteChat: async (chatId) => {
         const res = await request(`/api/chats/${chatId}`, { method: 'DELETE' })
         const json = await res.json().catch(() => ({}))
