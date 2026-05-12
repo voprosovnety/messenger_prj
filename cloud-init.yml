@@ -80,7 +80,6 @@ write_files:
       ufw allow OpenSSH
       ufw allow 80/tcp
       ufw allow 443/tcp
-      ufw allow 8081/tcp
 
       # ── Репозиторий ────────────────────────────────────────────
       log "Cloning repo..."
@@ -100,13 +99,14 @@ write_files:
         "${SECRET}" "${DOMAIN}" > /opt/messenger/.env
 
       # ── .env dev ──────────────────────────────────────────────
+      DEV_DOMAIN="dev.${DOMAIN}"
       DEV_SECRET=$(openssl rand -hex 32)
-      printf 'MERCURE_JWT_SECRET=%s\nMERCURE_PUBLIC_URL=http://%s:8081/.well-known/mercure\nNGINX_PORT=0.0.0.0:8081\nAPP_ENV=prod\nANTHROPIC_API_KEY=\n' \
-        "${DEV_SECRET}" "${IP}" > /opt/messenger-dev/.env
+      printf 'MERCURE_JWT_SECRET=%s\nMERCURE_PUBLIC_URL=https://%s/.well-known/mercure\nNGINX_PORT=127.0.0.1:8081\nAPP_ENV=prod\nANTHROPIC_API_KEY=\n' \
+        "${DEV_SECRET}" "${DEV_DOMAIN}" > /opt/messenger-dev/.env
 
-      # ── Caddyfile ─────────────────────────────────────────────
-      printf '%s {\n    reverse_proxy localhost:8080\n}\n' "${DOMAIN}" \
-        > /etc/caddy/Caddyfile
+      # ── Caddyfile (prod + dev) ────────────────────────────────
+      printf '%s {\n    reverse_proxy localhost:8080\n}\n\n%s {\n    reverse_proxy localhost:8081\n}\n' \
+        "${DOMAIN}" "${DEV_DOMAIN}" > /etc/caddy/Caddyfile
       systemctl enable --now caddy
 
       # ── Systemd: автозапуск после ребута ──────────────────────
@@ -120,11 +120,12 @@ write_files:
 
       log ""
       log "============================================================"
-      log "  Ready: https://${DOMAIN}"
+      log "  Prod: https://${DOMAIN}"
+      log "  Dev:  https://${DEV_DOMAIN}  (деплоится CI/CD)"
       log ""
-      log "  Чтобы добавить Anthropic API key:"
-      log "    nano /opt/messenger/.env"
-      log "    systemctl restart messenger"
+      log "  Anthropic API key:"
+      log "    nano /opt/messenger/.env && systemctl restart messenger"
+      log "    nano /opt/messenger-dev/.env  (для dev)"
       log ""
       log "  Логи: tail -f /var/log/messenger-setup.log"
       log "  Логи контейнеров: docker compose -f /opt/messenger/docker-compose.yml logs -f"
