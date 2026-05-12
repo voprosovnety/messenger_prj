@@ -80,6 +80,7 @@ final class CreateChatController
                     'id' => (string) $existing->getId(),
                     'is_group' => false,
                     'title' => null,
+                    'peer_username' => $peer->getUsername(),
                     'already_exists' => true,
                 ], 200);
             }
@@ -141,6 +142,7 @@ final class CreateChatController
             'id' => (string) $chat->getId(),
             'is_group' => $chat->isGroup(),
             'title' => $chat->getTitle(),
+            'peer_username' => !$isGroup ? $peer->getUsername() : null,
         ], 201);
     }
 }
