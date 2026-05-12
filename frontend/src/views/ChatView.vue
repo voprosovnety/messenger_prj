@@ -1121,9 +1121,9 @@ watch(chatId, async (newId, oldId) => {
   showRename.value = false
   showAddMember.value = false
   await load()
+  await connectSse()
   if (!isAiChat.value) {
     clearCurrentChatUnread()
-    await connectSse()
     await markReadIfPossible()
   }
 }, { immediate: false })
@@ -1132,9 +1132,9 @@ watch(chatId, async (newId, oldId) => {
 onMounted(async () => {
   [me.value] = await Promise.all([api.me()])
   await Promise.all([load(), loadSidebarChats()])
+  await connectSse()
   if (!isAiChat.value) {
     clearCurrentChatUnread()
-    await connectSse()
     await markReadIfPossible()
   }
   document.addEventListener('visibilitychange', markReadIfPossible)
