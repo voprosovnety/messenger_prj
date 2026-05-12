@@ -119,6 +119,8 @@ write_files:
       docker compose -f docker-compose.yml up -d --build
       log "Waiting for PHP-FPM..."
       timeout 120 sh -c 'until docker compose -f /opt/messenger/docker-compose.yml exec -T php php bin/console about > /dev/null 2>&1; do sleep 5; done'
+      log "Waiting for PostgreSQL..."
+      timeout 60 sh -c 'until docker compose -f /opt/messenger/docker-compose.yml exec -T postgres pg_isready > /dev/null 2>&1; do sleep 3; done'
       docker compose -f docker-compose.yml exec -T php php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
       log "Migrations done."
 
