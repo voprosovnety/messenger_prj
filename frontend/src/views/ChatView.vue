@@ -693,6 +693,13 @@ async function connectSse() {
           return
         }
 
+        if (payload.type === 'chat.member_removed') {
+          if (d?.chat_id === chatId.value && d?.user_id) {
+            participants.value = participants.value.filter(p => p.id !== d.user_id)
+          }
+          return
+        }
+
         // Sidebar update for every message.created regardless of chat
         if (payload.type === 'message.created') {
           const fromMe = d.sender === myId()

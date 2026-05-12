@@ -64,6 +64,11 @@ final class LeaveChatController
         $hub->publish(new Update($chatTopic, json_encode(['type' => 'message.created', 'data' => $sysMsgData], JSON_UNESCAPED_SLASHES), true));
 
         $myId = (string) $me->getId();
+        $hub->publish(new Update($chatTopic, json_encode([
+            'type' => 'chat.member_removed',
+            'data' => ['chat_id' => $chatId, 'user_id' => $myId],
+        ], JSON_UNESCAPED_SLASHES), true));
+
         $hub->publish(new Update(sprintf('/users/%s', $myId), json_encode([
             'type' => 'chat.deleted',
             'data' => ['chat_id' => $chatId],
