@@ -122,18 +122,18 @@
       </div>
 
       <!-- Pinned message bar -->
-      <div v-if="currentPinned && !isAiChat" class="pinned-bar" @click="jumpToMessage(currentPinned.id)">
+      <div v-if="currentPinned && !isAiChat" class="pinned-bar" @click="clickPinnedBar">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
         <div class="pinned-bar-info">
           <span class="pinned-bar-label">Pinned{{ pinnedMessages.length > 1 ? ` · ${pinnedIndex + 1} / ${pinnedMessages.length}` : '' }}</span>
           <span class="pinned-bar-content">{{ pinnedPreview(currentPinned) }}</span>
         </div>
-        <div v-if="pinnedMessages.length > 1" class="pinned-nav-col">
+        <div v-if="pinnedMessages.length > 1" class="pinned-nav-row">
           <button class="btn-icon pinned-nav-btn" title="Previous pinned" @click.stop="navigatePin(-1)">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
           <button class="btn-icon pinned-nav-btn" title="Next pinned" @click.stop="navigatePin(1)">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
         </div>
         <button v-if="canPin" class="btn-icon" style="padding:4px;flex-shrink:0" title="Unpin" @click.stop="doPin(currentPinned.id)">
@@ -1364,6 +1364,15 @@ function pinnedPreview(pm) {
   if (pm.attachment_type === 'video') return 'Video message'
   if (pm.attachment_url) return pm.attachment_name || 'File'
   return ''
+}
+
+async function clickPinnedBar() {
+  const pm = currentPinned.value
+  if (!pm) return
+  await jumpToMessage(pm.id)
+  if (pinnedMessages.value.length > 1) {
+    pinnedIndex.value = (pinnedIndex.value + 1) % pinnedMessages.value.length
+  }
 }
 
 async function navigatePin(delta) {

@@ -582,15 +582,16 @@ textarea.input {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.pinned-nav-col {
+.pinned-nav-row {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   flex-shrink: 0;
+  gap: 2px;
 }
 .pinned-nav-btn {
-  padding: 1px 5px;
+  padding: 4px 5px;
   flex-shrink: 0;
-  line-height: 1;
 }
 
 /* ─── Messages list ──────────────────────────────────────────── */
