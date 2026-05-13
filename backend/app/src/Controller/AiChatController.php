@@ -27,6 +27,7 @@ RealtimeChat features:
 - JWT authentication with auto-refresh via refresh tokens
 
 Answer in the same language the user writes in. Be concise and friendly.
+Reply in plain text only — no markdown, no asterisks, no bullet symbols, no headers.
 PROMPT;
 
     #[Route('/api/ai/chat', name: 'ai_chat', methods: ['POST'])]
