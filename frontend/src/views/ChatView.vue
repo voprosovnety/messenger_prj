@@ -122,10 +122,12 @@
                 <div v-if="m.type === 'system'" class="system-notification">{{ m.content }}</div>
                 <div
                   v-else
+                  :id="`msg-${m.id}`"
                   class="message-row"
                   :class="{
                     own: isMine(m),
-                    'same-sender': idx > 0 && g.items[idx-1].sender === m.sender && !g.items[idx-1].deleted_at
+                    'same-sender': idx > 0 && g.items[idx-1].sender === m.sender && !g.items[idx-1].deleted_at,
+                    'msg-highlighted': highlightedId === m.id,
                   }"
                 >
                   <!-- Avatar slot (others only) -->
@@ -177,7 +179,7 @@
                           </button>
                         </div>
                         <div class="message-bubble" :class="{ deleted: !!m.deleted_at }">
-                          <div v-if="m.reply_to" class="reply-quote">
+                          <div v-if="m.reply_to" class="reply-quote" @click.stop="jumpToMessage(m.reply_to.id)">
                             <span class="reply-quote-sender">{{ m.reply_to.sender }}</span>
                             <span class="reply-quote-content">{{ m.reply_to.deleted ? 'Message deleted' : m.reply_to.content }}</span>
                           </div>
@@ -458,6 +460,7 @@ const input = ref('')
 const editingId = ref(null)
 const editingText = ref('')
 const replyingTo = ref(null)
+const highlightedId = ref(null)
 const busy = ref(false)
 const error = ref('')
 
@@ -1067,6 +1070,21 @@ function onKeydown(e) {
 function startReply(m) {
   replyingTo.value = { id: m.id, sender: m.sender, content: m.content, deleted: !!m.deleted_at }
   composerEl.value?.focus()
+}
+
+async function jumpToMessage(id) {
+  // Load older pages until the message appears in the DOM
+  let attempts = 0
+  while (!document.getElementById(`msg-${id}`) && hasMore.value && attempts < 8) {
+    await loadMore()
+    attempts++
+  }
+  await nextTick()
+  const el = document.getElementById(`msg-${id}`)
+  if (!el) return
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  highlightedId.value = id
+  setTimeout(() => { highlightedId.value = null }, 1800)
 }
 
 function cancelReply() {
