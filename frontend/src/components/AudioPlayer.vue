@@ -6,7 +6,8 @@
       preload="metadata"
       @timeupdate="onTimeUpdate"
       @loadedmetadata="onMeta"
-      @ended="playing = false"
+      @durationchange="onDurationChange"
+      @ended="onEnded"
     />
     <button class="ap-play" @click="toggle" :title="playing ? 'Pause' : 'Play'">
       <svg v-if="!playing" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -64,8 +65,24 @@ function toggle() {
 function onMeta() {
   const a = audioEl.value
   if (!a) return
-  duration.value = isFinite(a.duration) ? a.duration : 0
   a.volume = vol.value
+  if (!isFinite(a.duration)) {
+    // MediaRecorder blobs lack duration metadata — seek to end to force browser to compute it
+    a.currentTime = 1e10
+  } else {
+    duration.value = a.duration
+  }
+}
+
+function onDurationChange() {
+  const a = audioEl.value
+  if (!a || !isFinite(a.duration)) return
+  duration.value = a.duration
+  a.currentTime = 0
+}
+
+function onEnded() {
+  playing.value = false
 }
 
 function onTimeUpdate() {
