@@ -146,26 +146,8 @@
                       {{ m.sender }}
                     </div>
 
-                    <!-- Editing mode -->
-                    <template v-if="isEditing(m)">
-                      <textarea
-                        v-model="editingText"
-                        class="input"
-                        style="width:100%;min-width:280px"
-                        rows="2"
-                        :disabled="busy"
-                        @keydown.esc.prevent="cancelEdit"
-                        @keydown.enter.exact.prevent="saveEdit(m)"
-                      />
-                      <div style="display:flex;gap:6px;margin-top:4px;justify-content:flex-end">
-                        <button class="btn btn-ghost" style="font-size:13px;padding:5px 10px" :disabled="busy" @click="cancelEdit">Cancel</button>
-                        <button class="btn btn-primary" style="font-size:13px;padding:5px 10px" :disabled="busy || !editingText.trim()" @click="saveEdit(m)">Save</button>
-                      </div>
-                    </template>
-
-                    <!-- Normal bubble -->
-                    <template v-else>
-                      <div class="message-bubble-outer">
+                    <template>
+                      <div class="message-bubble-outer" :class="{ 'editing-active': editingId === m.id }">
                         <!-- Actions -->
                         <div v-if="!m.deleted_at && !isAiChat" class="message-actions">
                           <button v-if="isMine(m)" class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Edit" @click="startEdit(m)">
@@ -228,6 +210,7 @@
                       </div>
                     </template>
                   </div>
+
                 </div>
               </template>
             </template>
@@ -238,6 +221,17 @@
             <span v-if="isAiChat && aiLoading" class="ai-thinking">AI Assistant is thinking…</span>
             <span v-else-if="composerError" style="color:var(--danger);cursor:pointer" @click="composerError=''">⚠ {{ composerError }}</span>
             <span v-else-if="typingUser">{{ typingUser }} is typing…</span>
+          </div>
+
+          <!-- Editing bar -->
+          <div v-if="editingId" class="reply-bar editing-bar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span class="reply-bar-text">
+              <strong style="color:var(--accent)">Editing</strong>{{ editingText ? ': ' + editingText : '' }}
+            </span>
+            <button class="btn-icon" style="padding:4px" @click="cancelEdit">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
 
           <!-- Reply bar -->
@@ -878,6 +872,10 @@ async function send() {
     await sendToAi(text)
     return
   }
+  if (editingId.value) {
+    await saveEdit()
+    return
+  }
   const text = input.value.trim()
   const atts = pendingFiles.value.slice()
   if (!text && !atts.length) return
@@ -1064,7 +1062,10 @@ function onKeydown(e) {
     e.preventDefault()
     send()
   }
-  if (e.key === 'Escape') cancelReply()
+  if (e.key === 'Escape') {
+    if (editingId.value) cancelEdit()
+    else cancelReply()
+  }
 }
 
 function startReply(m) {
@@ -1095,20 +1096,28 @@ function startEdit(m) {
   if (m.deleted_at) return
   editingId.value = m.id
   editingText.value = m.content || ''
+  input.value = m.content || ''
+  nextTick(() => {
+    composerEl.value?.focus()
+    const el = composerEl.value
+    if (el) el.setSelectionRange(el.value.length, el.value.length)
+  })
 }
 
 function cancelEdit() {
   editingId.value = null
   editingText.value = ''
+  input.value = ''
 }
 
-async function saveEdit(m) {
-  const text = editingText.value.trim()
+async function saveEdit() {
+  const text = input.value.trim()
   if (!text) return
+  const id = editingId.value
   busy.value = true
   try {
-    const updated = await api.editMessage(chatId.value, m.id, text)
-    const i = messages.value.findIndex(x => x.id === m.id)
+    const updated = await api.editMessage(chatId.value, id, text)
+    const i = messages.value.findIndex(x => x.id === id)
     if (i !== -1) Object.assign(messages.value[i], updated)
     cancelEdit()
   } catch (e) {
