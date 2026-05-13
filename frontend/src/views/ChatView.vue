@@ -19,6 +19,11 @@
         @open-profile="openUserProfile"
         @close="showOnlinePanel = false"
       />
+      <GlobalSearchPanel
+        v-else-if="globalSearchOpen"
+        @close="globalSearchOpen = false"
+        @select="onGlobalSearchSelect"
+      />
       <div v-else class="sidebar-chats">
         <!-- AI Assistant entry -->
         <button
@@ -40,7 +45,12 @@
           </div>
         </button>
 
-        <p v-if="sidebarChats.length" class="chats-section-label">Conversations</p>
+        <div v-if="sidebarChats.length" class="chats-section-header">
+          <span class="chats-section-label">Conversations</span>
+          <button class="btn-icon chats-section-search-btn" title="Search all messages" @click="globalSearchOpen = true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </button>
+        </div>
         <button
           v-for="c in sidebarChats"
           :key="c.id"
@@ -84,7 +94,7 @@
       @dragover.prevent
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
-      @click="showEmojiPicker = false; closeReactionPicker()"
+      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false"
     >
       <!-- Drag-and-drop overlay -->
       <div v-if="dragging && !isAiChat" class="drop-overlay">
@@ -238,6 +248,9 @@
                           <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Reply" @click="startReply(m)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
                           </button>
+                          <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Forward" @click="startForward(m)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+                          </button>
                           <button v-if="canPin" class="btn-icon" style="padding:4px 6px;border-radius:4px" :title="pinnedMessages.some(p => p.id === m.id) ? 'Unpin' : 'Pin'" @click="doPin(m.id)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
                           </button>
@@ -246,12 +259,24 @@
                           </button>
                         </div>
                         <div class="message-bubble" :class="{ deleted: !!m.deleted_at }">
+                          <div v-if="m.forwarded_from" class="forwarded-badge">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+                            Forwarded from <strong>{{ m.forwarded_from }}</strong>
+                          </div>
                           <div v-if="m.reply_to" class="reply-quote" @click.stop="jumpToMessage(m.reply_to.id)">
                             <span class="reply-quote-sender">{{ m.reply_to.sender }}</span>
                             <span class="reply-quote-content">{{ m.reply_to.deleted ? 'Message deleted' : m.reply_to.content }}</span>
                           </div>
                           <span v-if="m.deleted_at" style="font-style:italic">Message deleted</span>
                           <template v-else>
+                            <!-- Poll message -->
+                            <PollMessage
+                              v-if="m.type === 'poll' && m.poll"
+                              :poll="m.poll"
+                              :my-username="me?.username"
+                              @vote="doVotePoll(m.id, $event)"
+                            />
+                            <template v-else>
                             <span v-if="m.content" style="white-space:pre-wrap;word-break:break-word">{{ m.content }}</span>
 
                             <!-- Image grid -->
@@ -281,6 +306,7 @@
                                 </a>
                               </div>
                             </template>
+                            </template><!-- end v-else (non-poll) -->
                           </template>
                         </div>
                     </div>
@@ -411,10 +437,29 @@
             <!-- Normal mode -->
             <template v-if="!recording">
               <input ref="fileInputEl" type="file" multiple style="display:none" @change="onFileSelect" />
-              <button v-if="!isAiChat" class="btn-icon composer-attach" title="Attach file" :disabled="uploading" @click="fileInputEl.click()">
-                <svg v-if="!uploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-              </button>
+              <!-- Attach menu -->
+              <div v-if="!isAiChat" class="attach-menu-wrap">
+                <button
+                  class="btn-icon composer-attach"
+                  :class="{ active: showAttachMenu }"
+                  title="Attach"
+                  :disabled="uploading"
+                  @click.stop="showAttachMenu = !showAttachMenu"
+                >
+                  <svg v-if="!uploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                  <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                </button>
+                <div v-if="showAttachMenu" class="attach-menu" @click.stop>
+                  <button class="attach-menu-item" @click="fileInputEl.click(); showAttachMenu = false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    Attach file
+                  </button>
+                  <button class="attach-menu-item" @click="showPollForm = true; showAttachMenu = false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
+                    Create poll
+                  </button>
+                </div>
+              </div>
               <textarea
                 ref="composerEl"
                 v-model="input"
@@ -471,6 +516,7 @@
       :chat="chat"
       :participants="participants"
       :me="me"
+      :onlineUsers="onlineUsers"
       @close="showGroupProfile = false"
       @updated="onGroupUpdated($event)"
       @member-added="onGroupMembersChanged($event)"
@@ -498,6 +544,29 @@
       @close="lightboxOpen = false"
       @navigate="lightboxIndex = $event"
     />
+
+    <!-- Forward modal -->
+    <div v-if="showForwardModal" class="modal-overlay" @click.self="showForwardModal = false">
+      <div class="modal">
+        <div class="modal-header">
+          <span class="modal-title">Forward to…</span>
+          <button class="btn-icon" @click="showForwardModal = false">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="modal-body" style="padding:0;max-height:360px;overflow-y:auto">
+          <button
+            v-for="c in sidebarChats"
+            :key="c.id"
+            class="forward-chat-item"
+            @click="doForward(c.id)"
+          >
+            <UserAvatar :username="c.display_name || c.id" :avatarUrl="c.avatar_url || null" size="sm" />
+            <span class="forward-chat-name">{{ c.display_name || c.id }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- New chat modal -->
     <div v-if="showCreate" class="modal-overlay" @click.self="showCreate = false">
@@ -532,6 +601,13 @@
         </div>
       </div>
     </div>
+
+    <!-- Poll form modal -->
+    <PollForm
+      v-if="showPollForm"
+      @close="showPollForm = false"
+      @submit="submitPoll"
+    />
   </div>
 </template>
 
@@ -546,6 +622,9 @@ import UserProfileModal from '../components/UserProfileModal.vue'
 import EmojiPicker from '../components/EmojiPicker.vue'
 import GroupProfileModal from '../components/GroupProfileModal.vue'
 import OnlineUsersPanel from '../components/OnlineUsersPanel.vue'
+import PollMessage from '../components/PollMessage.vue'
+import PollForm from '../components/PollForm.vue'
+import GlobalSearchPanel from '../components/GlobalSearchPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -607,9 +686,12 @@ const pinnedIndex = ref(0)
 
 const showGroupProfile = ref(false)
 const showOnlinePanel = ref(false)
+const globalSearchOpen = ref(false)
 const onlineUsers = ref([])
 const draftMap = ref({})
 const showEmojiPicker = ref(false)
+const showAttachMenu = ref(false)
+const showPollForm = ref(false)
 
 const searchOpen = ref(false)
 const searchQuery = ref('')
@@ -620,6 +702,9 @@ let searchDebounce = null
 const reactionPickerMsgId = ref(null)
 const reactionPickerPos = ref({ x: 0, y: 0 })
 const showFullReactionPicker = ref(false)
+
+const forwardingMsg = ref(null)
+const showForwardModal = ref(false)
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🔥', '👎']
 const recordingTime = ref(0)
@@ -1016,6 +1101,14 @@ async function connectSse() {
           pinnedIndex.value = stablePinnedIndex(pinnedMessages.value, currentId)
           return
         }
+        if (payload.type === 'poll.voted') {
+          const i = messages.value.findIndex(m => m.id === d.message_id)
+          if (i !== -1 && d.poll) {
+            const myV = messages.value[i].poll?.my_votes
+            messages.value[i] = { ...messages.value[i], poll: { ...d.poll, my_votes: myV ?? d.poll.my_votes } }
+          }
+          return
+        }
         if (payload.type === 'user.typing') {
           if (d.username !== myId()) {
             typingUser.value = d.username
@@ -1162,6 +1255,60 @@ async function doSearch(q) {
 async function jumpToSearchResult(id) {
   closeSearch()
   await jumpToMessage(id)
+}
+
+// ─── polls ───────────────────────────────────────────────────────
+async function submitPoll(pollData) {
+  showPollForm.value = false
+  try {
+    await api.sendPoll(chatId.value, pollData)
+  } catch (e) { composerError.value = e.message }
+}
+
+async function doVotePoll(messageId, optionId) {
+  const msg = messages.value.find(m => m.id === messageId)
+  if (!msg?.poll) return
+  const poll = msg.poll
+  const myVotes = poll.my_votes || []
+
+  // Optimistic update
+  let newMyVotes
+  if (poll.multiple_answers) {
+    newMyVotes = myVotes.includes(optionId)
+      ? myVotes.filter(v => v !== optionId)
+      : [...myVotes, optionId]
+  } else {
+    newMyVotes = myVotes.includes(optionId) ? [] : [optionId]
+  }
+
+  const updatedOptions = poll.options.map(o => {
+    const wasVoted = myVotes.includes(o.id)
+    const willBeVoted = newMyVotes.includes(o.id)
+    if (wasVoted === willBeVoted) return o
+    const delta = willBeVoted ? 1 : -1
+    return { ...o, votes: Math.max(0, o.votes + delta) }
+  })
+  const totalDelta = newMyVotes.length - myVotes.length
+  const i = messages.value.findIndex(m => m.id === messageId)
+  if (i !== -1) {
+    messages.value[i] = {
+      ...messages.value[i],
+      poll: { ...poll, options: updatedOptions, my_votes: newMyVotes, total_votes: poll.total_votes + totalDelta },
+    }
+  }
+
+  try {
+    const res = await api.votePoll(chatId.value, messageId, [optionId])
+    const j = messages.value.findIndex(m => m.id === messageId)
+    if (j !== -1 && res.poll) {
+      messages.value[j] = { ...messages.value[j], poll: res.poll }
+    }
+  } catch (e) {
+    // revert
+    const j = messages.value.findIndex(m => m.id === messageId)
+    if (j !== -1) messages.value[j] = { ...messages.value[j], poll }
+    composerError.value = e.message
+  }
 }
 
 // ─── actions ──────────────────────────────────────────────────────
@@ -1389,6 +1536,18 @@ function openUserProfile(username) {
   profileUsername.value = username
 }
 
+function onGlobalSearchSelect({ chatId: targetChatId, messageId }) {
+  globalSearchOpen.value = false
+  if (targetChatId === chatId.value) {
+    jumpToMessage(messageId)
+    if (route.query.highlight) {
+      router.replace({ query: { ...route.query, highlight: undefined } })
+    }
+    return
+  }
+  router.push({ path: `/chats/${targetChatId}`, query: { highlight: messageId } })
+}
+
 function startReply(m) {
   replyingTo.value = { id: m.id, sender: m.sender, content: m.content, deleted: !!m.deleted_at }
   composerEl.value?.focus()
@@ -1409,8 +1568,36 @@ async function jumpToMessage(id) {
   setTimeout(() => { highlightedId.value = null }, 1800)
 }
 
+async function maybeJumpFromQuery() {
+  const id = route.query.highlight
+  if (!id || isAiChat.value) return
+  await jumpToMessage(id)
+  const { highlight, ...rest } = route.query
+  router.replace({ query: rest })
+}
+
 function cancelReply() {
   replyingTo.value = null
+}
+
+function startForward(m) {
+  forwardingMsg.value = m
+  showForwardModal.value = true
+}
+
+async function doForward(targetChatId) {
+  const m = forwardingMsg.value
+  if (!m) return
+  showForwardModal.value = false
+  forwardingMsg.value = null
+  try {
+    await api.sendForwardedMessage(targetChatId, m.id)
+    if (targetChatId !== chatId.value) {
+      router.push(`/chats/${targetChatId}`)
+    }
+  } catch (e) {
+    error.value = e.message
+  }
 }
 
 function startEdit(m) {
@@ -1619,12 +1806,16 @@ watch(chatId, async (newId, oldId) => {
   closeReactionPicker()
   showGroupProfile.value = false
   closeSearch()
+  globalSearchOpen.value = false
+  showForwardModal.value = false
+  forwardingMsg.value = null
   await load()
   await connectSse()
   if (!isAiChat.value) {
     clearCurrentChatUnread()
     await markReadIfPossible()
   }
+  await maybeJumpFromQuery()
 }, { immediate: false })
 
 // ─── lifecycle ────────────────────────────────────────────────────
@@ -1650,6 +1841,7 @@ onMounted(async () => {
     clearCurrentChatUnread()
     await markReadIfPossible()
   }
+  await maybeJumpFromQuery()
   document.addEventListener('visibilitychange', markReadIfPossible)
   window.addEventListener('resize', onWindowResize)
   api.ping().catch(() => {})

@@ -223,6 +223,14 @@ export const api = {
         return res.json()
     },
 
+    sendForwardedMessage: async (chatId, originalMessageId) => {
+        const res = await request(`/api/chats/${chatId}/messages`, {
+            method: 'POST',
+            body: JSON.stringify({ forwarded_from_id: originalMessageId }),
+        })
+        return res.json()
+    },
+
     editMessage: async (chatId, messageId, content) => {
         const res = await request(`/api/chats/${chatId}/messages/${messageId}`, {
             method: 'PATCH',
@@ -328,6 +336,13 @@ export const api = {
         return json
     },
 
+    searchAllMessages: async (q) => {
+        const res = await request(`/api/messages/search?q=${encodeURIComponent(q)}`)
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Search failed')
+        return json
+    },
+
     toggleReaction: async (chatId, messageId, emoji) => {
         const res = await request(`/api/chats/${chatId}/messages/${messageId}/reactions`, {
             method: 'POST',
@@ -335,6 +350,26 @@ export const api = {
         })
         const json = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(json.error || 'Failed to toggle reaction')
+        return json
+    },
+
+    sendPoll: async (chatId, { question, options, multipleAnswers, anonymous }) => {
+        const res = await request(`/api/chats/${chatId}/messages/poll`, {
+            method: 'POST',
+            body: JSON.stringify({ question, options, multiple_answers: multipleAnswers, anonymous }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to create poll')
+        return json
+    },
+
+    votePoll: async (chatId, messageId, options) => {
+        const res = await request(`/api/chats/${chatId}/messages/${messageId}/poll/vote`, {
+            method: 'POST',
+            body: JSON.stringify({ options }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to vote')
         return json
     },
 }
