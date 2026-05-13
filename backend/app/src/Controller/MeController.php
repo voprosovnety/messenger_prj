@@ -35,10 +35,13 @@ final class MeController
         if (array_key_exists('avatar_url', $data)) {
             $newUrl = $data['avatar_url'] !== '' ? $data['avatar_url'] : null;
             if ($newUrl && $newUrl !== $user->getAvatarUrl()) {
-                $h = new AvatarHistory();
-                $h->setUser($user);
-                $h->setAvatarUrl($newUrl);
-                $em->persist($h);
+                $exists = $em->getRepository(AvatarHistory::class)->findOneBy(['user' => $user, 'avatarUrl' => $newUrl]);
+                if (!$exists) {
+                    $h = new AvatarHistory();
+                    $h->setUser($user);
+                    $h->setAvatarUrl($newUrl);
+                    $em->persist($h);
+                }
             }
             $user->setAvatarUrl($newUrl);
         }

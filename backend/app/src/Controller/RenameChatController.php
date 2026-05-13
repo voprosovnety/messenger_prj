@@ -91,10 +91,13 @@ final class RenameChatController
         if ($avatarUrl !== null) {
             $newUrl = $avatarUrl ?: null;
             if ($newUrl && $newUrl !== $chat->getAvatarUrl()) {
-                $h = new AvatarHistory();
-                $h->setChat($chat);
-                $h->setAvatarUrl($newUrl);
-                $em->persist($h);
+                $exists = $em->getRepository(AvatarHistory::class)->findOneBy(['chat' => $chat, 'avatarUrl' => $newUrl]);
+                if (!$exists) {
+                    $h = new AvatarHistory();
+                    $h->setChat($chat);
+                    $h->setAvatarUrl($newUrl);
+                    $em->persist($h);
+                }
             }
             $chat->setAvatarUrl($newUrl);
             $em->flush();
