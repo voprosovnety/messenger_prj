@@ -2336,9 +2336,8 @@ textarea.input {
 }
 .poll-option-voters {
   font-size: 11px;
-  color: var(--text-3);
-  padding: 0 10px 6px 36px;
-  position: relative;
+  color: var(--text-2);
+  padding: 0 10px 7px 36px;
 }
 .poll-option-disabled { cursor: default; }
 .poll-footer {
