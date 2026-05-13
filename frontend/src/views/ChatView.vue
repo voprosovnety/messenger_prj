@@ -94,7 +94,7 @@
       @dragover.prevent
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
-      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false"
+      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false"
     >
       <!-- Drag-and-drop overlay -->
       <div v-if="dragging && !isAiChat" class="drop-overlay">
@@ -458,10 +458,6 @@
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
                     Create poll
                   </button>
-                  <button class="attach-menu-item" @click="showAttachMenu = false; openSchedulePicker()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    Schedule send
-                  </button>
                 </div>
               </div>
               <textarea
@@ -499,7 +495,26 @@
               <button v-if="!isAiChat" class="btn-icon composer-mic" title="Record voice message" :disabled="uploading" @click="startRecording">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
               </button>
-              <button class="composer-send" :disabled="isAiChat ? (!input.trim() || aiLoading) : (!input.trim() && !pendingFiles.length)" @click="send">
+              <div v-if="!isAiChat" class="send-menu-wrap">
+                <div v-if="showSendMenu" class="send-menu" @click.stop>
+                  <button class="attach-menu-item" @click="showSendMenu = false; openSchedulePicker()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Schedule message
+                  </button>
+                </div>
+                <button
+                  class="composer-send"
+                  :disabled="!input.trim() && !pendingFiles.length"
+                  @click="send"
+                  @contextmenu.prevent="showSendMenu = !showSendMenu"
+                  @touchstart="onSendTouchStart"
+                  @touchend="onSendTouchEnd"
+                  @touchmove="onSendTouchEnd"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
+              <button v-else class="composer-send" :disabled="!input.trim() || aiLoading" @click="send">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
             </template>
@@ -725,6 +740,7 @@ const showPollForm = ref(false)
 const scheduledMessages = ref([])
 const showScheduledList = ref(false)
 const showSchedulePicker = ref(false)
+const showSendMenu = ref(false)
 
 const searchOpen = ref(false)
 const searchQuery = ref('')
@@ -745,6 +761,8 @@ let mediaRecorder = null
 let recordingChunks = []
 let recordingStream = null
 let recordingTimer = null
+let sendLongPressTimer = null
+let sendLongPressTriggered = false
 let es = null
 let chatSseStopped = false
 let chatSseDelay = 1000
@@ -968,6 +986,22 @@ async function openSchedulePicker() {
   }
   composerError.value = ''
   showSchedulePicker.value = true
+}
+
+function onSendTouchStart() {
+  sendLongPressTriggered = false
+  sendLongPressTimer = setTimeout(() => {
+    sendLongPressTriggered = true
+    showSendMenu.value = true
+  }, 500)
+}
+
+function onSendTouchEnd(e) {
+  clearTimeout(sendLongPressTimer)
+  if (sendLongPressTriggered) {
+    e.preventDefault()
+    sendLongPressTriggered = false
+  }
 }
 
 async function onSchedulePicked(isoTime) {
@@ -1898,6 +1932,7 @@ watch(chatId, async (newId, oldId) => {
   scheduledMessages.value = []
   showScheduledList.value = false
   showSchedulePicker.value = false
+  showSendMenu.value = false
   closeSearch()
   globalSearchOpen.value = false
   showForwardModal.value = false

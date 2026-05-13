@@ -2241,6 +2241,25 @@ textarea.input {
 .attach-menu-item svg { color: var(--text-2); flex-shrink: 0; }
 .attach-menu-item:hover svg { color: var(--accent); }
 
+.send-menu-wrap {
+  position: relative;
+}
+.send-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+  min-width: 180px;
+  z-index: 50;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 /* ─── Poll card ──────────────────────────────────────────────── */
 .poll-card {
   min-width: 220px;

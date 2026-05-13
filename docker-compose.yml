@@ -44,6 +44,26 @@ services:
       MERCURE_EXTRA_DIRECTIVES: |
         cors_origins *
 
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    working_dir: /var/www/backend/app
+    command: ["php", "bin/console", "app:scheduled-messages:dispatch", "--loop", "--interval", "30"]
+    volumes:
+      - jwt_keys:/var/www/backend/app/config/jwt
+      - uploads:/var/www/uploads
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      MERCURE_URL: http://mercure/.well-known/mercure
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:-http://localhost/.well-known/mercure}
+      MERCURE_JWT_SECRET: $MERCURE_JWT_SECRET
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on:
+      - postgres
+      - mercure
+    restart: unless-stopped
+
 volumes:
   pgdata:
   jwt_keys:
