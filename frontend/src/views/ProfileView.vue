@@ -26,10 +26,31 @@
               <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
             </label>
           </div>
+
           <div>
             <div style="font-size:15px;font-weight:600;color:var(--text)">{{ username }}</div>
             <div style="font-size:13px;color:var(--text-2);margin-top:2px">{{ email }}</div>
+            <button
+              type="button"
+              class="preset-toggle"
+              @click="showPresets = !showPresets"
+            >{{ showPresets ? 'Hide presets' : 'Choose preset' }}</button>
           </div>
+        </div>
+
+        <!-- Preset avatar picker -->
+        <div v-if="showPresets" class="preset-grid">
+          <button
+            v-for="name in presetAvatars"
+            :key="name"
+            type="button"
+            class="preset-item"
+            :class="{ active: avatarUrl === `/avatars/${name}.svg` }"
+            :title="name"
+            @click="applyPreset(name)"
+          >
+            <img :src="`/avatars/${name}.svg`" :alt="name" />
+          </button>
         </div>
 
         <!-- Avatar history -->
@@ -106,6 +127,14 @@ const error = ref('')
 const success = ref(false)
 const lightboxOpen = ref(false)
 const avatarHistory = ref([])
+const showPresets = ref(false)
+
+const presetAvatars = [
+  'alex','aurora','blake','brook','casey','cleo','dana','drew','evan',
+  'fiona','gray','harper','iris','jade','kai','luna','max','nova',
+  'oliver','piper','quinn','river','sage','taylor','uma','val',
+  'wren','xen','yuki','zara',
+]
 
 onMounted(async () => {
   try {
@@ -150,6 +179,24 @@ async function onAvatarFile(e) {
     if (!avatarHistory.value.find(h => h.url === result.url)) {
       avatarHistory.value.unshift({ url: result.url, created_at: new Date().toISOString() })
     }
+    success.value = true
+    setTimeout(() => { success.value = false }, 3000)
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    uploadingAvatar.value = false
+  }
+}
+
+async function applyPreset(name) {
+  const url = `/avatars/${name}.svg`
+  if (url === avatarUrl.value) { showPresets.value = false; return }
+  uploadingAvatar.value = true
+  error.value = ''
+  try {
+    await api.updateProfile({ avatarUrl: url })
+    avatarUrl.value = url
+    showPresets.value = false
     success.value = true
     setTimeout(() => { success.value = false }, 3000)
   } catch (err) {
