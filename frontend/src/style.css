@@ -228,12 +228,18 @@ textarea.input {
 /* ─── Sidebar ────────────────────────────────────────────────── */
 .sidebar {
   width: 320px;
-  min-width: 320px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background: var(--surface);
   border-right: 1px solid var(--border);
   overflow: hidden;
+  flex-shrink: 0;
+  transition: width 0.22s ease;
+}
+.sidebar.sidebar-hidden {
+  width: 0;
+  border-right: none;
 }
 
 .sidebar-header {
@@ -532,7 +538,8 @@ textarea.input {
 }
 
 .message-bubble-wrap {
-  max-width: 68%;
+  max-width: min(68%, 560px);
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -556,6 +563,8 @@ textarea.input {
   font-size: 14px;
   line-height: 1.5;
   word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
   background: var(--recv-bg);
   color: var(--text);
   border-bottom-left-radius: 4px;
@@ -1381,10 +1390,31 @@ textarea.input {
   cursor: pointer;
 }
 
+/* ─── Sidebar toggle button ──────────────────────────────────── */
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: none;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+.sidebar-toggle:hover { color: var(--text); background: var(--surface-2); }
+
 /* ─── Responsive ─────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .sidebar { width: 100%; min-width: 0; }
-  .app-shell.chat-open .sidebar { display: none; }
-  .members-panel { display: none; }
+@media (max-width: 640px) {
+  .sidebar:not(.sidebar-hidden) {
+    position: absolute;
+    z-index: 40;
+    height: 100%;
+    width: 280px;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+  }
   .message-bubble-wrap { max-width: 85%; }
 }

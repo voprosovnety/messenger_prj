@@ -1,7 +1,7 @@
 <template>
   <div class="app-shell">
     <!-- Sidebar with chat list -->
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ 'sidebar-hidden': sidebarHidden }">
       <div class="sidebar-header">
         <div class="sidebar-logo">💬</div>
         <span class="sidebar-logo-text">RealtimeChat</span>
@@ -82,6 +82,10 @@
 
       <!-- Header -->
       <div class="chat-header">
+        <button class="sidebar-toggle" :title="sidebarHidden ? 'Show sidebar' : 'Hide sidebar'" @click="sidebarHidden = !sidebarHidden">
+          <svg v-if="sidebarHidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><line x1="14" y1="9" x2="21" y2="9"/><line x1="14" y1="15" x2="21" y2="15"/></svg>
+        </button>
         <UserAvatar
           :username="chatTitle"
           :avatarUrl="isGroup ? chat?.avatar_url : (peerUser?.avatar_url ?? null)"
@@ -517,6 +521,7 @@ const lightboxIndex = ref(0)
 
 const profileUsername = ref(null)
 const groupAvatarUploading = ref(false)
+const sidebarHidden = ref(window.innerWidth < 640)
 const composerError = ref('')
 const recording = ref(false)
 const aiMessages = ref([])
@@ -1289,6 +1294,7 @@ async function createChat() {
 // ─── watcher: reloads chat data when chatId changes (same component reuse) ───
 watch(chatId, async (newId, oldId) => {
   if (!newId || newId === oldId) return
+  if (window.innerWidth < 640) sidebarHidden.value = true
   stopChatSse()
   clearTimeout(typingTimeout)
   clearTimeout(typingDebounce)
@@ -1322,6 +1328,10 @@ watch(chatId, async (newId, oldId) => {
 }, { immediate: false })
 
 // ─── lifecycle ────────────────────────────────────────────────────
+function onWindowResize() {
+  if (window.innerWidth < 640 && !sidebarHidden.value) sidebarHidden.value = true
+}
+
 onMounted(async () => {
   [me.value] = await Promise.all([api.me()])
   await Promise.all([load(), loadSidebarChats()])
@@ -1331,6 +1341,7 @@ onMounted(async () => {
     await markReadIfPossible()
   }
   document.addEventListener('visibilitychange', markReadIfPossible)
+  window.addEventListener('resize', onWindowResize)
   api.ping().catch(() => {})
   pingInterval = setInterval(() => api.ping().catch(() => {}), 30000)
 })
@@ -1341,6 +1352,7 @@ onBeforeUnmount(() => {
   clearTimeout(typingTimeout)
   clearTimeout(typingDebounce)
   document.removeEventListener('visibilitychange', markReadIfPossible)
+  window.removeEventListener('resize', onWindowResize)
   cancelRecording()
 })
 </script>
