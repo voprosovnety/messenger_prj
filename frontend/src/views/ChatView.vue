@@ -128,14 +128,14 @@
           <span class="pinned-bar-label">Pinned{{ pinnedMessages.length > 1 ? ` · ${pinnedIndex + 1} / ${pinnedMessages.length}` : '' }}</span>
           <span class="pinned-bar-content">{{ pinnedPreview(currentPinned) }}</span>
         </div>
-        <template v-if="pinnedMessages.length > 1">
-          <button class="btn-icon pinned-nav-btn" title="Previous" @click.stop="pinnedIndex = (pinnedIndex - 1 + pinnedMessages.length) % pinnedMessages.length">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        <div v-if="pinnedMessages.length > 1" class="pinned-nav-col">
+          <button class="btn-icon pinned-nav-btn" title="Previous pinned" @click.stop="navigatePin(-1)">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
           </button>
-          <button class="btn-icon pinned-nav-btn" title="Next" @click.stop="pinnedIndex = (pinnedIndex + 1) % pinnedMessages.length">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          <button class="btn-icon pinned-nav-btn" title="Next pinned" @click.stop="navigatePin(1)">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-        </template>
+        </div>
         <button v-if="canPin" class="btn-icon" style="padding:4px;flex-shrink:0" title="Unpin" @click.stop="doPin(currentPinned.id)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -1364,6 +1364,12 @@ function pinnedPreview(pm) {
   if (pm.attachment_type === 'video') return 'Video message'
   if (pm.attachment_url) return pm.attachment_name || 'File'
   return ''
+}
+
+async function navigatePin(delta) {
+  pinnedIndex.value = (pinnedIndex.value + delta + pinnedMessages.value.length) % pinnedMessages.value.length
+  const pm = pinnedMessages.value[pinnedIndex.value]
+  if (pm) await jumpToMessage(pm.id)
 }
 
 function updatePinnedIndexFromScroll() {
