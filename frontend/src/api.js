@@ -304,6 +304,13 @@ export const api = {
         }
     },
 
+    listOnlineUsers: async () => {
+        const res = await request('/api/users/online')
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to load online users')
+        return json
+    },
+
     toggleReaction: async (chatId, messageId, emoji) => {
         const res = await request(`/api/chats/${chatId}/messages/${messageId}/reactions`, {
             method: 'POST',
