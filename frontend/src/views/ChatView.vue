@@ -1009,7 +1009,6 @@ function onEmojiSelect(emoji) {
     return
   }
   input.value += emoji
-  showEmojiPicker.value = false
   composerEl.value?.focus()
 }
 
