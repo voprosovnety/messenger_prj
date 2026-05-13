@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\AvatarHistory;
 use App\Entity\Chat;
 use App\Entity\ChatMember;
 use App\Entity\Message;
@@ -88,7 +89,17 @@ final class RenameChatController
         }
 
         if ($avatarUrl !== null) {
-            $chat->setAvatarUrl($avatarUrl ?: null);
+            $newUrl = $avatarUrl ?: null;
+            if ($newUrl && $newUrl !== $chat->getAvatarUrl()) {
+                $exists = $em->getRepository(AvatarHistory::class)->findOneBy(['chat' => $chat, 'avatarUrl' => $newUrl]);
+                if (!$exists) {
+                    $h = new AvatarHistory();
+                    $h->setChat($chat);
+                    $h->setAvatarUrl($newUrl);
+                    $em->persist($h);
+                }
+            }
+            $chat->setAvatarUrl($newUrl);
             $em->flush();
         }
 
