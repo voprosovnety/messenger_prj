@@ -9,6 +9,9 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Entity(repositoryClass: ChatRepository::class)]
 class Chat
 {
+    #[ORM\ManyToOne(targetEntity: Message::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Message $pinnedMessage = null;
     #[ORM\Id]
     #[ORM\Column(type: 'uuid', unique: true)]
     private ?Uuid $id = null;
@@ -81,4 +84,7 @@ class Chat
 
     public function getAvatarUrl(): ?string { return $this->avatarUrl; }
     public function setAvatarUrl(?string $v): static { $this->avatarUrl = $v; return $this; }
+
+    public function getPinnedMessage(): ?Message { return $this->pinnedMessage; }
+    public function setPinnedMessage(?Message $v): static { $this->pinnedMessage = $v; return $this; }
 }

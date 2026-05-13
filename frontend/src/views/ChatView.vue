@@ -121,6 +121,18 @@
         </div>
       </div>
 
+      <!-- Pinned message bar -->
+      <div v-if="pinnedMessage && !isAiChat" class="pinned-bar" @click="jumpToMessage(pinnedMessage.id)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
+        <div class="pinned-bar-info">
+          <span class="pinned-bar-label">Pinned message</span>
+          <span class="pinned-bar-content">{{ pinnedMessage.content }}</span>
+        </div>
+        <button v-if="canPin" class="btn-icon" style="padding:4px;flex-shrink:0" title="Unpin" @click.stop="doPin(null)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
       <!-- Messages + Members panel wrapper -->
       <div style="display:flex;flex:1;min-height:0;overflow:hidden">
         <!-- Messages -->
@@ -173,6 +185,9 @@
                           </button>
                           <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Reply" @click="startReply(m)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+                          </button>
+                          <button v-if="canPin" class="btn-icon" style="padding:4px 6px;border-radius:4px" :title="pinnedMessage?.id === m.id ? 'Unpin' : 'Pin'" @click="doPin(pinnedMessage?.id === m.id ? null : m.id)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
                           </button>
                           <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="React" @click.stop="openReactionPicker(m.id, $event)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
@@ -535,6 +550,8 @@ const recording = ref(false)
 const aiMessages = ref([])
 const aiLoading = ref(false)
 
+const pinnedMessage = ref(null)
+
 const showGroupProfile = ref(false)
 const showOnlinePanel = ref(false)
 const onlineUsers = ref([])
@@ -575,6 +592,7 @@ function isUserOnline(user) {
 }
 
 const isPeerOnline = computed(() => peerUser.value ? isUserOnline(peerUser.value) : false)
+const canPin = computed(() => !isAiChat.value && (isOwner.value || !isGroup.value))
 
 const grouped = computed(() => {
   const groups = []
@@ -712,6 +730,7 @@ async function load() {
     ])
     chat.value = chatData
     participants.value = chatData.participants || []
+    pinnedMessage.value = chatData.pinned_message || null
     messages.value = msgData.items || []
     nextCursor.value = msgData.next_cursor || null
     hasMore.value = !!msgData.next_cursor
@@ -902,6 +921,10 @@ async function connectSse() {
         if (payload.type === 'message.reaction') {
           const i = messages.value.findIndex(m => m.id === d.message_id)
           if (i !== -1) messages.value[i].reactions = d.reactions
+          return
+        }
+        if (payload.type === 'message.pinned') {
+          pinnedMessage.value = d.pinned_message || null
           return
         }
         if (payload.type === 'user.typing') {
@@ -1299,6 +1322,13 @@ async function removeMessage(m) {
   finally { busy.value = false }
 }
 
+async function doPin(messageId) {
+  try {
+    const res = await api.pinMessage(chatId.value, messageId)
+    pinnedMessage.value = res.pinned_message || null
+  } catch (e) { error.value = e.message }
+}
+
 async function deleteChat() {
   if (!confirm('Delete this chat permanently?')) return
   const id = chatId.value
@@ -1357,6 +1387,7 @@ watch(chatId, async (newId, oldId) => {
   loadingMore.value = false
   chat.value = null
   participants.value = []
+  pinnedMessage.value = null
   peerDeliveredId.value = null
   peerReadId.value = null
   typingUser.value = ''

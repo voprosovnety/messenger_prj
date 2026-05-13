@@ -58,6 +58,8 @@ final class GetChatController
             ];
         }
 
+        $pinned = $chat->getPinnedMessage();
+
         return new JsonResponse([
             'id' => (string) $chat->getId(),
             'is_group' => $chat->isGroup(),
@@ -68,6 +70,11 @@ final class GetChatController
             'peer_username' => $peerUsername,
             'my_role' => $chat->isGroup() ? $myMembership->getRole() : null,
             'participants' => $participants,
+            'pinned_message' => $pinned ? [
+                'id'      => (string) $pinned->getId(),
+                'sender'  => $pinned->getSender()?->getUsername(),
+                'content' => $pinned->getContent(),
+            ] : null,
         ]);
     }
 }

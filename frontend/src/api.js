@@ -311,6 +311,16 @@ export const api = {
         return json
     },
 
+    pinMessage: async (chatId, messageId) => {
+        const res = await request(`/api/chats/${chatId}/pin`, {
+            method: 'POST',
+            body: JSON.stringify({ message_id: messageId ?? null }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to pin message')
+        return json
+    },
+
     toggleReaction: async (chatId, messageId, emoji) => {
         const res = await request(`/api/chats/${chatId}/messages/${messageId}/reactions`, {
             method: 'POST',
