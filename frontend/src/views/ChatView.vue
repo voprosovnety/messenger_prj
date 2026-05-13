@@ -56,7 +56,9 @@
               <span class="chat-item-time">{{ formatTimeShort(c.last_message?.created_at) }}</span>
             </div>
             <div class="chat-item-top" style="margin-top:1px">
-              <span class="chat-item-preview">{{ sidebarPreview(c) }}</span>
+              <span class="chat-item-preview">
+                <span v-if="draftMap[c.id]" class="draft-label">Draft: </span>{{ sidebarPreview(c) }}
+              </span>
               <span v-if="(c.unread_count || 0) > 0" class="unread-badge">{{ c.unread_count }}</span>
             </div>
           </div>
@@ -564,6 +566,7 @@ const pinnedIndex = ref(0)
 const showGroupProfile = ref(false)
 const showOnlinePanel = ref(false)
 const onlineUsers = ref([])
+const draftMap = ref({})
 const showEmojiPicker = ref(false)
 const reactionPickerMsgId = ref(null)
 const reactionPickerPos = ref({ x: 0, y: 0 })
@@ -696,7 +699,27 @@ function formatRelative(iso) {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
+function saveDraft(id, text) {
+  if (!id || id === 'ai') return
+  if (text) {
+    localStorage.setItem(`draft:${id}`, text)
+    draftMap.value = { ...draftMap.value, [id]: text }
+  } else {
+    localStorage.removeItem(`draft:${id}`)
+    const m = { ...draftMap.value }
+    delete m[id]
+    draftMap.value = m
+  }
+}
+
+function loadDraft(id) {
+  if (!id || id === 'ai') return ''
+  return localStorage.getItem(`draft:${id}`) || ''
+}
+
 function sidebarPreview(c) {
+  const draft = draftMap.value[c.id]
+  if (draft) return draft
   const lm = c.last_message
   if (!lm) return 'No messages'
   const prefix = c.is_group && lm.sender_username ? lm.sender_username + ': ' : (lm.sender_username === me.value?.username ? 'You: ' : '')
@@ -1308,7 +1331,7 @@ function startEdit(m) {
 function cancelEdit() {
   editingId.value = null
   editingText.value = ''
-  input.value = ''
+  input.value = loadDraft(chatId.value)
 }
 
 async function saveEdit() {
@@ -1464,6 +1487,10 @@ async function createChat() {
 
 watch(showOnlinePanel, (val) => { if (val) loadOnlineUsers() })
 
+watch(input, (val) => {
+  if (!editingId.value && !isAiChat.value) saveDraft(chatId.value, val)
+})
+
 // ─── watcher: reloads chat data when chatId changes (same component reuse) ───
 watch(chatId, async (newId, oldId) => {
   if (!newId || newId === oldId) return
@@ -1510,6 +1537,16 @@ function onWindowResize() {
 onMounted(async () => {
   [me.value] = await Promise.all([api.me()])
   await Promise.all([load(), loadSidebarChats()])
+  const map = {}
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key?.startsWith('draft:')) {
+      const val = localStorage.getItem(key)
+      if (val) map[key.slice(6)] = val
+    }
+  }
+  draftMap.value = map
+  input.value = loadDraft(chatId.value)
   await connectSse()
   if (!isAiChat.value) {
     clearCurrentChatUnread()

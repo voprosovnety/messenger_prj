@@ -340,6 +340,7 @@ textarea.input {
 }
 .chat-item.active .chat-item-name { color: var(--text); }
 .chat-item.active .chat-item-preview { color: var(--text-2); }
+.draft-label { color: var(--danger); font-size: 12px; }
 
 .unread-badge {
   background: var(--accent);
