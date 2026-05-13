@@ -582,6 +582,8 @@ let chatSseTimer = null
 let chatSseGen = 0
 let pingInterval = null
 let onlineUsersInterval = null
+let pinnedNavLock = false
+let pinnedNavLockTimer = null
 
 // ─── computed ────────────────────────────────────────────────────
 const isAiChat = computed(() => chatId.value === 'ai')
@@ -936,10 +938,9 @@ async function connectSse() {
           return
         }
         if (payload.type === 'message.pinned') {
+          const currentId = currentPinned.value?.id
           pinnedMessages.value = d.pinned_messages || []
-          if (pinnedIndex.value >= pinnedMessages.value.length) {
-            pinnedIndex.value = Math.max(0, pinnedMessages.value.length - 1)
-          }
+          pinnedIndex.value = stablePinnedIndex(pinnedMessages.value, currentId)
           return
         }
         if (payload.type === 'user.typing') {
@@ -1339,11 +1340,10 @@ async function removeMessage(m) {
 
 async function doPin(messageId) {
   try {
+    const currentId = currentPinned.value?.id
     const res = await api.pinMessage(chatId.value, messageId)
     pinnedMessages.value = res.pinned_messages || []
-    if (pinnedIndex.value >= pinnedMessages.value.length) {
-      pinnedIndex.value = Math.max(0, pinnedMessages.value.length - 1)
-    }
+    pinnedIndex.value = stablePinnedIndex(pinnedMessages.value, currentId)
   } catch (e) { error.value = e.message }
 }
 
@@ -1366,23 +1366,43 @@ function pinnedPreview(pm) {
   return ''
 }
 
+function lockPinnedNav() {
+  pinnedNavLock = true
+  clearTimeout(pinnedNavLockTimer)
+  pinnedNavLockTimer = setTimeout(() => { pinnedNavLock = false }, 1500)
+}
+
+function stablePinnedIndex(newList, currentId) {
+  if (!newList.length) return 0
+  if (currentId) {
+    const idx = newList.findIndex(p => p.id === currentId)
+    if (idx >= 0) return idx
+  }
+  return Math.min(pinnedIndex.value, newList.length - 1)
+}
+
 async function clickPinnedBar() {
   const pm = currentPinned.value
   if (!pm) return
+  const len = pinnedMessages.value.length
+  const nextIdx = len > 1 ? (pinnedIndex.value + 1) % len : pinnedIndex.value
+  lockPinnedNav()
   await jumpToMessage(pm.id)
-  if (pinnedMessages.value.length > 1) {
-    pinnedIndex.value = (pinnedIndex.value + 1) % pinnedMessages.value.length
-  }
+  pinnedIndex.value = nextIdx
 }
 
 async function navigatePin(delta) {
-  pinnedIndex.value = (pinnedIndex.value + delta + pinnedMessages.value.length) % pinnedMessages.value.length
-  const pm = pinnedMessages.value[pinnedIndex.value]
+  const len = pinnedMessages.value.length
+  if (!len) return
+  const nextIdx = (pinnedIndex.value + delta + len) % len
+  pinnedIndex.value = nextIdx
+  lockPinnedNav()
+  const pm = pinnedMessages.value[nextIdx]
   if (pm) await jumpToMessage(pm.id)
 }
 
 function updatePinnedIndexFromScroll() {
-  if (pinnedMessages.value.length <= 1 || !listEl.value) return
+  if (pinnedNavLock || pinnedMessages.value.length <= 1 || !listEl.value) return
   const container = listEl.value
   const containerRect = container.getBoundingClientRect()
   let bestIdx = 0
