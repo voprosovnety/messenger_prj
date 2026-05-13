@@ -19,6 +19,11 @@
         @open-profile="openUserProfile"
         @close="showOnlinePanel = false"
       />
+      <GlobalSearchPanel
+        v-else-if="globalSearchOpen"
+        @close="globalSearchOpen = false"
+        @select="onGlobalSearchSelect"
+      />
       <div v-else class="sidebar-chats">
         <!-- AI Assistant entry -->
         <button
@@ -40,7 +45,12 @@
           </div>
         </button>
 
-        <p v-if="sidebarChats.length" class="chats-section-label">Conversations</p>
+        <div v-if="sidebarChats.length" class="chats-section-header">
+          <span class="chats-section-label">Conversations</span>
+          <button class="btn-icon chats-section-search-btn" title="Search all messages" @click="globalSearchOpen = true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </button>
+        </div>
         <button
           v-for="c in sidebarChats"
           :key="c.id"
@@ -614,6 +624,7 @@ import GroupProfileModal from '../components/GroupProfileModal.vue'
 import OnlineUsersPanel from '../components/OnlineUsersPanel.vue'
 import PollMessage from '../components/PollMessage.vue'
 import PollForm from '../components/PollForm.vue'
+import GlobalSearchPanel from '../components/GlobalSearchPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -675,6 +686,7 @@ const pinnedIndex = ref(0)
 
 const showGroupProfile = ref(false)
 const showOnlinePanel = ref(false)
+const globalSearchOpen = ref(false)
 const onlineUsers = ref([])
 const draftMap = ref({})
 const showEmojiPicker = ref(false)
@@ -1524,6 +1536,18 @@ function openUserProfile(username) {
   profileUsername.value = username
 }
 
+function onGlobalSearchSelect({ chatId: targetChatId, messageId }) {
+  globalSearchOpen.value = false
+  if (targetChatId === chatId.value) {
+    jumpToMessage(messageId)
+    if (route.query.highlight) {
+      router.replace({ query: { ...route.query, highlight: undefined } })
+    }
+    return
+  }
+  router.push({ path: `/chats/${targetChatId}`, query: { highlight: messageId } })
+}
+
 function startReply(m) {
   replyingTo.value = { id: m.id, sender: m.sender, content: m.content, deleted: !!m.deleted_at }
   composerEl.value?.focus()
@@ -1542,6 +1566,14 @@ async function jumpToMessage(id) {
   el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   highlightedId.value = id
   setTimeout(() => { highlightedId.value = null }, 1800)
+}
+
+async function maybeJumpFromQuery() {
+  const id = route.query.highlight
+  if (!id || isAiChat.value) return
+  await jumpToMessage(id)
+  const { highlight, ...rest } = route.query
+  router.replace({ query: rest })
 }
 
 function cancelReply() {
@@ -1774,6 +1806,7 @@ watch(chatId, async (newId, oldId) => {
   closeReactionPicker()
   showGroupProfile.value = false
   closeSearch()
+  globalSearchOpen.value = false
   showForwardModal.value = false
   forwardingMsg.value = null
   await load()
@@ -1782,6 +1815,7 @@ watch(chatId, async (newId, oldId) => {
     clearCurrentChatUnread()
     await markReadIfPossible()
   }
+  await maybeJumpFromQuery()
 }, { immediate: false })
 
 // ─── lifecycle ────────────────────────────────────────────────────
@@ -1807,6 +1841,7 @@ onMounted(async () => {
     clearCurrentChatUnread()
     await markReadIfPossible()
   }
+  await maybeJumpFromQuery()
   document.addEventListener('visibilitychange', markReadIfPossible)
   window.addEventListener('resize', onWindowResize)
   api.ping().catch(() => {})

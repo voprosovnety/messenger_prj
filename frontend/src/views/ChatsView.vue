@@ -19,12 +19,22 @@
         @open-profile="openUserProfile"
         @close="showOnlinePanel = false"
       />
+      <GlobalSearchPanel
+        v-else-if="globalSearchOpen"
+        @close="globalSearchOpen = false"
+        @select="onGlobalSearchSelect"
+      />
       <div v-else class="sidebar-chats">
         <div v-if="loading" style="padding:12px 16px;color:var(--text-3);font-size:13px;">Loading…</div>
         <div v-if="error" style="padding:12px 16px;color:var(--danger);font-size:13px;">{{ error }}</div>
 
         <template v-if="chats.length">
-          <p class="chats-section-label">Conversations</p>
+          <div class="chats-section-header">
+            <span class="chats-section-label">Conversations</span>
+            <button class="btn-icon chats-section-search-btn" title="Search all messages" @click="globalSearchOpen = true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </button>
+          </div>
           <button
             v-for="c in chats"
             :key="c.id"
@@ -151,6 +161,7 @@ import { api } from '../api'
 import UserAvatar from '../components/UserAvatar.vue'
 import OnlineUsersPanel from '../components/OnlineUsersPanel.vue'
 import UserProfileModal from '../components/UserProfileModal.vue'
+import GlobalSearchPanel from '../components/GlobalSearchPanel.vue'
 
 const router = useRouter()
 const chats = ref([])
@@ -167,6 +178,7 @@ const createError = ref('')
 
 const me = ref(null)
 const showOnlinePanel = ref(false)
+const globalSearchOpen = ref(false)
 const onlineUsers = ref([])
 const profileUsername = ref(null)
 let es = null
@@ -186,6 +198,11 @@ async function loadOnlineUsers() {
 function openUserProfile(username) {
   if (!username) return
   profileUsername.value = username
+}
+
+function onGlobalSearchSelect({ chatId, messageId }) {
+  globalSearchOpen.value = false
+  router.push({ path: `/chats/${chatId}`, query: { highlight: messageId } })
 }
 
 async function loadChats() {
