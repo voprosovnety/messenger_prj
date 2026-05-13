@@ -146,8 +146,7 @@
                       {{ m.sender }}
                     </div>
 
-                    <template>
-                      <div class="message-bubble-outer" :class="{ 'editing-active': editingId === m.id }">
+                    <div class="message-bubble-outer" :class="{ 'editing-active': editingId === m.id }">
                         <!-- Actions -->
                         <div v-if="!m.deleted_at && !isAiChat" class="message-actions">
                           <button v-if="isMine(m)" class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Edit" @click="startEdit(m)">
@@ -198,17 +197,16 @@
                             </template>
                           </template>
                         </div>
-                      </div>
+                    </div>
 
-                      <div class="message-meta">
-                        <span class="message-time">{{ formatTime(m.created_at) }}</span>
-                        <span v-if="m.edited_at && !m.deleted_at" class="message-edited">edited</span>
-                        <span v-if="isMine(m) && !m.deleted_at" class="message-ticks" :class="{ read: peerReadId && idLE(m.id, peerReadId) }">
-                          <template v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</template>
-                          <template v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</template>
-                        </span>
-                      </div>
-                    </template>
+                    <div class="message-meta">
+                      <span class="message-time">{{ formatTime(m.created_at) }}</span>
+                      <span v-if="m.edited_at && !m.deleted_at" class="message-edited">edited</span>
+                      <span v-if="isMine(m) && !m.deleted_at" class="message-ticks" :class="{ read: peerReadId && idLE(m.id, peerReadId) }">
+                        <template v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</template>
+                        <template v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</template>
+                      </span>
+                    </div>
                   </div>
 
                 </div>
