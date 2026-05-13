@@ -44,42 +44,57 @@ final class RenameChatController
         }
 
         $data = json_decode($request->getContent(), true);
-        $title = trim((string) ($data['title'] ?? ''));
-        if ($title === '') {
+        $title     = isset($data['title'])      ? trim((string) $data['title']) : null;
+        $avatarUrl = isset($data['avatar_url']) ? trim((string) $data['avatar_url']) : null;
+
+        if ($title === null && $avatarUrl === null) {
+            return new JsonResponse(['error' => 'title or avatar_url is required'], 400);
+        }
+        if ($title !== null && $title === '') {
             return new JsonResponse(['error' => 'title cannot be empty'], 400);
         }
 
-        $chat->setTitle($title);
-
-        $sysMsg = new Message();
-        $sysMsg->setChat($chat);
-        $sysMsg->setType('system');
-        $sysMsg->setContent($me->getUsername() . ' renamed the group to "' . $title . '"');
-        $em->persist($sysMsg);
-
-        $em->flush();
-
-        $chatTopic = sprintf('/chats/%s/messages', $chatId);
-
-        $sysMsgData = [
-            'id'         => (string) $sysMsg->getId(),
-            'chat_id'    => $chatId,
-            'type'       => 'system',
-            'sender'     => null,
-            'content'    => $sysMsg->getContent(),
-            'created_at' => $sysMsg->getCreatedAt()->format(DATE_ATOM),
-        ];
-        $hub->publish(new Update($chatTopic, json_encode(['type' => 'message.created', 'data' => $sysMsgData], JSON_UNESCAPED_SLASHES), true));
-
         $members = $em->getRepository(ChatMember::class)->findBy(['chat' => $chat]);
-        $updatedPayload = json_encode([
-            'type' => 'chat.updated',
-            'data' => ['chat_id' => $chatId, 'title' => $title],
-        ], JSON_UNESCAPED_SLASHES);
-        foreach ($members as $member) {
-            $hub->publish(new Update(sprintf('/users/%s', (string) $member->getMember()->getId()), $updatedPayload, true));
+
+        if ($title !== null) {
+            $chat->setTitle($title);
+
+            $sysMsg = new Message();
+            $sysMsg->setChat($chat);
+            $sysMsg->setType('system');
+            $sysMsg->setContent($me->getUsername() . ' renamed the group to "' . $title . '"');
+            $em->persist($sysMsg);
+
+            $em->flush();
+
+            $chatTopic = sprintf('/chats/%s/messages', $chatId);
+            $sysMsgData = [
+                'id'         => (string) $sysMsg->getId(),
+                'chat_id'    => $chatId,
+                'type'       => 'system',
+                'sender'     => null,
+                'content'    => $sysMsg->getContent(),
+                'created_at' => $sysMsg->getCreatedAt()->format(DATE_ATOM),
+            ];
+            $hub->publish(new Update($chatTopic, json_encode(['type' => 'message.created', 'data' => $sysMsgData], JSON_UNESCAPED_SLASHES), true));
+
+            $updatedPayload = json_encode([
+                'type' => 'chat.updated',
+                'data' => ['chat_id' => $chatId, 'title' => $title],
+            ], JSON_UNESCAPED_SLASHES);
+            foreach ($members as $member) {
+                $hub->publish(new Update(sprintf('/users/%s', (string) $member->getMember()->getId()), $updatedPayload, true));
+            }
         }
 
-        return new JsonResponse(['title' => $title]);
+        if ($avatarUrl !== null) {
+            $chat->setAvatarUrl($avatarUrl ?: null);
+            $em->flush();
+        }
+
+        return new JsonResponse([
+            'title'      => $chat->getTitle(),
+            'avatar_url' => $chat->getAvatarUrl(),
+        ]);
     }
 }

@@ -137,6 +137,23 @@ export const api = {
         return json
     },
 
+    updateChatAvatar: async (chatId, avatarUrl) => {
+        const res = await request(`/api/chats/${chatId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ avatar_url: avatarUrl }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to update chat avatar')
+        return json
+    },
+
+    getUser: async (username) => {
+        const res = await request(`/api/users/${username}`)
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'User not found')
+        return json
+    },
+
     deleteChat: async (chatId) => {
         const res = await request(`/api/chats/${chatId}`, { method: 'DELETE' })
         const json = await res.json().catch(() => ({}))

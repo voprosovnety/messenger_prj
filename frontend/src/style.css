@@ -767,6 +767,7 @@ textarea.input {
   max-width: 440px;
   padding: 28px;
   box-shadow: var(--shadow);
+  position: relative;
 }
 .modal-header {
   display: flex;
@@ -831,6 +832,20 @@ textarea.input {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+.members-panel-avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 16px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.members-panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+}
 .member-item {
   display: flex;
   align-items: center;
@@ -889,6 +904,61 @@ textarea.input {
   align-items: center;
   gap: 20px;
   margin-bottom: 28px;
+}
+
+/* ─── Avatar upload button (overlays avatar) ─────────────────── */
+.avatar-upload-btn {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #fff;
+  border: 2px solid var(--bg);
+  transition: background 0.15s;
+}
+.avatar-upload-btn:hover { background: var(--accent-hover); }
+.avatar-upload-btn.loading { opacity: 0.6; cursor: not-allowed; }
+
+/* ─── User profile modal ─────────────────────────────────────── */
+.user-profile-modal {
+  max-width: 320px;
+  text-align: center;
+  padding: 32px 24px 24px;
+}
+.modal-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+.user-profile-avatar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.user-profile-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.user-profile-status {
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+.status-online { color: #22c55e; }
+.status-offline { color: var(--text-3); }
+.user-profile-actions { display: flex; flex-direction: column; gap: 8px; }
+.user-profile-loading {
+  padding: 24px;
+  color: var(--text-2);
+  font-size: 14px;
 }
 
 /* ─── Toast notifications ────────────────────────────────────── */

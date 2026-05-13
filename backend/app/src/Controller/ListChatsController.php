@@ -25,11 +25,13 @@ SELECT
   c.id::text                                 AS chat_id,
   c.is_group                                 AS is_group,
   c.title                                    AS title,
+  c.avatar_url                               AS group_avatar_url,
   c.created_at                               AS chat_created_at,
   cm.role                                    AS my_role,
   cm.joined_at                               AS joined_at,
 
   peer.username                              AS peer_username,
+  peer.avatar_url                            AS peer_avatar_url,
 
   CASE
     WHEN c.is_group THEN COALESCE(c.title, 'Group chat')
@@ -48,7 +50,7 @@ JOIN chat c ON c.id = cm.chat_id
 
 -- peer для DM (первый участник, который не мы)
 LEFT JOIN LATERAL (
-  SELECT u2.username
+  SELECT u2.username, u2.avatar_url
   FROM chat_member cm2
   JOIN "user" u2 ON u2.id = cm2.member_id
   WHERE cm2.chat_id = c.id
@@ -108,6 +110,7 @@ SQL;
                 'is_group' => $isGroup,
                 'title' => $r['title'],
                 'display_name' => $r['display_name'],
+                'avatar_url'   => $isGroup ? $r['group_avatar_url'] : $r['peer_avatar_url'],
                 'peer_username' => $r['peer_username'], // null для group
                 'created_at' => (new \DateTimeImmutable($r['chat_created_at']))->format(DATE_ATOM),
 

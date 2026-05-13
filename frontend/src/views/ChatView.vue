@@ -40,7 +40,7 @@
           type="button"
           @click="router.push(`/chats/${c.id}`)"
         >
-          <UserAvatar :username="c.display_name || c.id" size="md" />
+          <UserAvatar :username="c.display_name || c.id" :avatarUrl="c.avatar_url || null" size="md" />
           <div class="chat-item-info">
             <div class="chat-item-top">
               <span class="chat-item-name">{{ c.display_name || c.id }}</span>
@@ -82,7 +82,13 @@
 
       <!-- Header -->
       <div class="chat-header">
-        <UserAvatar :username="chatTitle" size="md" />
+        <UserAvatar
+          :username="chatTitle"
+          :avatarUrl="isGroup ? chat?.avatar_url : (peerUser?.avatar_url ?? null)"
+          size="md"
+          :style="!isGroup && peerUser ? 'cursor:pointer' : ''"
+          @click="!isGroup && peerUser ? openUserProfile(peerUser.username) : undefined"
+        />
         <div class="chat-header-info">
           <div class="chat-header-name">{{ chatTitle }}</div>
           <div class="chat-header-sub">
@@ -137,12 +143,14 @@
                       :username="m.sender"
                       :avatarUrl="m.sender_avatar_url"
                       size="sm"
+                      style="cursor:pointer"
+                      @click="openUserProfile(m.sender)"
                     />
                   </div>
 
                   <div class="message-bubble-wrap">
                     <!-- Sender name (group chats, others only) -->
-                    <div v-if="isGroup && !isMine(m) && (idx === 0 || g.items[idx-1].sender !== m.sender)" class="message-sender-name">
+                    <div v-if="isGroup && !isMine(m) && (idx === 0 || g.items[idx-1].sender !== m.sender)" class="message-sender-name" style="cursor:pointer" @click="openUserProfile(m.sender)">
                       {{ m.sender }}
                     </div>
 
@@ -311,7 +319,18 @@
 
         <!-- Members sidebar (group chats) -->
         <div v-if="isGroup && showMembersPanel" class="members-panel">
-          <div class="members-panel-header">Members</div>
+          <!-- Group avatar -->
+          <div class="members-panel-avatar">
+            <div style="position:relative;display:inline-block">
+              <UserAvatar :username="chatTitle" :avatarUrl="chat?.avatar_url" size="xl" />
+              <label v-if="isOwner" class="avatar-upload-btn" title="Change group photo" :class="{ loading: groupAvatarUploading }">
+                <input type="file" accept="image/*" style="display:none" :disabled="groupAvatarUploading" @change="onGroupAvatarFile" />
+                <svg v-if="!groupAvatarUploading" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              </label>
+            </div>
+            <div class="members-panel-title">{{ chatTitle }}</div>
+          </div>
 
           <div v-if="isOwner" style="padding:10px 12px;border-bottom:1px solid var(--border)">
             <div v-if="!showRename">
@@ -355,8 +374,8 @@
           </div>
 
           <div v-for="p in participants" :key="p.id" class="member-item">
-            <UserAvatar :username="p.username" :avatarUrl="p.avatar_url" :isOnline="isUserOnline(p)" size="sm" />
-            <div class="member-item-info">
+            <UserAvatar :username="p.username" :avatarUrl="p.avatar_url" :isOnline="isUserOnline(p)" size="sm" :style="!p.is_me ? 'cursor:pointer' : ''" @click="!p.is_me ? openUserProfile(p.username) : undefined" />
+            <div class="member-item-info" :style="!p.is_me ? 'cursor:pointer' : ''" @click="!p.is_me ? openUserProfile(p.username) : undefined">
               <div class="member-item-name">{{ p.username }}<span v-if="p.is_me" style="color:var(--text-3);font-weight:400;font-size:12px"> (you)</span></div>
               <div class="member-item-role">{{ p.role.toLowerCase() }}</div>
             </div>
@@ -378,6 +397,16 @@
         </div>
       </div>
     </div>
+
+    <!-- User profile modal -->
+    <UserProfileModal
+      v-if="profileUsername"
+      :username="profileUsername"
+      :sidebarChats="sidebarChats"
+      @close="profileUsername = null"
+      @open-chat="(id) => { profileUsername = null; router.push(`/chats/${id}`) }"
+      @go-profile="router.push('/profile')"
+    />
 
     <!-- Image lightbox -->
     <ImageLightbox
@@ -431,6 +460,7 @@ import { api } from '../api'
 import UserAvatar from '../components/UserAvatar.vue'
 import AudioPlayer from '../components/AudioPlayer.vue'
 import ImageLightbox from '../components/ImageLightbox.vue'
+import UserProfileModal from '../components/UserProfileModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -484,6 +514,9 @@ let dragCounter = 0
 
 const lightboxOpen = ref(false)
 const lightboxIndex = ref(0)
+
+const profileUsername = ref(null)
+const groupAvatarUploading = ref(false)
 const composerError = ref('')
 const recording = ref(false)
 const aiMessages = ref([])
@@ -1064,6 +1097,26 @@ function onKeydown(e) {
     if (editingId.value) cancelEdit()
     else cancelReply()
   }
+}
+
+function openUserProfile(username) {
+  if (!username || username === me.value?.username) return
+  profileUsername.value = username
+}
+
+async function onGroupAvatarFile(e) {
+  const file = e.target.files[0]
+  e.target.value = ''
+  if (!file) return
+  groupAvatarUploading.value = true
+  try {
+    const result = await api.uploadFile(file)
+    await api.updateChatAvatar(chatId.value, result.url)
+    chat.value = { ...chat.value, avatar_url: result.url }
+    const idx = sidebarChats.value.findIndex(c => c.id === chatId.value)
+    if (idx !== -1) sidebarChats.value = sidebarChats.value.map((c, i) => i === idx ? { ...c, avatar_url: result.url } : c)
+  } catch (e) { error.value = e.message }
+  finally { groupAvatarUploading.value = false }
 }
 
 function startReply(m) {

@@ -12,7 +12,14 @@
 
       <template v-else>
         <div class="profile-avatar-section">
-          <UserAvatar :username="username || '?'" :avatarUrl="avatarUrl || null" size="xl" />
+          <div style="position:relative;flex-shrink:0">
+            <UserAvatar :username="username || '?'" :avatarUrl="avatarUrl || null" size="xl" />
+            <label class="avatar-upload-btn" title="Change photo" :class="{ loading: uploadingAvatar }">
+              <input type="file" accept="image/*" style="display:none" :disabled="uploadingAvatar" @change="onAvatarFile" />
+              <svg v-if="!uploadingAvatar" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            </label>
+          </div>
           <div>
             <div style="font-size:15px;font-weight:600;color:var(--text)">{{ username }}</div>
             <div style="font-size:13px;color:var(--text-2);margin-top:2px">{{ email }}</div>
@@ -29,11 +36,6 @@
             <label class="form-label">Username</label>
             <input :value="username" class="input" type="text" disabled style="opacity:0.5;cursor:not-allowed" />
             <p style="font-size:12px;color:var(--text-3);margin-top:4px">Username cannot be changed.</p>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Avatar URL <span style="color:var(--text-3)">(optional)</span></label>
-            <input v-model="avatarUrl" class="input" type="url" placeholder="https://example.com/avatar.jpg" />
-            <p style="font-size:12px;color:var(--text-3);margin-top:4px">Paste a direct link to a publicly accessible image.</p>
           </div>
           <div class="form-group">
             <label class="form-label">Email</label>
@@ -67,6 +69,7 @@ const email = ref('')
 const avatarUrl = ref('')
 const loading = ref(true)
 const saving = ref(false)
+const uploadingAvatar = ref(false)
 const error = ref('')
 const success = ref(false)
 
@@ -97,6 +100,25 @@ async function save() {
     error.value = e.message || 'Failed to update profile'
   } finally {
     saving.value = false
+  }
+}
+
+async function onAvatarFile(e) {
+  const file = e.target.files[0]
+  e.target.value = ''
+  if (!file) return
+  uploadingAvatar.value = true
+  error.value = ''
+  try {
+    const result = await api.uploadFile(file)
+    avatarUrl.value = result.url
+    await api.updateProfile({ avatarUrl: result.url })
+    success.value = true
+    setTimeout(() => { success.value = false }, 3000)
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    uploadingAvatar.value = false
   }
 }
 

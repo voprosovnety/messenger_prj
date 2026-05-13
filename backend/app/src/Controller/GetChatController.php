@@ -64,6 +64,7 @@ final class GetChatController
             'title' => $chat->getTitle(),
             'description' => $chat->getDescription(),
             'display_name' => $chat->isGroup() ? ($chat->getTitle() ?: 'Group chat') : ($peerUsername ?: 'DM'),
+            'avatar_url'   => $chat->getAvatarUrl(),
             'peer_username' => $peerUsername,
             'my_role' => $chat->isGroup() ? $myMembership->getRole() : null,
             'participants' => $participants,
