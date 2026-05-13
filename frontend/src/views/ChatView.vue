@@ -40,7 +40,7 @@
           type="button"
           @click="router.push(`/chats/${c.id}`)"
         >
-          <UserAvatar :username="c.display_name || c.id" size="md" />
+          <UserAvatar :username="c.display_name || c.id" :avatarUrl="c.avatar_url || null" size="md" />
           <div class="chat-item-info">
             <div class="chat-item-top">
               <span class="chat-item-name">{{ c.display_name || c.id }}</span>
@@ -67,10 +67,28 @@
     </aside>
 
     <!-- Main chat area -->
-    <div class="chat-area">
+    <div
+      class="chat-area"
+      @dragenter.prevent="onDragEnter"
+      @dragover.prevent
+      @dragleave="onDragLeave"
+      @drop.prevent="onDrop"
+    >
+      <!-- Drag-and-drop overlay -->
+      <div v-if="dragging && !isAiChat" class="drop-overlay">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        Drop to attach
+      </div>
+
       <!-- Header -->
       <div class="chat-header">
-        <UserAvatar :username="chatTitle" size="md" />
+        <UserAvatar
+          :username="chatTitle"
+          :avatarUrl="isGroup ? chat?.avatar_url : (peerUser?.avatar_url ?? null)"
+          size="md"
+          :style="!isGroup && peerUser ? 'cursor:pointer' : ''"
+          @click="!isGroup && peerUser ? openUserProfile(peerUser.username) : undefined"
+        />
         <div class="chat-header-info">
           <div class="chat-header-name">{{ chatTitle }}</div>
           <div class="chat-header-sub">
@@ -110,10 +128,12 @@
                 <div v-if="m.type === 'system'" class="system-notification">{{ m.content }}</div>
                 <div
                   v-else
+                  :id="`msg-${m.id}`"
                   class="message-row"
                   :class="{
                     own: isMine(m),
-                    'same-sender': idx > 0 && g.items[idx-1].sender === m.sender && !g.items[idx-1].deleted_at
+                    'same-sender': idx > 0 && g.items[idx-1].sender === m.sender && !g.items[idx-1].deleted_at,
+                    'msg-highlighted': highlightedId === m.id,
                   }"
                 >
                   <!-- Avatar slot (others only) -->
@@ -123,35 +143,18 @@
                       :username="m.sender"
                       :avatarUrl="m.sender_avatar_url"
                       size="sm"
+                      style="cursor:pointer"
+                      @click="openUserProfile(m.sender)"
                     />
                   </div>
 
                   <div class="message-bubble-wrap">
                     <!-- Sender name (group chats, others only) -->
-                    <div v-if="isGroup && !isMine(m) && (idx === 0 || g.items[idx-1].sender !== m.sender)" class="message-sender-name">
+                    <div v-if="isGroup && !isMine(m) && (idx === 0 || g.items[idx-1].sender !== m.sender)" class="message-sender-name" style="cursor:pointer" @click="openUserProfile(m.sender)">
                       {{ m.sender }}
                     </div>
 
-                    <!-- Editing mode -->
-                    <template v-if="isEditing(m)">
-                      <textarea
-                        v-model="editingText"
-                        class="input"
-                        style="width:100%;min-width:280px"
-                        rows="2"
-                        :disabled="busy"
-                        @keydown.esc.prevent="cancelEdit"
-                        @keydown.enter.exact.prevent="saveEdit(m)"
-                      />
-                      <div style="display:flex;gap:6px;margin-top:4px;justify-content:flex-end">
-                        <button class="btn btn-ghost" style="font-size:13px;padding:5px 10px" :disabled="busy" @click="cancelEdit">Cancel</button>
-                        <button class="btn btn-primary" style="font-size:13px;padding:5px 10px" :disabled="busy || !editingText.trim()" @click="saveEdit(m)">Save</button>
-                      </div>
-                    </template>
-
-                    <!-- Normal bubble -->
-                    <template v-else>
-                      <div class="message-bubble-outer">
+                    <div class="message-bubble-outer" :class="{ 'editing-active': editingId === m.id }">
                         <!-- Actions -->
                         <div v-if="!m.deleted_at && !isAiChat" class="message-actions">
                           <button v-if="isMine(m)" class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Edit" @click="startEdit(m)">
@@ -165,36 +168,55 @@
                           </button>
                         </div>
                         <div class="message-bubble" :class="{ deleted: !!m.deleted_at }">
-                          <div v-if="m.reply_to" class="reply-quote">
+                          <div v-if="m.reply_to" class="reply-quote" @click.stop="jumpToMessage(m.reply_to.id)">
                             <span class="reply-quote-sender">{{ m.reply_to.sender }}</span>
                             <span class="reply-quote-content">{{ m.reply_to.deleted ? 'Message deleted' : m.reply_to.content }}</span>
                           </div>
                           <span v-if="m.deleted_at" style="font-style:italic">Message deleted</span>
                           <template v-else>
                             <span v-if="m.content" style="white-space:pre-wrap;word-break:break-word">{{ m.content }}</span>
-                            <div v-if="m.attachment_url" class="attachment">
-                              <img v-if="m.attachment_type === 'image'" :src="m.attachment_url" class="attachment-img" @click="openUrl(m.attachment_url)" />
-                              <video v-else-if="m.attachment_type === 'video'" :src="m.attachment_url" controls class="attachment-video"></video>
-                              <AudioPlayer v-else-if="m.attachment_type === 'audio'" :src="m.attachment_url" />
-                              <a v-else :href="m.attachment_url" target="_blank" download class="attachment-file">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                {{ m.attachment_name || 'Download file' }}
-                              </a>
-                            </div>
+
+                            <!-- Image grid -->
+                            <template v-if="getAttachments(m).filter(a => a.type === 'image').length">
+                              <div
+                                class="attachment-grid"
+                                :class="`count-${Math.min(getAttachments(m).filter(a => a.type === 'image').length, 4)}`"
+                              >
+                                <img
+                                  v-for="(a, ai) in getAttachments(m).filter(a => a.type === 'image').slice(0, 4)"
+                                  :key="ai"
+                                  :src="a.url"
+                                  class="attachment-grid-img"
+                                  @click="openLightbox(a.url)"
+                                />
+                              </div>
+                            </template>
+
+                            <!-- Non-image attachments -->
+                            <template v-for="(a, ai) in getAttachments(m).filter(a => a.type !== 'image')" :key="ai">
+                              <div class="attachment">
+                                <video v-if="a.type === 'video'" :src="a.url" controls class="attachment-video"></video>
+                                <AudioPlayer v-else-if="a.type === 'audio'" :src="a.url" />
+                                <a v-else :href="a.url" target="_blank" download class="attachment-file">
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                  {{ a.name || 'Download file' }}
+                                </a>
+                              </div>
+                            </template>
                           </template>
                         </div>
-                      </div>
+                    </div>
 
-                      <div class="message-meta">
-                        <span class="message-time">{{ formatTime(m.created_at) }}</span>
-                        <span v-if="m.edited_at && !m.deleted_at" class="message-edited">edited</span>
-                        <span v-if="isMine(m) && !m.deleted_at" class="message-ticks" :class="{ read: peerReadId && idLE(m.id, peerReadId) }">
-                          <template v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</template>
-                          <template v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</template>
-                        </span>
-                      </div>
-                    </template>
+                    <div class="message-meta">
+                      <span class="message-time">{{ formatTime(m.created_at) }}</span>
+                      <span v-if="m.edited_at && !m.deleted_at" class="message-edited">edited</span>
+                      <span v-if="isMine(m) && !m.deleted_at" class="message-ticks" :class="{ read: peerReadId && idLE(m.id, peerReadId) }">
+                        <template v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</template>
+                        <template v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</template>
+                      </span>
+                    </div>
                   </div>
+
                 </div>
               </template>
             </template>
@@ -205,6 +227,17 @@
             <span v-if="isAiChat && aiLoading" class="ai-thinking">AI Assistant is thinking…</span>
             <span v-else-if="composerError" style="color:var(--danger);cursor:pointer" @click="composerError=''">⚠ {{ composerError }}</span>
             <span v-else-if="typingUser">{{ typingUser }} is typing…</span>
+          </div>
+
+          <!-- Editing bar -->
+          <div v-if="editingId" class="reply-bar editing-bar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span class="reply-bar-text">
+              <strong style="color:var(--accent)">Editing</strong>{{ editingText ? ': ' + editingText : '' }}
+            </span>
+            <button class="btn-icon" style="padding:4px" @click="cancelEdit">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
 
           <!-- Reply bar -->
@@ -218,12 +251,27 @@
             </button>
           </div>
 
-          <!-- Pending file preview -->
-          <div v-if="pendingFile" class="reply-bar">
-            <img v-if="pendingFile.previewUrl" :src="pendingFile.previewUrl" style="height:40px;width:40px;object-fit:cover;border-radius:4px;flex-shrink:0" />
-            <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-            <span class="reply-bar-text" style="font-size:13px">{{ pendingFile.name }}</span>
-            <button class="btn-icon" style="padding:4px" @click="cancelFile">
+          <!-- Pending files preview -->
+          <div v-if="pendingFiles.length" class="reply-bar" style="flex-wrap:wrap;gap:8px;align-items:flex-start">
+            <div
+              v-for="(f, fi) in pendingFiles"
+              :key="fi"
+              style="position:relative;flex-shrink:0"
+            >
+              <img v-if="f.previewUrl" :src="f.previewUrl" style="height:52px;width:52px;object-fit:cover;border-radius:6px;display:block" />
+              <div v-else style="height:52px;display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-2);max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                {{ f.name }}
+              </div>
+              <button
+                class="btn-icon"
+                style="position:absolute;top:-6px;right:-6px;background:var(--surface-2);border-radius:50%;width:18px;height:18px;padding:0;display:flex;align-items:center;justify-content:center"
+                @click="cancelFile(fi)"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <button class="btn-icon" style="padding:4px;align-self:center" title="Clear all" @click="cancelFile()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
@@ -232,7 +280,7 @@
           <div class="composer">
             <!-- Normal mode -->
             <template v-if="!recording">
-              <input ref="fileInputEl" type="file" style="display:none" @change="onFileSelect" />
+              <input ref="fileInputEl" type="file" multiple style="display:none" @change="onFileSelect" />
               <button v-if="!isAiChat" class="btn-icon composer-attach" title="Attach file" :disabled="uploading" @click="fileInputEl.click()">
                 <svg v-if="!uploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
@@ -249,7 +297,7 @@
               <button v-if="!isAiChat" class="btn-icon composer-mic" title="Record voice message" :disabled="uploading" @click="startRecording">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
               </button>
-              <button class="composer-send" :disabled="isAiChat ? (!input.trim() || aiLoading) : (!input.trim() && !pendingFile)" @click="send">
+              <button class="composer-send" :disabled="isAiChat ? (!input.trim() || aiLoading) : (!input.trim() && !pendingFiles.length)" @click="send">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
             </template>
@@ -271,7 +319,18 @@
 
         <!-- Members sidebar (group chats) -->
         <div v-if="isGroup && showMembersPanel" class="members-panel">
-          <div class="members-panel-header">Members</div>
+          <!-- Group avatar -->
+          <div class="members-panel-avatar">
+            <div style="position:relative;display:inline-block">
+              <UserAvatar :username="chatTitle" :avatarUrl="chat?.avatar_url" size="xl" />
+              <label v-if="isOwner" class="avatar-upload-btn" title="Change group photo" :class="{ loading: groupAvatarUploading }">
+                <input type="file" accept="image/*" style="display:none" :disabled="groupAvatarUploading" @change="onGroupAvatarFile" />
+                <svg v-if="!groupAvatarUploading" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+              </label>
+            </div>
+            <div class="members-panel-title">{{ chatTitle }}</div>
+          </div>
 
           <div v-if="isOwner" style="padding:10px 12px;border-bottom:1px solid var(--border)">
             <div v-if="!showRename">
@@ -315,8 +374,8 @@
           </div>
 
           <div v-for="p in participants" :key="p.id" class="member-item">
-            <UserAvatar :username="p.username" :avatarUrl="p.avatar_url" :isOnline="isUserOnline(p)" size="sm" />
-            <div class="member-item-info">
+            <UserAvatar :username="p.username" :avatarUrl="p.avatar_url" :isOnline="isUserOnline(p)" size="sm" :style="!p.is_me ? 'cursor:pointer' : ''" @click="!p.is_me ? openUserProfile(p.username) : undefined" />
+            <div class="member-item-info" :style="!p.is_me ? 'cursor:pointer' : ''" @click="!p.is_me ? openUserProfile(p.username) : undefined">
               <div class="member-item-name">{{ p.username }}<span v-if="p.is_me" style="color:var(--text-3);font-weight:400;font-size:12px"> (you)</span></div>
               <div class="member-item-role">{{ p.role.toLowerCase() }}</div>
             </div>
@@ -338,6 +397,25 @@
         </div>
       </div>
     </div>
+
+    <!-- User profile modal -->
+    <UserProfileModal
+      v-if="profileUsername"
+      :username="profileUsername"
+      :sidebarChats="sidebarChats"
+      @close="profileUsername = null"
+      @open-chat="(id) => { profileUsername = null; router.push(`/chats/${id}`) }"
+      @go-profile="router.push('/profile')"
+    />
+
+    <!-- Image lightbox -->
+    <ImageLightbox
+      v-if="lightboxOpen"
+      :images="allImages"
+      :index="lightboxIndex"
+      @close="lightboxOpen = false"
+      @navigate="lightboxIndex = $event"
+    />
 
     <!-- New chat modal -->
     <div v-if="showCreate" class="modal-overlay" @click.self="showCreate = false">
@@ -381,6 +459,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import UserAvatar from '../components/UserAvatar.vue'
 import AudioPlayer from '../components/AudioPlayer.vue'
+import ImageLightbox from '../components/ImageLightbox.vue'
+import UserProfileModal from '../components/UserProfileModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -402,6 +482,7 @@ const input = ref('')
 const editingId = ref(null)
 const editingText = ref('')
 const replyingTo = ref(null)
+const highlightedId = ref(null)
 const busy = ref(false)
 const error = ref('')
 
@@ -426,8 +507,16 @@ let typingDebounce = null
 const listEl = ref(null)
 const composerEl = ref(null)
 const fileInputEl = ref(null)
-const pendingFile = ref(null) // { url, type, name, previewUrl }
+const pendingFiles = ref([]) // [{ url, type, name, previewUrl }]
 const uploading = ref(false)
+const dragging = ref(false)
+let dragCounter = 0
+
+const lightboxOpen = ref(false)
+const lightboxIndex = ref(0)
+
+const profileUsername = ref(null)
+const groupAvatarUploading = ref(false)
 const composerError = ref('')
 const recording = ref(false)
 const aiMessages = ref([])
@@ -477,6 +566,29 @@ const grouped = computed(() => {
   }
   return groups
 })
+
+function getAttachments(m) {
+  if (m.attachments?.length) return m.attachments
+  if (m.attachment_url) return [{ url: m.attachment_url, type: m.attachment_type, name: m.attachment_name }]
+  return []
+}
+
+const allImages = computed(() => {
+  const imgs = []
+  for (const m of displayMessages.value) {
+    if (m.deleted_at) continue
+    for (const a of getAttachments(m)) {
+      if (a.type === 'image') imgs.push(a.url)
+    }
+  }
+  return imgs
+})
+
+function openLightbox(url) {
+  const idx = allImages.value.indexOf(url)
+  lightboxIndex.value = idx >= 0 ? idx : 0
+  lightboxOpen.value = true
+}
 
 // ─── helpers ─────────────────────────────────────────────────────
 function openUrl(url) { window.open(url, '_blank') }
@@ -791,14 +903,18 @@ async function send() {
     await sendToAi(text)
     return
   }
+  if (editingId.value) {
+    await saveEdit()
+    return
+  }
   const text = input.value.trim()
-  const att = pendingFile.value
-  if (!text && !att) return
+  const atts = pendingFiles.value.slice()
+  if (!text && !atts.length) return
   const replyId = replyingTo.value?.id ?? null
   input.value = ''
   replyingTo.value = null
-  pendingFile.value = null
-  await api.sendMessage(chatId.value, text, replyId, att).catch(() => {})
+  pendingFiles.value = []
+  await api.sendMessage(chatId.value, text, replyId, atts).catch(() => {})
 }
 
 async function sendToAi(text) {
@@ -840,19 +956,17 @@ async function sendToAi(text) {
   }
 }
 
-async function onFileSelect(e) {
-  const file = e.target.files[0]
-  e.target.value = ''
+async function processFile(file) {
   if (!file) return
   uploading.value = true
   try {
     const result = await api.uploadFile(file)
-    pendingFile.value = {
+    pendingFiles.value.push({
       url: result.url,
       type: result.type,
       name: result.name || file.name,
       previewUrl: result.type === 'image' ? result.url : null,
-    }
+    })
   } catch (err) {
     error.value = err.message
   } finally {
@@ -860,8 +974,38 @@ async function onFileSelect(e) {
   }
 }
 
-function cancelFile() {
-  pendingFile.value = null
+async function onFileSelect(e) {
+  const files = Array.from(e.target.files)
+  e.target.value = ''
+  for (const f of files) await processFile(f)
+}
+
+function cancelFile(idx) {
+  if (idx === undefined) pendingFiles.value = []
+  else pendingFiles.value.splice(idx, 1)
+}
+
+function onDragEnter(e) {
+  if (isAiChat.value) return
+  if (!e.dataTransfer?.types.includes('Files')) return
+  dragCounter++
+  dragging.value = true
+}
+
+function onDragLeave() {
+  dragCounter--
+  if (dragCounter <= 0) {
+    dragCounter = 0
+    dragging.value = false
+  }
+}
+
+async function onDrop(e) {
+  dragCounter = 0
+  dragging.value = false
+  if (isAiChat.value) return
+  const files = Array.from(e.dataTransfer?.files || [])
+  for (const f of files) await processFile(f)
 }
 
 function fmtRecTime(s) {
@@ -949,12 +1093,50 @@ function onKeydown(e) {
     e.preventDefault()
     send()
   }
-  if (e.key === 'Escape') cancelReply()
+  if (e.key === 'Escape') {
+    if (editingId.value) cancelEdit()
+    else cancelReply()
+  }
+}
+
+function openUserProfile(username) {
+  if (!username || username === me.value?.username) return
+  profileUsername.value = username
+}
+
+async function onGroupAvatarFile(e) {
+  const file = e.target.files[0]
+  e.target.value = ''
+  if (!file) return
+  groupAvatarUploading.value = true
+  try {
+    const result = await api.uploadFile(file)
+    await api.updateChatAvatar(chatId.value, result.url)
+    chat.value = { ...chat.value, avatar_url: result.url }
+    const idx = sidebarChats.value.findIndex(c => c.id === chatId.value)
+    if (idx !== -1) sidebarChats.value = sidebarChats.value.map((c, i) => i === idx ? { ...c, avatar_url: result.url } : c)
+  } catch (e) { error.value = e.message }
+  finally { groupAvatarUploading.value = false }
 }
 
 function startReply(m) {
   replyingTo.value = { id: m.id, sender: m.sender, content: m.content, deleted: !!m.deleted_at }
   composerEl.value?.focus()
+}
+
+async function jumpToMessage(id) {
+  // Load older pages until the message appears in the DOM
+  let attempts = 0
+  while (!document.getElementById(`msg-${id}`) && hasMore.value && attempts < 8) {
+    await loadMore()
+    attempts++
+  }
+  await nextTick()
+  const el = document.getElementById(`msg-${id}`)
+  if (!el) return
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  highlightedId.value = id
+  setTimeout(() => { highlightedId.value = null }, 1800)
 }
 
 function cancelReply() {
@@ -965,20 +1147,28 @@ function startEdit(m) {
   if (m.deleted_at) return
   editingId.value = m.id
   editingText.value = m.content || ''
+  input.value = m.content || ''
+  nextTick(() => {
+    composerEl.value?.focus()
+    const el = composerEl.value
+    if (el) el.setSelectionRange(el.value.length, el.value.length)
+  })
 }
 
 function cancelEdit() {
   editingId.value = null
   editingText.value = ''
+  input.value = ''
 }
 
-async function saveEdit(m) {
-  const text = editingText.value.trim()
+async function saveEdit() {
+  const text = input.value.trim()
   if (!text) return
+  const id = editingId.value
   busy.value = true
   try {
-    const updated = await api.editMessage(chatId.value, m.id, text)
-    const i = messages.value.findIndex(x => x.id === m.id)
+    const updated = await api.editMessage(chatId.value, id, text)
+    const i = messages.value.findIndex(x => x.id === id)
     if (i !== -1) Object.assign(messages.value[i], updated)
     cancelEdit()
   } catch (e) {
@@ -1115,6 +1305,9 @@ watch(chatId, async (newId, oldId) => {
   cancelReply()
   cancelFile()
   cancelRecording()
+  dragCounter = 0
+  dragging.value = false
+  lightboxOpen.value = false
   error.value = ''
   composerError.value = ''
   showMembersPanel.value = false

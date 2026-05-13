@@ -51,6 +51,9 @@ class Message
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $attachmentName = null;
 
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $attachments = null;
+
     public function __construct()
     {
         $this->id = Uuid::v7();
@@ -159,4 +162,7 @@ class Message
 
     public function getAttachmentName(): ?string { return $this->attachmentName; }
     public function setAttachmentName(?string $v): static { $this->attachmentName = $v; return $this; }
+
+    public function getAttachments(): ?array { return $this->attachments; }
+    public function setAttachments(?array $v): static { $this->attachments = $v; return $this; }
 }

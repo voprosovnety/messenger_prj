@@ -137,6 +137,23 @@ export const api = {
         return json
     },
 
+    updateChatAvatar: async (chatId, avatarUrl) => {
+        const res = await request(`/api/chats/${chatId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ avatar_url: avatarUrl }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to update chat avatar')
+        return json
+    },
+
+    getUser: async (username) => {
+        const res = await request(`/api/users/${username}`)
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'User not found')
+        return json
+    },
+
     deleteChat: async (chatId) => {
         const res = await request(`/api/chats/${chatId}`, { method: 'DELETE' })
         const json = await res.json().catch(() => ({}))
@@ -195,14 +212,10 @@ export const api = {
         return json
     },
 
-    sendMessage: async (chatId, content, replyToId = null, attachment = null) => {
+    sendMessage: async (chatId, content, replyToId = null, attachments = []) => {
         const body = { content }
         if (replyToId) body.reply_to_id = replyToId
-        if (attachment) {
-            body.attachment_url  = attachment.url
-            body.attachment_type = attachment.type
-            body.attachment_name = attachment.name
-        }
+        if (attachments.length) body.attachments = attachments.map(a => ({ url: a.url, type: a.type, name: a.name }))
         const res = await request(`/api/chats/${chatId}/messages`, {
             method: 'POST',
             body: JSON.stringify(body),

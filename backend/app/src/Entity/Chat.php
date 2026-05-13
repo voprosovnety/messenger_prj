@@ -22,6 +22,9 @@ class Chat
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $description = null;
 
+    #[ORM\Column(length: 500, nullable: true)]
+    private ?string $avatarUrl = null;
+
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
 
@@ -75,4 +78,7 @@ class Chat
         $this->description = $description;
         return $this;
     }
+
+    public function getAvatarUrl(): ?string { return $this->avatarUrl; }
+    public function setAvatarUrl(?string $v): static { $this->avatarUrl = $v; return $this; }
 }
