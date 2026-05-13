@@ -148,6 +148,7 @@ const props = defineProps({
   chat: { type: Object, required: true },
   participants: { type: Array, default: () => [] },
   me: { type: Object, default: null },
+  onlineUsers: { type: Array, default: () => [] },
 })
 const emit = defineEmits(['close', 'updated', 'member-added', 'member-removed', 'left', 'deleted', 'open-user'])
 
@@ -330,8 +331,8 @@ async function deleteChat() {
 }
 
 function isUserOnline(user) {
-  if (!user?.last_seen_at) return false
-  return (Date.now() - new Date(user.last_seen_at).getTime()) < 65000
+  if (!user?.username) return false
+  return props.onlineUsers.some(u => u.username === user.username)
 }
 
 function formatRelative(iso) {

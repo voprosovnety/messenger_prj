@@ -471,6 +471,7 @@
       :chat="chat"
       :participants="participants"
       :me="me"
+      :onlineUsers="onlineUsers"
       @close="showGroupProfile = false"
       @updated="onGroupUpdated($event)"
       @member-added="onGroupMembersChanged($event)"
