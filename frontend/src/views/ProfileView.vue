@@ -130,10 +130,10 @@ const avatarHistory = ref([])
 const showPresets = ref(false)
 
 const presetAvatars = [
-  'alex','aurora','blake','brook','casey','cleo','dana','drew','evan',
-  'fiona','gray','harper','iris','jade','kai','luna','max','nova',
-  'oliver','piper','quinn','river','sage','taylor','uma','val',
-  'wren','xen','yuki','zara',
+  'dog','cat','rabbit','fox','bear','panda','koala','tiger','lion','wolf',
+  'monkey','pig','cow','frog','hamster','mouse','horse','unicorn','chicken',
+  'penguin','duck','owl','turtle','octopus','shark','dolphin','giraffe',
+  'zebra','crocodile','butterfly',
 ]
 
 onMounted(async () => {
