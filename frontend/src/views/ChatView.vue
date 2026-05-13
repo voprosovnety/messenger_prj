@@ -67,7 +67,19 @@
     </aside>
 
     <!-- Main chat area -->
-    <div class="chat-area">
+    <div
+      class="chat-area"
+      @dragenter.prevent="onDragEnter"
+      @dragover.prevent
+      @dragleave="onDragLeave"
+      @drop.prevent="onDrop"
+    >
+      <!-- Drag-and-drop overlay -->
+      <div v-if="dragging && !isAiChat" class="drop-overlay">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        Drop to attach
+      </div>
+
       <!-- Header -->
       <div class="chat-header">
         <UserAvatar :username="chatTitle" size="md" />
@@ -428,6 +440,8 @@ const composerEl = ref(null)
 const fileInputEl = ref(null)
 const pendingFile = ref(null) // { url, type, name, previewUrl }
 const uploading = ref(false)
+const dragging = ref(false)
+let dragCounter = 0
 const composerError = ref('')
 const recording = ref(false)
 const aiMessages = ref([])
@@ -840,9 +854,7 @@ async function sendToAi(text) {
   }
 }
 
-async function onFileSelect(e) {
-  const file = e.target.files[0]
-  e.target.value = ''
+async function processFile(file) {
   if (!file) return
   uploading.value = true
   try {
@@ -860,8 +872,37 @@ async function onFileSelect(e) {
   }
 }
 
+async function onFileSelect(e) {
+  const file = e.target.files[0]
+  e.target.value = ''
+  await processFile(file)
+}
+
 function cancelFile() {
   pendingFile.value = null
+}
+
+function onDragEnter(e) {
+  if (isAiChat.value) return
+  if (!e.dataTransfer?.types.includes('Files')) return
+  dragCounter++
+  dragging.value = true
+}
+
+function onDragLeave() {
+  dragCounter--
+  if (dragCounter <= 0) {
+    dragCounter = 0
+    dragging.value = false
+  }
+}
+
+async function onDrop(e) {
+  dragCounter = 0
+  dragging.value = false
+  if (isAiChat.value) return
+  const file = e.dataTransfer?.files[0]
+  if (file) await processFile(file)
 }
 
 function fmtRecTime(s) {
@@ -1115,6 +1156,8 @@ watch(chatId, async (newId, oldId) => {
   cancelReply()
   cancelFile()
   cancelRecording()
+  dragCounter = 0
+  dragging.value = false
   error.value = ''
   composerError.value = ''
   showMembersPanel.value = false
