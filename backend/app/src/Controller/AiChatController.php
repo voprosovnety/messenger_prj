@@ -27,12 +27,13 @@ RealtimeChat features:
 - JWT authentication with auto-refresh via refresh tokens
 
 Answer in the same language the user writes in. Be concise and friendly.
+Reply in plain text only — no markdown, no asterisks, no bullet symbols, no headers.
 PROMPT;
 
     #[Route('/api/ai/chat', name: 'ai_chat', methods: ['POST'])]
     public function __invoke(Request $request, UserInterface $me): JsonResponse
     {
-        $apiKey = (string) getenv('ANTHROPIC_API_KEY');
+        $apiKey = (string) ($_ENV['ANTHROPIC_API_KEY'] ?? getenv('ANTHROPIC_API_KEY'));
         if ($apiKey === '') {
             return new JsonResponse(['error' => 'AI assistant not configured'], 503);
         }
