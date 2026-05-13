@@ -121,6 +121,26 @@
         </div>
       </div>
 
+      <!-- Pinned message bar -->
+      <div v-if="currentPinned && !isAiChat" class="pinned-bar" @click="clickPinnedBar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
+        <div class="pinned-bar-info">
+          <span class="pinned-bar-label">Pinned{{ pinnedMessages.length > 1 ? ` · ${pinnedIndex + 1} / ${pinnedMessages.length}` : '' }}</span>
+          <span class="pinned-bar-content">{{ pinnedPreview(currentPinned) }}</span>
+        </div>
+        <div v-if="pinnedMessages.length > 1" class="pinned-nav-row">
+          <button class="btn-icon pinned-nav-btn" title="Newer pinned" @click.stop="navigatePin(1)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <button class="btn-icon pinned-nav-btn" title="Older pinned" @click.stop="navigatePin(-1)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+        </div>
+        <button v-if="canPin" class="btn-icon" style="padding:4px;flex-shrink:0" title="Unpin" @click.stop="doPin(currentPinned.id)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
       <!-- Messages + Members panel wrapper -->
       <div style="display:flex;flex:1;min-height:0;overflow:hidden">
         <!-- Messages -->
@@ -173,6 +193,9 @@
                           </button>
                           <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Reply" @click="startReply(m)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+                          </button>
+                          <button v-if="canPin" class="btn-icon" style="padding:4px 6px;border-radius:4px" :title="pinnedMessages.some(p => p.id === m.id) ? 'Unpin' : 'Pin'" @click="doPin(m.id)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
                           </button>
                           <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="React" @click.stop="openReactionPicker(m.id, $event)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
@@ -535,6 +558,9 @@ const recording = ref(false)
 const aiMessages = ref([])
 const aiLoading = ref(false)
 
+const pinnedMessages = ref([])
+const pinnedIndex = ref(0)
+
 const showGroupProfile = ref(false)
 const showOnlinePanel = ref(false)
 const onlineUsers = ref([])
@@ -555,6 +581,9 @@ let chatSseDelay = 1000
 let chatSseTimer = null
 let chatSseGen = 0
 let pingInterval = null
+let onlineUsersInterval = null
+let pinnedNavLock = false
+let pinnedNavLockTimer = null
 
 // ─── computed ────────────────────────────────────────────────────
 const isAiChat = computed(() => chatId.value === 'ai')
@@ -574,6 +603,8 @@ function isUserOnline(user) {
 }
 
 const isPeerOnline = computed(() => peerUser.value ? isUserOnline(peerUser.value) : false)
+const canPin = computed(() => !isAiChat.value && (isOwner.value || !isGroup.value))
+const currentPinned = computed(() => pinnedMessages.value[pinnedIndex.value] || null)
 
 const grouped = computed(() => {
   const groups = []
@@ -711,6 +742,8 @@ async function load() {
     ])
     chat.value = chatData
     participants.value = chatData.participants || []
+    pinnedMessages.value = chatData.pinned_messages || []
+    pinnedIndex.value = Math.max(0, (chatData.pinned_messages || []).length - 1)
     messages.value = msgData.items || []
     nextCursor.value = msgData.next_cursor || null
     hasMore.value = !!msgData.next_cursor
@@ -748,6 +781,7 @@ function onScroll() {
   if (listEl.value && listEl.value.scrollTop < 120 && hasMore.value && !loadingMore.value) {
     loadMore()
   }
+  updatePinnedIndexFromScroll()
 }
 
 async function loadSidebarChats() {
@@ -901,6 +935,12 @@ async function connectSse() {
         if (payload.type === 'message.reaction') {
           const i = messages.value.findIndex(m => m.id === d.message_id)
           if (i !== -1) messages.value[i].reactions = d.reactions
+          return
+        }
+        if (payload.type === 'message.pinned') {
+          const currentId = currentPinned.value?.id
+          pinnedMessages.value = d.pinned_messages || []
+          pinnedIndex.value = stablePinnedIndex(pinnedMessages.value, currentId)
           return
         }
         if (payload.type === 'user.typing') {
@@ -1298,6 +1338,87 @@ async function removeMessage(m) {
   finally { busy.value = false }
 }
 
+async function doPin(messageId) {
+  try {
+    const currentId = currentPinned.value?.id
+    const res = await api.pinMessage(chatId.value, messageId)
+    pinnedMessages.value = res.pinned_messages || []
+    pinnedIndex.value = stablePinnedIndex(pinnedMessages.value, currentId)
+  } catch (e) { error.value = e.message }
+}
+
+function pinnedPreview(pm) {
+  if (pm.content) return pm.content
+  const atts = pm.attachments || []
+  if (atts.length > 0) {
+    const images = atts.filter(a => a.type === 'image')
+    if (images.length) return images.length === 1 ? 'Image' : `${images.length} images`
+    const audios = atts.filter(a => a.type === 'audio')
+    if (audios.length) return 'Voice message'
+    const videos = atts.filter(a => a.type === 'video')
+    if (videos.length) return 'Video message'
+    return atts[0]?.name || 'File'
+  }
+  if (pm.attachment_type === 'image') return 'Image'
+  if (pm.attachment_type === 'audio') return 'Voice message'
+  if (pm.attachment_type === 'video') return 'Video message'
+  if (pm.attachment_url) return pm.attachment_name || 'File'
+  return ''
+}
+
+function lockPinnedNav() {
+  pinnedNavLock = true
+  clearTimeout(pinnedNavLockTimer)
+  pinnedNavLockTimer = setTimeout(() => { pinnedNavLock = false }, 1500)
+}
+
+function stablePinnedIndex(newList, currentId) {
+  if (!newList.length) return 0
+  if (currentId) {
+    const idx = newList.findIndex(p => p.id === currentId)
+    if (idx >= 0) return idx
+  }
+  return Math.min(pinnedIndex.value, newList.length - 1)
+}
+
+async function clickPinnedBar() {
+  const pm = currentPinned.value
+  if (!pm) return
+  const len = pinnedMessages.value.length
+  const nextIdx = len > 1 ? (pinnedIndex.value - 1 + len) % len : pinnedIndex.value
+  lockPinnedNav()
+  await jumpToMessage(pm.id)
+  pinnedIndex.value = nextIdx
+}
+
+async function navigatePin(delta) {
+  const len = pinnedMessages.value.length
+  if (!len) return
+  const nextIdx = (pinnedIndex.value + delta + len) % len
+  pinnedIndex.value = nextIdx
+  lockPinnedNav()
+  const pm = pinnedMessages.value[nextIdx]
+  if (pm) await jumpToMessage(pm.id)
+}
+
+function updatePinnedIndexFromScroll() {
+  if (pinnedNavLock || !pinnedMessages.value.length || !listEl.value) return
+  const container = listEl.value
+  const bottom = container.getBoundingClientRect().bottom
+  // Find the newest (highest index) pin whose element hasn't scrolled past the bottom fold.
+  // When scrolling UP, a pin is "scrolled past" once its element exits below the container.
+  let targetIdx = 0
+  for (let i = pinnedMessages.value.length - 1; i >= 0; i--) {
+    const el = document.getElementById(`msg-${pinnedMessages.value[i].id}`)
+    if (!el) continue
+    if (el.getBoundingClientRect().top <= bottom) {
+      targetIdx = i
+      break
+    }
+  }
+  if (pinnedIndex.value !== targetIdx) pinnedIndex.value = targetIdx
+}
+
 async function deleteChat() {
   if (!confirm('Delete this chat permanently?')) return
   const id = chatId.value
@@ -1341,6 +1462,8 @@ async function createChat() {
   finally { creating.value = false }
 }
 
+watch(showOnlinePanel, (val) => { if (val) loadOnlineUsers() })
+
 // ─── watcher: reloads chat data when chatId changes (same component reuse) ───
 watch(chatId, async (newId, oldId) => {
   if (!newId || newId === oldId) return
@@ -1354,6 +1477,8 @@ watch(chatId, async (newId, oldId) => {
   loadingMore.value = false
   chat.value = null
   participants.value = []
+  pinnedMessages.value = []
+  pinnedIndex.value = 0
   peerDeliveredId.value = null
   peerReadId.value = null
   typingUser.value = ''
@@ -1394,12 +1519,14 @@ onMounted(async () => {
   window.addEventListener('resize', onWindowResize)
   api.ping().catch(() => {})
   loadOnlineUsers()
-  pingInterval = setInterval(() => { api.ping().catch(() => {}); loadOnlineUsers() }, 30000)
+  pingInterval = setInterval(() => api.ping().catch(() => {}), 30000)
+  onlineUsersInterval = setInterval(loadOnlineUsers, 15000)
 })
 
 onBeforeUnmount(() => {
   stopChatSse()
   if (pingInterval) clearInterval(pingInterval)
+  if (onlineUsersInterval) clearInterval(onlineUsersInterval)
   clearTimeout(typingTimeout)
   clearTimeout(typingDebounce)
   document.removeEventListener('visibilitychange', markReadIfPossible)

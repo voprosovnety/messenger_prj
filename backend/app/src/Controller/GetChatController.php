@@ -68,6 +68,7 @@ final class GetChatController
             'peer_username' => $peerUsername,
             'my_role' => $chat->isGroup() ? $myMembership->getRole() : null,
             'participants' => $participants,
+            'pinned_messages' => PinMessageController::buildPinnedList($em, $chat),
         ]);
     }
 }

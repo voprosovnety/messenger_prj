@@ -145,7 +145,7 @@
 </template>
 
 <script setup>
-import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
+import { onMounted, onBeforeUnmount, ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 import UserAvatar from '../components/UserAvatar.vue'
@@ -175,6 +175,7 @@ let sseDelay = 1000
 let sseTimer = null
 let sseGen = 0
 let pingInterval = null
+let onlineUsersInterval = null
 
 async function loadOnlineUsers() {
   try {
@@ -380,7 +381,8 @@ onMounted(async () => {
   await connectAllChatsSse()
   api.ping().catch(() => {})
   loadOnlineUsers()
-  pingInterval = setInterval(() => { api.ping().catch(() => {}); loadOnlineUsers() }, 30000)
+  pingInterval = setInterval(() => api.ping().catch(() => {}), 30000)
+  onlineUsersInterval = setInterval(loadOnlineUsers, 15000)
 })
 
 onBeforeUnmount(() => {
@@ -388,5 +390,8 @@ onBeforeUnmount(() => {
   clearTimeout(sseTimer)
   if (es) es.close()
   if (pingInterval) clearInterval(pingInterval)
+  if (onlineUsersInterval) clearInterval(onlineUsersInterval)
 })
+
+watch(showOnlinePanel, (val) => { if (val) loadOnlineUsers() })
 </script>
