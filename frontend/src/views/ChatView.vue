@@ -122,13 +122,21 @@
       </div>
 
       <!-- Pinned message bar -->
-      <div v-if="pinnedMessage && !isAiChat" class="pinned-bar" @click="jumpToMessage(pinnedMessage.id)">
+      <div v-if="currentPinned && !isAiChat" class="pinned-bar" @click="jumpToMessage(currentPinned.id)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
         <div class="pinned-bar-info">
-          <span class="pinned-bar-label">Pinned message</span>
-          <span class="pinned-bar-content">{{ pinnedMessage.content }}</span>
+          <span class="pinned-bar-label">Pinned{{ pinnedMessages.length > 1 ? ` · ${pinnedIndex + 1} / ${pinnedMessages.length}` : '' }}</span>
+          <span class="pinned-bar-content">{{ pinnedPreview(currentPinned) }}</span>
         </div>
-        <button v-if="canPin" class="btn-icon" style="padding:4px;flex-shrink:0" title="Unpin" @click.stop="doPin(null)">
+        <template v-if="pinnedMessages.length > 1">
+          <button class="btn-icon pinned-nav-btn" title="Previous" @click.stop="pinnedIndex = (pinnedIndex - 1 + pinnedMessages.length) % pinnedMessages.length">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button class="btn-icon pinned-nav-btn" title="Next" @click.stop="pinnedIndex = (pinnedIndex + 1) % pinnedMessages.length">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </template>
+        <button v-if="canPin" class="btn-icon" style="padding:4px;flex-shrink:0" title="Unpin" @click.stop="doPin(currentPinned.id)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
@@ -186,7 +194,7 @@
                           <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Reply" @click="startReply(m)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
                           </button>
-                          <button v-if="canPin" class="btn-icon" style="padding:4px 6px;border-radius:4px" :title="pinnedMessage?.id === m.id ? 'Unpin' : 'Pin'" @click="doPin(pinnedMessage?.id === m.id ? null : m.id)">
+                          <button v-if="canPin" class="btn-icon" style="padding:4px 6px;border-radius:4px" :title="pinnedMessages.some(p => p.id === m.id) ? 'Unpin' : 'Pin'" @click="doPin(m.id)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
                           </button>
                           <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="React" @click.stop="openReactionPicker(m.id, $event)">
@@ -550,7 +558,8 @@ const recording = ref(false)
 const aiMessages = ref([])
 const aiLoading = ref(false)
 
-const pinnedMessage = ref(null)
+const pinnedMessages = ref([])
+const pinnedIndex = ref(0)
 
 const showGroupProfile = ref(false)
 const showOnlinePanel = ref(false)
@@ -593,6 +602,7 @@ function isUserOnline(user) {
 
 const isPeerOnline = computed(() => peerUser.value ? isUserOnline(peerUser.value) : false)
 const canPin = computed(() => !isAiChat.value && (isOwner.value || !isGroup.value))
+const currentPinned = computed(() => pinnedMessages.value[pinnedIndex.value] || null)
 
 const grouped = computed(() => {
   const groups = []
@@ -730,7 +740,8 @@ async function load() {
     ])
     chat.value = chatData
     participants.value = chatData.participants || []
-    pinnedMessage.value = chatData.pinned_message || null
+    pinnedMessages.value = chatData.pinned_messages || []
+    pinnedIndex.value = 0
     messages.value = msgData.items || []
     nextCursor.value = msgData.next_cursor || null
     hasMore.value = !!msgData.next_cursor
@@ -768,6 +779,7 @@ function onScroll() {
   if (listEl.value && listEl.value.scrollTop < 120 && hasMore.value && !loadingMore.value) {
     loadMore()
   }
+  updatePinnedIndexFromScroll()
 }
 
 async function loadSidebarChats() {
@@ -924,7 +936,10 @@ async function connectSse() {
           return
         }
         if (payload.type === 'message.pinned') {
-          pinnedMessage.value = d.pinned_message || null
+          pinnedMessages.value = d.pinned_messages || []
+          if (pinnedIndex.value >= pinnedMessages.value.length) {
+            pinnedIndex.value = Math.max(0, pinnedMessages.value.length - 1)
+          }
           return
         }
         if (payload.type === 'user.typing') {
@@ -1325,8 +1340,43 @@ async function removeMessage(m) {
 async function doPin(messageId) {
   try {
     const res = await api.pinMessage(chatId.value, messageId)
-    pinnedMessage.value = res.pinned_message || null
+    pinnedMessages.value = res.pinned_messages || []
+    if (pinnedIndex.value >= pinnedMessages.value.length) {
+      pinnedIndex.value = Math.max(0, pinnedMessages.value.length - 1)
+    }
   } catch (e) { error.value = e.message }
+}
+
+function pinnedPreview(pm) {
+  if (pm.content) return pm.content
+  const atts = pm.attachments || []
+  if (atts.length > 0) {
+    const images = atts.filter(a => a.type === 'image')
+    if (images.length) return images.length === 1 ? 'Image' : `${images.length} images`
+    const audios = atts.filter(a => a.type === 'audio')
+    if (audios.length) return 'Voice message'
+    const videos = atts.filter(a => a.type === 'video')
+    if (videos.length) return 'Video message'
+    return atts[0]?.name || 'File'
+  }
+  if (pm.attachment_type === 'image') return 'Image'
+  if (pm.attachment_type === 'audio') return 'Voice message'
+  if (pm.attachment_type === 'video') return 'Video message'
+  if (pm.attachment_url) return pm.attachment_name || 'File'
+  return ''
+}
+
+function updatePinnedIndexFromScroll() {
+  if (pinnedMessages.value.length <= 1 || !listEl.value) return
+  const container = listEl.value
+  const containerRect = container.getBoundingClientRect()
+  let bestIdx = 0
+  for (let i = 0; i < pinnedMessages.value.length; i++) {
+    const el = document.getElementById(`msg-${pinnedMessages.value[i].id}`)
+    if (!el) continue
+    if (el.getBoundingClientRect().top < containerRect.top + 100) bestIdx = i
+  }
+  if (pinnedIndex.value !== bestIdx) pinnedIndex.value = bestIdx
 }
 
 async function deleteChat() {
@@ -1387,7 +1437,8 @@ watch(chatId, async (newId, oldId) => {
   loadingMore.value = false
   chat.value = null
   participants.value = []
-  pinnedMessage.value = null
+  pinnedMessages.value = []
+  pinnedIndex.value = 0
   peerDeliveredId.value = null
   peerReadId.value = null
   typingUser.value = ''
