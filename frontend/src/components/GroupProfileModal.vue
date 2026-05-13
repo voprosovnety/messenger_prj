@@ -13,8 +13,8 @@
               :username="chat.display_name || 'Group'"
               :avatarUrl="localAvatarUrl"
               size="xl"
-              :style="localAvatarUrl ? 'cursor:zoom-in' : ''"
-              @click="localAvatarUrl ? (lightboxOpen = true) : undefined"
+              :style="lightboxImages.length ? 'cursor:zoom-in' : ''"
+              @click="openAvatarLightbox"
             />
             <label v-if="isOwner" class="avatar-upload-btn" title="Change photo" :class="{ loading: uploadingAvatar }">
               <input type="file" accept="image/*" style="display:none" :disabled="uploadingAvatar" @change="onAvatarFile" />
@@ -23,21 +23,6 @@
             </label>
           </div>
 
-          <!-- Avatar history -->
-          <div v-if="avatarHistory.length" class="avatar-history">
-            <div class="avatar-history-label">Previous photos</div>
-            <div class="avatar-history-grid">
-              <img
-                v-for="h in avatarHistory"
-                :key="h.url"
-                :src="h.url"
-                class="avatar-history-item"
-                :class="{ current: h.url === localAvatarUrl }"
-                :title="h.url === localAvatarUrl ? 'Current' : 'Apply this photo'"
-                @click="applyHistoryAvatar(h.url)"
-              />
-            </div>
-          </div>
         </div>
 
         <!-- Title -->
@@ -132,11 +117,14 @@
 
     <!-- Lightbox for avatar -->
     <ImageLightbox
-      v-if="lightboxOpen && localAvatarUrl"
-      :images="[localAvatarUrl]"
-      :index="0"
+      v-if="lightboxOpen && lightboxImages.length"
+      :images="lightboxImages"
+      :index="lightboxIndex"
+      :canApply="isOwner"
+      :currentImageIndex="0"
       @close="lightboxOpen = false"
-      @navigate="() => {}"
+      @navigate="lightboxIndex = $event"
+      @apply="applyFromLightbox($event)"
     />
   </Teleport>
 </template>
@@ -160,8 +148,24 @@ const localAvatarUrl = ref(props.chat.avatar_url || null)
 const isOwner = computed(() => props.chat.my_role === 'OWNER')
 
 const lightboxOpen = ref(false)
+const lightboxIndex = ref(0)
 const uploadingAvatar = ref(false)
 const avatarHistory = ref([])
+
+const lightboxImages = computed(() => {
+  const urls = []
+  if (localAvatarUrl.value) urls.push(localAvatarUrl.value)
+  for (const h of avatarHistory.value) {
+    if (h.url !== localAvatarUrl.value) urls.push(h.url)
+  }
+  return urls
+})
+
+function openAvatarLightbox() {
+  if (!lightboxImages.value.length) return
+  lightboxIndex.value = 0
+  lightboxOpen.value = true
+}
 
 const showRename = ref(false)
 const renameInput = ref('')
@@ -208,12 +212,18 @@ async function applyHistoryAvatar(url) {
   try {
     await api.updateChatAvatar(props.chat.id, url)
     localAvatarUrl.value = url
+    lightboxIndex.value = 0
     emit('updated', { avatar_url: url })
   } catch (err) {
     error.value = err.message
   } finally {
     uploadingAvatar.value = false
   }
+}
+
+function applyFromLightbox(idx) {
+  const url = lightboxImages.value[idx]
+  if (url) applyHistoryAvatar(url)
 }
 
 function startRename() {

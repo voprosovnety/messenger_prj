@@ -17,8 +17,8 @@
               :username="username || '?'"
               :avatarUrl="avatarUrl || null"
               size="xl"
-              :style="avatarUrl ? 'cursor:zoom-in' : ''"
-              @click="avatarUrl ? (lightboxOpen = true) : undefined"
+              :style="lightboxImages.length ? 'cursor:zoom-in' : ''"
+              @click="openAvatarLightbox"
             />
             <label class="avatar-upload-btn" title="Change photo" :class="{ loading: uploadingAvatar }">
               <input type="file" accept="image/*" style="display:none" :disabled="uploadingAvatar" @change="onAvatarFile" />
@@ -53,22 +53,6 @@
           </button>
         </div>
 
-        <!-- Avatar history -->
-        <div v-if="avatarHistory.length" style="margin-bottom:20px">
-          <div class="avatar-history-label">Previous photos</div>
-          <div class="avatar-history-grid">
-            <img
-              v-for="h in avatarHistory"
-              :key="h.url"
-              :src="h.url"
-              class="avatar-history-item"
-              :class="{ current: h.url === avatarUrl }"
-              :title="h.url === avatarUrl ? 'Current' : 'Apply this photo'"
-              @click="applyHistoryAvatar(h.url)"
-            />
-          </div>
-        </div>
-
         <div v-if="success" style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:10px 14px;font-size:13px;color:#22c55e;margin-bottom:16px">
           Profile updated successfully
         </div>
@@ -100,16 +84,19 @@
 
   <!-- Avatar lightbox -->
   <ImageLightbox
-    v-if="lightboxOpen && avatarUrl"
-    :images="[avatarUrl]"
-    :index="0"
+    v-if="lightboxOpen && lightboxImages.length"
+    :images="lightboxImages"
+    :index="lightboxIndex"
+    :canApply="true"
+    :currentImageIndex="0"
     @close="lightboxOpen = false"
-    @navigate="() => {}"
+    @navigate="lightboxIndex = $event"
+    @apply="applyFromLightbox($event)"
   />
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 import UserAvatar from '../components/UserAvatar.vue'
@@ -126,8 +113,24 @@ const uploadingAvatar = ref(false)
 const error = ref('')
 const success = ref(false)
 const lightboxOpen = ref(false)
+const lightboxIndex = ref(0)
 const avatarHistory = ref([])
 const showPresets = ref(false)
+
+const lightboxImages = computed(() => {
+  const urls = []
+  if (avatarUrl.value) urls.push(avatarUrl.value)
+  for (const h of avatarHistory.value) {
+    if (h.url !== avatarUrl.value) urls.push(h.url)
+  }
+  return urls
+})
+
+function openAvatarLightbox() {
+  if (!lightboxImages.value.length) return
+  lightboxIndex.value = 0
+  lightboxOpen.value = true
+}
 
 const presetAvatars = [
   'dog','cat','rabbit','fox','bear','panda','koala','tiger','lion','wolf',
@@ -213,6 +216,7 @@ async function applyHistoryAvatar(url) {
   try {
     await api.updateProfile({ avatarUrl: url })
     avatarUrl.value = url
+    lightboxIndex.value = 0
     success.value = true
     setTimeout(() => { success.value = false }, 3000)
   } catch (err) {
@@ -220,6 +224,11 @@ async function applyHistoryAvatar(url) {
   } finally {
     uploadingAvatar.value = false
   }
+}
+
+function applyFromLightbox(idx) {
+  const url = lightboxImages.value[idx]
+  if (url) applyHistoryAvatar(url)
 }
 
 async function logout() {

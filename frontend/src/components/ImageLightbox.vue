@@ -35,6 +35,12 @@
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
 
+      <button
+        v-if="canApply && index !== currentImageIndex"
+        class="lightbox-apply-btn"
+        @click.stop="$emit('apply', index)"
+      >Use as current photo</button>
+
       <div class="lightbox-zoom-controls">
         <button class="lightbox-zoom-btn" :disabled="zoom <= MIN_ZOOM" @click="zoomOut">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -56,8 +62,10 @@ import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 const props = defineProps({
   images: { type: Array, required: true },
   index: { type: Number, required: true },
+  canApply: { type: Boolean, default: false },
+  currentImageIndex: { type: Number, default: -1 },
 })
-const emit = defineEmits(['close', 'navigate'])
+const emit = defineEmits(['close', 'navigate', 'apply'])
 
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 4

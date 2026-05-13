@@ -1292,6 +1292,23 @@ textarea.input {
   min-width: 44px;
   text-align: center;
 }
+.lightbox-apply-btn {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 20px;
+  color: #fff;
+  font-size: 13px;
+  padding: 7px 20px;
+  cursor: pointer;
+  transition: background 0.15s;
+  z-index: 1001;
+  white-space: nowrap;
+}
+.lightbox-apply-btn:hover { background: rgba(255, 255, 255, 0.22); }
 .attachment-video {
   max-width: 260px;
   border-radius: 10px;
