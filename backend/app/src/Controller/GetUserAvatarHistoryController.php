@@ -25,7 +25,7 @@ final class GetUserAvatarHistoryController
 
         return new JsonResponse([
             'items' => array_map(
-                static fn(AvatarHistory $h) => ['url' => $h->getAvatarUrl(), 'created_at' => $h->getCreatedAt()->format(DATE_ATOM)],
+                static fn(AvatarHistory $h) => ['id' => (string) $h->getId(), 'url' => $h->getAvatarUrl(), 'created_at' => $h->getCreatedAt()->format(DATE_ATOM)],
                 $rows,
             ),
         ]);

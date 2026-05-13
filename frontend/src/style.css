@@ -1292,11 +1292,17 @@ textarea.input {
   min-width: 44px;
   text-align: center;
 }
-.lightbox-apply-btn {
+.lightbox-actions {
   position: fixed;
   bottom: 60px;
   left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1001;
+}
+.lightbox-apply-btn {
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 20px;
@@ -1305,10 +1311,28 @@ textarea.input {
   padding: 7px 20px;
   cursor: pointer;
   transition: background 0.15s;
-  z-index: 1001;
   white-space: nowrap;
 }
 .lightbox-apply-btn:hover { background: rgba(255, 255, 255, 0.22); }
+.lightbox-delete-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.lightbox-delete-btn:hover {
+  background: rgba(220, 38, 38, 0.35);
+  border-color: rgba(220, 38, 38, 0.6);
+  color: #fff;
+}
 .attachment-video {
   max-width: 260px;
   border-radius: 10px;

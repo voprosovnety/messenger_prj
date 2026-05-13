@@ -92,6 +92,7 @@
     @close="lightboxOpen = false"
     @navigate="lightboxIndex = $event"
     @apply="applyFromLightbox($event)"
+    @delete="deleteFromLightbox($event)"
   />
 </template>
 
@@ -229,6 +230,21 @@ async function applyHistoryAvatar(url) {
 function applyFromLightbox(idx) {
   const url = lightboxImages.value[idx]
   if (url) applyHistoryAvatar(url)
+}
+
+async function deleteFromLightbox(idx) {
+  const url = lightboxImages.value[idx]
+  if (!url || url === avatarUrl.value) return
+  const entry = avatarHistory.value.find(h => h.url === url)
+  if (!entry?.id) return
+  try {
+    await api.deleteUserAvatarHistory(entry.id)
+    avatarHistory.value = avatarHistory.value.filter(h => h.id !== entry.id)
+    const newLen = lightboxImages.value.length
+    if (lightboxIndex.value >= newLen) lightboxIndex.value = Math.max(0, newLen - 1)
+  } catch (err) {
+    error.value = err.message
+  }
 }
 
 async function logout() {

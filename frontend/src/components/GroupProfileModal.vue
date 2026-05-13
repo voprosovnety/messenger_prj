@@ -125,6 +125,7 @@
       @close="lightboxOpen = false"
       @navigate="lightboxIndex = $event"
       @apply="applyFromLightbox($event)"
+      @delete="deleteFromLightbox($event)"
     />
   </Teleport>
 </template>
@@ -224,6 +225,21 @@ async function applyHistoryAvatar(url) {
 function applyFromLightbox(idx) {
   const url = lightboxImages.value[idx]
   if (url) applyHistoryAvatar(url)
+}
+
+async function deleteFromLightbox(idx) {
+  const url = lightboxImages.value[idx]
+  if (!url || url === localAvatarUrl.value) return
+  const entry = avatarHistory.value.find(h => h.url === url)
+  if (!entry?.id) return
+  try {
+    await api.deleteChatAvatarHistory(props.chat.id, entry.id)
+    avatarHistory.value = avatarHistory.value.filter(h => h.id !== entry.id)
+    const newLen = lightboxImages.value.length
+    if (lightboxIndex.value >= newLen) lightboxIndex.value = Math.max(0, newLen - 1)
+  } catch (err) {
+    error.value = err.message
+  }
 }
 
 function startRename() {

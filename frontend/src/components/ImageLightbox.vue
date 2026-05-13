@@ -35,11 +35,12 @@
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
 
-      <button
-        v-if="canApply && index !== currentImageIndex"
-        class="lightbox-apply-btn"
-        @click.stop="$emit('apply', index)"
-      >Use as current photo</button>
+      <div v-if="canApply && index !== currentImageIndex" class="lightbox-actions">
+        <button class="lightbox-delete-btn" title="Delete from history" @click.stop="$emit('delete', index)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+        <button class="lightbox-apply-btn" @click.stop="$emit('apply', index)">Use as current photo</button>
+      </div>
 
       <div class="lightbox-zoom-controls">
         <button class="lightbox-zoom-btn" :disabled="zoom <= MIN_ZOOM" @click="zoomOut">
@@ -65,7 +66,7 @@ const props = defineProps({
   canApply: { type: Boolean, default: false },
   currentImageIndex: { type: Number, default: -1 },
 })
-const emit = defineEmits(['close', 'navigate', 'apply'])
+const emit = defineEmits(['close', 'navigate', 'apply', 'delete'])
 
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 4
