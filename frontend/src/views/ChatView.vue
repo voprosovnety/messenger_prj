@@ -555,6 +555,7 @@ let chatSseDelay = 1000
 let chatSseTimer = null
 let chatSseGen = 0
 let pingInterval = null
+let onlineUsersInterval = null
 
 // ─── computed ────────────────────────────────────────────────────
 const isAiChat = computed(() => chatId.value === 'ai')
@@ -1341,6 +1342,8 @@ async function createChat() {
   finally { creating.value = false }
 }
 
+watch(showOnlinePanel, (val) => { if (val) loadOnlineUsers() })
+
 // ─── watcher: reloads chat data when chatId changes (same component reuse) ───
 watch(chatId, async (newId, oldId) => {
   if (!newId || newId === oldId) return
@@ -1394,12 +1397,14 @@ onMounted(async () => {
   window.addEventListener('resize', onWindowResize)
   api.ping().catch(() => {})
   loadOnlineUsers()
-  pingInterval = setInterval(() => { api.ping().catch(() => {}); loadOnlineUsers() }, 30000)
+  pingInterval = setInterval(() => api.ping().catch(() => {}), 30000)
+  onlineUsersInterval = setInterval(loadOnlineUsers, 15000)
 })
 
 onBeforeUnmount(() => {
   stopChatSse()
   if (pingInterval) clearInterval(pingInterval)
+  if (onlineUsersInterval) clearInterval(onlineUsersInterval)
   clearTimeout(typingTimeout)
   clearTimeout(typingDebounce)
   document.removeEventListener('visibilitychange', markReadIfPossible)
