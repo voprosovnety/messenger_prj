@@ -6,6 +6,7 @@ use App\Entity\Chat;
 use App\Entity\ChatMember;
 use App\Entity\Message;
 use App\Entity\User;
+use App\Service\ReactionHelper;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
@@ -100,6 +101,8 @@ final class ListMessagesController
 
         $rows = array_reverse($rows);
 
+        $reactionsMap = ReactionHelper::buildReactionsForMessages($em, $rows);
+
         $items = [];
         foreach ($rows as $m) {
             $r = $m->getReplyTo();
@@ -122,6 +125,7 @@ final class ListMessagesController
                 'attachment_url'  => $m->getAttachmentUrl(),
                 'attachment_type' => $m->getAttachmentType(),
                 'attachment_name' => $m->getAttachmentName(),
+                'reactions'       => $reactionsMap[(string) $m->getId()] ?? [],
             ];
         }
 

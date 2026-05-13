@@ -273,4 +273,14 @@ export const api = {
             body: JSON.stringify({ last_read_message_id: msgId }),
         })
     },
+
+    toggleReaction: async (chatId, messageId, emoji) => {
+        const res = await request(`/api/chats/${chatId}/messages/${messageId}/reactions`, {
+            method: 'POST',
+            body: JSON.stringify({ emoji }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to toggle reaction')
+        return json
+    },
 }
