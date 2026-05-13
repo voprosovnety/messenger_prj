@@ -1113,6 +1113,40 @@ textarea.input {
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
+.lightbox-zoom-controls {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 24px;
+  padding: 4px 8px;
+}
+.lightbox-zoom-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.lightbox-zoom-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.15); }
+.lightbox-zoom-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.lightbox-zoom-label {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  min-width: 44px;
+  text-align: center;
+}
 .attachment-video {
   max-width: 260px;
   border-radius: 10px;
