@@ -345,4 +345,24 @@ export const api = {
         if (!res.ok) throw new Error(json.error || 'Failed to toggle reaction')
         return json
     },
+
+    sendPoll: async (chatId, { question, options, multipleAnswers, anonymous }) => {
+        const res = await request(`/api/chats/${chatId}/messages/poll`, {
+            method: 'POST',
+            body: JSON.stringify({ question, options, multiple_answers: multipleAnswers, anonymous }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to create poll')
+        return json
+    },
+
+    votePoll: async (chatId, messageId, options) => {
+        const res = await request(`/api/chats/${chatId}/messages/${messageId}/poll/vote`, {
+            method: 'POST',
+            body: JSON.stringify({ options }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to vote')
+        return json
+    },
 }

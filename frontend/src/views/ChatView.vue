@@ -84,7 +84,7 @@
       @dragover.prevent
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
-      @click="showEmojiPicker = false; closeReactionPicker()"
+      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false"
     >
       <!-- Drag-and-drop overlay -->
       <div v-if="dragging && !isAiChat" class="drop-overlay">
@@ -259,6 +259,14 @@
                           </div>
                           <span v-if="m.deleted_at" style="font-style:italic">Message deleted</span>
                           <template v-else>
+                            <!-- Poll message -->
+                            <PollMessage
+                              v-if="m.type === 'poll' && m.poll"
+                              :poll="m.poll"
+                              :my-username="me?.username"
+                              @vote="doVotePoll(m.id, $event)"
+                            />
+                            <template v-else>
                             <span v-if="m.content" style="white-space:pre-wrap;word-break:break-word">{{ m.content }}</span>
 
                             <!-- Image grid -->
@@ -288,6 +296,7 @@
                                 </a>
                               </div>
                             </template>
+                            </template><!-- end v-else (non-poll) -->
                           </template>
                         </div>
                     </div>
@@ -418,10 +427,29 @@
             <!-- Normal mode -->
             <template v-if="!recording">
               <input ref="fileInputEl" type="file" multiple style="display:none" @change="onFileSelect" />
-              <button v-if="!isAiChat" class="btn-icon composer-attach" title="Attach file" :disabled="uploading" @click="fileInputEl.click()">
-                <svg v-if="!uploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-              </button>
+              <!-- Attach menu -->
+              <div v-if="!isAiChat" class="attach-menu-wrap">
+                <button
+                  class="btn-icon composer-attach"
+                  :class="{ active: showAttachMenu }"
+                  title="Attach"
+                  :disabled="uploading"
+                  @click.stop="showAttachMenu = !showAttachMenu"
+                >
+                  <svg v-if="!uploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                  <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                </button>
+                <div v-if="showAttachMenu" class="attach-menu" @click.stop>
+                  <button class="attach-menu-item" @click="fileInputEl.click(); showAttachMenu = false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    Attach file
+                  </button>
+                  <button class="attach-menu-item" @click="showPollForm = true; showAttachMenu = false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
+                    Create poll
+                  </button>
+                </div>
+              </div>
               <textarea
                 ref="composerEl"
                 v-model="input"
@@ -563,6 +591,13 @@
         </div>
       </div>
     </div>
+
+    <!-- Poll form modal -->
+    <PollForm
+      v-if="showPollForm"
+      @close="showPollForm = false"
+      @submit="submitPoll"
+    />
   </div>
 </template>
 
@@ -577,6 +612,8 @@ import UserProfileModal from '../components/UserProfileModal.vue'
 import EmojiPicker from '../components/EmojiPicker.vue'
 import GroupProfileModal from '../components/GroupProfileModal.vue'
 import OnlineUsersPanel from '../components/OnlineUsersPanel.vue'
+import PollMessage from '../components/PollMessage.vue'
+import PollForm from '../components/PollForm.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -641,6 +678,8 @@ const showOnlinePanel = ref(false)
 const onlineUsers = ref([])
 const draftMap = ref({})
 const showEmojiPicker = ref(false)
+const showAttachMenu = ref(false)
+const showPollForm = ref(false)
 
 const searchOpen = ref(false)
 const searchQuery = ref('')
@@ -1050,6 +1089,14 @@ async function connectSse() {
           pinnedIndex.value = stablePinnedIndex(pinnedMessages.value, currentId)
           return
         }
+        if (payload.type === 'poll.voted') {
+          const i = messages.value.findIndex(m => m.id === d.message_id)
+          if (i !== -1 && d.poll) {
+            const myV = messages.value[i].poll?.my_votes
+            messages.value[i] = { ...messages.value[i], poll: { ...d.poll, my_votes: myV ?? d.poll.my_votes } }
+          }
+          return
+        }
         if (payload.type === 'user.typing') {
           if (d.username !== myId()) {
             typingUser.value = d.username
@@ -1196,6 +1243,60 @@ async function doSearch(q) {
 async function jumpToSearchResult(id) {
   closeSearch()
   await jumpToMessage(id)
+}
+
+// ─── polls ───────────────────────────────────────────────────────
+async function submitPoll(pollData) {
+  showPollForm.value = false
+  try {
+    await api.sendPoll(chatId.value, pollData)
+  } catch (e) { composerError.value = e.message }
+}
+
+async function doVotePoll(messageId, optionId) {
+  const msg = messages.value.find(m => m.id === messageId)
+  if (!msg?.poll) return
+  const poll = msg.poll
+  const myVotes = poll.my_votes || []
+
+  // Optimistic update
+  let newMyVotes
+  if (poll.multiple_answers) {
+    newMyVotes = myVotes.includes(optionId)
+      ? myVotes.filter(v => v !== optionId)
+      : [...myVotes, optionId]
+  } else {
+    newMyVotes = myVotes.includes(optionId) ? [] : [optionId]
+  }
+
+  const updatedOptions = poll.options.map(o => {
+    const wasVoted = myVotes.includes(o.id)
+    const willBeVoted = newMyVotes.includes(o.id)
+    if (wasVoted === willBeVoted) return o
+    const delta = willBeVoted ? 1 : -1
+    return { ...o, votes: Math.max(0, o.votes + delta) }
+  })
+  const totalDelta = newMyVotes.length - myVotes.length
+  const i = messages.value.findIndex(m => m.id === messageId)
+  if (i !== -1) {
+    messages.value[i] = {
+      ...messages.value[i],
+      poll: { ...poll, options: updatedOptions, my_votes: newMyVotes, total_votes: poll.total_votes + totalDelta },
+    }
+  }
+
+  try {
+    const res = await api.votePoll(chatId.value, messageId, [optionId])
+    const j = messages.value.findIndex(m => m.id === messageId)
+    if (j !== -1 && res.poll) {
+      messages.value[j] = { ...messages.value[j], poll: res.poll }
+    }
+  } catch (e) {
+    // revert
+    const j = messages.value.findIndex(m => m.id === messageId)
+    if (j !== -1) messages.value[j] = { ...messages.value[j], poll }
+    composerError.value = e.message
+  }
 }
 
 // ─── actions ──────────────────────────────────────────────────────
