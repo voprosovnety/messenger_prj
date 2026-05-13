@@ -5,12 +5,21 @@
       <div class="sidebar-header">
         <div class="sidebar-logo">💬</div>
         <span class="sidebar-logo-text">RealtimeChat</span>
+        <button class="online-indicator" :class="{ active: showOnlinePanel }" :title="showOnlinePanel ? 'Close' : 'Online users'" @click="showOnlinePanel = !showOnlinePanel">
+          <span class="online-indicator-dot"></span>{{ onlineUsers.length }} online
+        </button>
         <button class="btn-icon" title="New chat" @click="showCreate = true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </div>
 
-      <div class="sidebar-chats">
+      <OnlineUsersPanel
+        v-if="showOnlinePanel"
+        :users="onlineUsers"
+        @open-profile="openUserProfile"
+        @close="showOnlinePanel = false"
+      />
+      <div v-else class="sidebar-chats">
         <!-- AI Assistant entry -->
         <button
           class="chat-item"
@@ -469,6 +478,7 @@ import ImageLightbox from '../components/ImageLightbox.vue'
 import UserProfileModal from '../components/UserProfileModal.vue'
 import EmojiPicker from '../components/EmojiPicker.vue'
 import GroupProfileModal from '../components/GroupProfileModal.vue'
+import OnlineUsersPanel from '../components/OnlineUsersPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -526,6 +536,8 @@ const aiMessages = ref([])
 const aiLoading = ref(false)
 
 const showGroupProfile = ref(false)
+const showOnlinePanel = ref(false)
+const onlineUsers = ref([])
 const showEmojiPicker = ref(false)
 const reactionPickerMsgId = ref(null)
 const reactionPickerPos = ref({ x: 0, y: 0 })
@@ -675,6 +687,13 @@ function isNearBottom(thresholdPx = 100) {
 async function scrollToBottom() {
   await nextTick()
   if (listEl.value) listEl.value.scrollTop = listEl.value.scrollHeight
+}
+
+// ─── online users ─────────────────────────────────────────────────
+async function loadOnlineUsers() {
+  try {
+    onlineUsers.value = await api.listOnlineUsers()
+  } catch {}
 }
 
 // ─── data loading ─────────────────────────────────────────────────
@@ -1374,7 +1393,8 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', markReadIfPossible)
   window.addEventListener('resize', onWindowResize)
   api.ping().catch(() => {})
-  pingInterval = setInterval(() => api.ping().catch(() => {}), 30000)
+  loadOnlineUsers()
+  pingInterval = setInterval(() => { api.ping().catch(() => {}); loadOnlineUsers() }, 30000)
 })
 
 onBeforeUnmount(() => {

@@ -5,12 +5,21 @@
       <div class="sidebar-header">
         <div class="sidebar-logo">💬</div>
         <span class="sidebar-logo-text">RealtimeChat</span>
+        <button class="online-indicator" :class="{ active: showOnlinePanel }" :title="showOnlinePanel ? 'Close' : 'Online users'" @click="showOnlinePanel = !showOnlinePanel">
+          <span class="online-indicator-dot"></span>{{ onlineUsers.length }} online
+        </button>
         <button class="btn-icon" title="New chat" @click="openCreate">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </div>
 
-      <div class="sidebar-chats">
+      <OnlineUsersPanel
+        v-if="showOnlinePanel"
+        :users="onlineUsers"
+        @open-profile="openUserProfile"
+        @close="showOnlinePanel = false"
+      />
+      <div v-else class="sidebar-chats">
         <div v-if="loading" style="padding:12px 16px;color:var(--text-3);font-size:13px;">Loading…</div>
         <div v-if="error" style="padding:12px 16px;color:var(--danger);font-size:13px;">{{ error }}</div>
 
@@ -122,6 +131,16 @@
         </div>
       </div>
     </div>
+
+    <!-- User profile modal -->
+    <UserProfileModal
+      v-if="profileUsername"
+      :username="profileUsername"
+      :sidebarChats="chats"
+      @close="profileUsername = null"
+      @open-chat="(id) => { profileUsername = null; router.push(`/chats/${id}`) }"
+      @go-profile="router.push('/profile')"
+    />
   </div>
 </template>
 
@@ -130,6 +149,8 @@ import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 import UserAvatar from '../components/UserAvatar.vue'
+import OnlineUsersPanel from '../components/OnlineUsersPanel.vue'
+import UserProfileModal from '../components/UserProfileModal.vue'
 
 const router = useRouter()
 const chats = ref([])
@@ -145,12 +166,26 @@ const participantsText = ref('')
 const createError = ref('')
 
 const me = ref(null)
+const showOnlinePanel = ref(false)
+const onlineUsers = ref([])
+const profileUsername = ref(null)
 let es = null
 let sseStopped = false
 let sseDelay = 1000
 let sseTimer = null
 let sseGen = 0
 let pingInterval = null
+
+async function loadOnlineUsers() {
+  try {
+    onlineUsers.value = await api.listOnlineUsers()
+  } catch {}
+}
+
+function openUserProfile(username) {
+  if (!username) return
+  profileUsername.value = username
+}
 
 async function loadChats() {
   error.value = ''
@@ -343,9 +378,9 @@ onMounted(async () => {
   await loadChats()
   me.value = await api.me()
   await connectAllChatsSse()
-  // heartbeat for online status
   api.ping().catch(() => {})
-  pingInterval = setInterval(() => api.ping().catch(() => {}), 30000)
+  loadOnlineUsers()
+  pingInterval = setInterval(() => { api.ping().catch(() => {}); loadOnlineUsers() }, 30000)
 })
 
 onBeforeUnmount(() => {
