@@ -1011,6 +1011,108 @@ textarea.input {
   cursor: zoom-in;
   object-fit: cover;
 }
+
+/* ─── Image grid (multiple photos in one message) ────────────── */
+.attachment-grid {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+}
+.attachment-grid.count-1 { grid-template-columns: 1fr; }
+.attachment-grid.count-2 { grid-template-columns: 1fr 1fr; }
+.attachment-grid.count-3 { grid-template-columns: 1fr 1fr; }
+.attachment-grid.count-3 .attachment-grid-img:first-child { grid-column: 1 / -1; }
+.attachment-grid.count-4 { grid-template-columns: 1fr 1fr; }
+.attachment-grid-img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: zoom-in;
+  display: block;
+  max-width: 260px;
+}
+.attachment-grid.count-1 .attachment-grid-img {
+  aspect-ratio: unset;
+  max-height: 300px;
+}
+.attachment-grid.count-3 .attachment-grid-img:first-child {
+  aspect-ratio: 16/9;
+  max-width: 100%;
+}
+
+/* ─── Lightbox ───────────────────────────────────────────────── */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-img-wrap {
+  max-width: 92vw;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-img {
+  max-width: 92vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 48px rgba(0, 0, 0, 0.6);
+  user-select: none;
+}
+.lightbox-close {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.lightbox-close:hover { background: rgba(255, 255, 255, 0.18); }
+.lightbox-arrow {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+  z-index: 1001;
+}
+.lightbox-arrow:hover { background: rgba(255, 255, 255, 0.2); }
+.lightbox-arrow.left { left: 16px; }
+.lightbox-arrow.right { right: 16px; }
+.lightbox-counter {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
 .attachment-video {
   max-width: 260px;
   border-radius: 10px;

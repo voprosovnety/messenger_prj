@@ -45,7 +45,19 @@ final class CreateMessageController
         $attachmentType = isset($data['attachment_type']) && is_string($data['attachment_type']) ? $data['attachment_type'] : null;
         $attachmentName = isset($data['attachment_name']) && is_string($data['attachment_name']) ? $data['attachment_name'] : null;
 
-        if ((!is_string($content) || trim($content) === '') && !$attachmentUrl) {
+        $attachments = null;
+        if (isset($data['attachments']) && is_array($data['attachments']) && count($data['attachments']) > 0) {
+            $attachments = array_values(array_filter(array_map(static function (mixed $a): ?array {
+                if (!is_array($a) || !isset($a['url']) || !is_string($a['url'])) return null;
+                return [
+                    'url'  => $a['url'],
+                    'type' => isset($a['type']) && is_string($a['type']) ? $a['type'] : 'file',
+                    'name' => isset($a['name']) && is_string($a['name']) ? $a['name'] : null,
+                ];
+            }, $data['attachments'])));
+        }
+
+        if ((!is_string($content) || trim($content) === '') && !$attachmentUrl && !$attachments) {
             return new JsonResponse(['error' => 'content or attachment is required'], 400);
         }
 
@@ -62,6 +74,7 @@ final class CreateMessageController
         $msg->setChat($chat);
         $msg->setSender($me);
         $msg->setContent(is_string($content) ? $content : '');
+        if ($attachments)    $msg->setAttachments($attachments);
         if ($attachmentUrl)  $msg->setAttachmentUrl($attachmentUrl);
         if ($attachmentType) $msg->setAttachmentType($attachmentType);
         if ($attachmentName) $msg->setAttachmentName($attachmentName);
@@ -93,6 +106,7 @@ final class CreateMessageController
             'content'         => $msg->getContent(),
             'created_at'      => $msg->getCreatedAt()?->format(DATE_ATOM),
             'reply_to'        => $serializeReply($replyToMsg),
+            'attachments'     => $msg->getAttachments(),
             'attachment_url'  => $msg->getAttachmentUrl(),
             'attachment_type' => $msg->getAttachmentType(),
             'attachment_name' => $msg->getAttachmentName(),

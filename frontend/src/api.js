@@ -195,14 +195,10 @@ export const api = {
         return json
     },
 
-    sendMessage: async (chatId, content, replyToId = null, attachment = null) => {
+    sendMessage: async (chatId, content, replyToId = null, attachments = []) => {
         const body = { content }
         if (replyToId) body.reply_to_id = replyToId
-        if (attachment) {
-            body.attachment_url  = attachment.url
-            body.attachment_type = attachment.type
-            body.attachment_name = attachment.name
-        }
+        if (attachments.length) body.attachments = attachments.map(a => ({ url: a.url, type: a.type, name: a.name }))
         const res = await request(`/api/chats/${chatId}/messages`, {
             method: 'POST',
             body: JSON.stringify(body),

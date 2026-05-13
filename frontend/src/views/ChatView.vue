@@ -184,15 +184,34 @@
                           <span v-if="m.deleted_at" style="font-style:italic">Message deleted</span>
                           <template v-else>
                             <span v-if="m.content" style="white-space:pre-wrap;word-break:break-word">{{ m.content }}</span>
-                            <div v-if="m.attachment_url" class="attachment">
-                              <img v-if="m.attachment_type === 'image'" :src="m.attachment_url" class="attachment-img" @click="openUrl(m.attachment_url)" />
-                              <video v-else-if="m.attachment_type === 'video'" :src="m.attachment_url" controls class="attachment-video"></video>
-                              <AudioPlayer v-else-if="m.attachment_type === 'audio'" :src="m.attachment_url" />
-                              <a v-else :href="m.attachment_url" target="_blank" download class="attachment-file">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                {{ m.attachment_name || 'Download file' }}
-                              </a>
-                            </div>
+
+                            <!-- Image grid -->
+                            <template v-if="getAttachments(m).filter(a => a.type === 'image').length">
+                              <div
+                                class="attachment-grid"
+                                :class="`count-${Math.min(getAttachments(m).filter(a => a.type === 'image').length, 4)}`"
+                              >
+                                <img
+                                  v-for="(a, ai) in getAttachments(m).filter(a => a.type === 'image').slice(0, 4)"
+                                  :key="ai"
+                                  :src="a.url"
+                                  class="attachment-grid-img"
+                                  @click="openLightbox(a.url)"
+                                />
+                              </div>
+                            </template>
+
+                            <!-- Non-image attachments -->
+                            <template v-for="(a, ai) in getAttachments(m).filter(a => a.type !== 'image')" :key="ai">
+                              <div class="attachment">
+                                <video v-if="a.type === 'video'" :src="a.url" controls class="attachment-video"></video>
+                                <AudioPlayer v-else-if="a.type === 'audio'" :src="a.url" />
+                                <a v-else :href="a.url" target="_blank" download class="attachment-file">
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                  {{ a.name || 'Download file' }}
+                                </a>
+                              </div>
+                            </template>
                           </template>
                         </div>
                       </div>
@@ -230,12 +249,27 @@
             </button>
           </div>
 
-          <!-- Pending file preview -->
-          <div v-if="pendingFile" class="reply-bar">
-            <img v-if="pendingFile.previewUrl" :src="pendingFile.previewUrl" style="height:40px;width:40px;object-fit:cover;border-radius:4px;flex-shrink:0" />
-            <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-            <span class="reply-bar-text" style="font-size:13px">{{ pendingFile.name }}</span>
-            <button class="btn-icon" style="padding:4px" @click="cancelFile">
+          <!-- Pending files preview -->
+          <div v-if="pendingFiles.length" class="reply-bar" style="flex-wrap:wrap;gap:8px;align-items:flex-start">
+            <div
+              v-for="(f, fi) in pendingFiles"
+              :key="fi"
+              style="position:relative;flex-shrink:0"
+            >
+              <img v-if="f.previewUrl" :src="f.previewUrl" style="height:52px;width:52px;object-fit:cover;border-radius:6px;display:block" />
+              <div v-else style="height:52px;display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-2);max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                {{ f.name }}
+              </div>
+              <button
+                class="btn-icon"
+                style="position:absolute;top:-6px;right:-6px;background:var(--surface-2);border-radius:50%;width:18px;height:18px;padding:0;display:flex;align-items:center;justify-content:center"
+                @click="cancelFile(fi)"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <button class="btn-icon" style="padding:4px;align-self:center" title="Clear all" @click="cancelFile()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
@@ -244,7 +278,7 @@
           <div class="composer">
             <!-- Normal mode -->
             <template v-if="!recording">
-              <input ref="fileInputEl" type="file" style="display:none" @change="onFileSelect" />
+              <input ref="fileInputEl" type="file" multiple style="display:none" @change="onFileSelect" />
               <button v-if="!isAiChat" class="btn-icon composer-attach" title="Attach file" :disabled="uploading" @click="fileInputEl.click()">
                 <svg v-if="!uploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
@@ -261,7 +295,7 @@
               <button v-if="!isAiChat" class="btn-icon composer-mic" title="Record voice message" :disabled="uploading" @click="startRecording">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
               </button>
-              <button class="composer-send" :disabled="isAiChat ? (!input.trim() || aiLoading) : (!input.trim() && !pendingFile)" @click="send">
+              <button class="composer-send" :disabled="isAiChat ? (!input.trim() || aiLoading) : (!input.trim() && !pendingFiles.length)" @click="send">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
             </template>
@@ -351,6 +385,15 @@
       </div>
     </div>
 
+    <!-- Image lightbox -->
+    <ImageLightbox
+      v-if="lightboxOpen"
+      :images="allImages"
+      :index="lightboxIndex"
+      @close="lightboxOpen = false"
+      @navigate="lightboxIndex = $event"
+    />
+
     <!-- New chat modal -->
     <div v-if="showCreate" class="modal-overlay" @click.self="showCreate = false">
       <div class="modal">
@@ -393,6 +436,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import UserAvatar from '../components/UserAvatar.vue'
 import AudioPlayer from '../components/AudioPlayer.vue'
+import ImageLightbox from '../components/ImageLightbox.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -438,10 +482,13 @@ let typingDebounce = null
 const listEl = ref(null)
 const composerEl = ref(null)
 const fileInputEl = ref(null)
-const pendingFile = ref(null) // { url, type, name, previewUrl }
+const pendingFiles = ref([]) // [{ url, type, name, previewUrl }]
 const uploading = ref(false)
 const dragging = ref(false)
 let dragCounter = 0
+
+const lightboxOpen = ref(false)
+const lightboxIndex = ref(0)
 const composerError = ref('')
 const recording = ref(false)
 const aiMessages = ref([])
@@ -491,6 +538,29 @@ const grouped = computed(() => {
   }
   return groups
 })
+
+function getAttachments(m) {
+  if (m.attachments?.length) return m.attachments
+  if (m.attachment_url) return [{ url: m.attachment_url, type: m.attachment_type, name: m.attachment_name }]
+  return []
+}
+
+const allImages = computed(() => {
+  const imgs = []
+  for (const m of displayMessages.value) {
+    if (m.deleted_at) continue
+    for (const a of getAttachments(m)) {
+      if (a.type === 'image') imgs.push(a.url)
+    }
+  }
+  return imgs
+})
+
+function openLightbox(url) {
+  const idx = allImages.value.indexOf(url)
+  lightboxIndex.value = idx >= 0 ? idx : 0
+  lightboxOpen.value = true
+}
 
 // ─── helpers ─────────────────────────────────────────────────────
 function openUrl(url) { window.open(url, '_blank') }
@@ -806,13 +876,13 @@ async function send() {
     return
   }
   const text = input.value.trim()
-  const att = pendingFile.value
-  if (!text && !att) return
+  const atts = pendingFiles.value.slice()
+  if (!text && !atts.length) return
   const replyId = replyingTo.value?.id ?? null
   input.value = ''
   replyingTo.value = null
-  pendingFile.value = null
-  await api.sendMessage(chatId.value, text, replyId, att).catch(() => {})
+  pendingFiles.value = []
+  await api.sendMessage(chatId.value, text, replyId, atts).catch(() => {})
 }
 
 async function sendToAi(text) {
@@ -859,12 +929,12 @@ async function processFile(file) {
   uploading.value = true
   try {
     const result = await api.uploadFile(file)
-    pendingFile.value = {
+    pendingFiles.value.push({
       url: result.url,
       type: result.type,
       name: result.name || file.name,
       previewUrl: result.type === 'image' ? result.url : null,
-    }
+    })
   } catch (err) {
     error.value = err.message
   } finally {
@@ -873,13 +943,14 @@ async function processFile(file) {
 }
 
 async function onFileSelect(e) {
-  const file = e.target.files[0]
+  const files = Array.from(e.target.files)
   e.target.value = ''
-  await processFile(file)
+  for (const f of files) await processFile(f)
 }
 
-function cancelFile() {
-  pendingFile.value = null
+function cancelFile(idx) {
+  if (idx === undefined) pendingFiles.value = []
+  else pendingFiles.value.splice(idx, 1)
 }
 
 function onDragEnter(e) {
@@ -901,8 +972,8 @@ async function onDrop(e) {
   dragCounter = 0
   dragging.value = false
   if (isAiChat.value) return
-  const file = e.dataTransfer?.files[0]
-  if (file) await processFile(file)
+  const files = Array.from(e.dataTransfer?.files || [])
+  for (const f of files) await processFile(f)
 }
 
 function fmtRecTime(s) {
@@ -1158,6 +1229,7 @@ watch(chatId, async (newId, oldId) => {
   cancelRecording()
   dragCounter = 0
   dragging.value = false
+  lightboxOpen.value = false
   error.value = ''
   composerError.value = ''
   showMembersPanel.value = false
