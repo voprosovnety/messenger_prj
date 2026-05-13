@@ -73,6 +73,7 @@
       @dragover.prevent
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
+      @click="showEmojiPicker = false; closeReactionPicker()"
     >
       <!-- Drag-and-drop overlay -->
       <div v-if="dragging && !isAiChat" class="drop-overlay">
@@ -170,6 +171,9 @@
                           <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Reply" @click="startReply(m)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
                           </button>
+                          <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="React" @click.stop="openReactionPicker(m.id, $event)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                          </button>
                         </div>
                         <div class="message-bubble" :class="{ deleted: !!m.deleted_at }">
                           <div v-if="m.reply_to" class="reply-quote" @click.stop="jumpToMessage(m.reply_to.id)">
@@ -218,6 +222,19 @@
                         <template v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</template>
                         <template v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</template>
                       </span>
+                    </div>
+
+                    <!-- Reactions row -->
+                    <div v-if="m.reactions && m.reactions.length" class="message-reactions">
+                      <button
+                        v-for="r in m.reactions"
+                        :key="r.emoji"
+                        class="reaction-pill"
+                        :class="{ 'by-me': isMyReaction(m, r.emoji) }"
+                        :title="r.users.join(', ')"
+                        @click.stop="doToggleReaction(m.id, r.emoji)"
+                      >{{ r.emoji }} {{ r.count }}</button>
+                      <button v-if="!isAiChat && !m.deleted_at" class="reaction-add-btn" title="Add reaction" @click.stop="openReactionPicker(m.id, $event)">+</button>
                     </div>
                   </div>
 
@@ -281,6 +298,45 @@
           </div>
 
           <!-- Composer -->
+          <div class="composer-wrap">
+            <!-- Emoji picker for composer -->
+            <Teleport to="body">
+              <div
+                v-if="showEmojiPicker"
+                class="emoji-picker-portal"
+                :style="{ left: emojiPickerPos.left + 'px', bottom: emojiPickerPos.bottom + 'px', transform: 'translateX(-50%)', top: 'auto' }"
+                @click.stop
+                @mousedown.stop
+              >
+                <EmojiPicker @select="onEmojiSelect" />
+              </div>
+            </Teleport>
+
+            <!-- Reaction quick picker -->
+            <Teleport to="body">
+              <div
+                v-if="reactionPickerMsgId"
+                class="reaction-picker-portal"
+                :style="{ left: reactionPickerPos.x + 'px', top: reactionPickerPos.y + 'px' }"
+                @click.stop
+                @mousedown.stop
+              >
+                <div v-if="!showFullReactionPicker" class="reaction-quick-pick">
+                  <button
+                    v-for="e in QUICK_REACTIONS"
+                    :key="e"
+                    class="reaction-quick-btn"
+                    :class="{ active: isMyReaction(messages.find(m => m.id === reactionPickerMsgId), e) }"
+                    @click.stop="doToggleReaction(reactionPickerMsgId, e); closeReactionPicker()"
+                  >{{ e }}</button>
+                  <button class="reaction-quick-btn reaction-more-btn" title="More emojis" @click.stop="showFullReactionPicker = true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                  </button>
+                </div>
+                <EmojiPicker v-else @select="onEmojiSelect" />
+              </div>
+            </Teleport>
+
           <div class="composer">
             <!-- Normal mode -->
             <template v-if="!recording">
@@ -298,6 +354,20 @@
                 @keydown="onKeydown"
                 @input="onTyping"
               />
+              <button
+                ref="emojiButtonEl"
+                class="btn-icon composer-emoji"
+                :class="{ active: showEmojiPicker }"
+                title="Emoji"
+                @click.stop="toggleEmojiPicker"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                  <circle cx="9" cy="9.5" r="1.5" fill="currentColor" stroke="none"/>
+                  <circle cx="15" cy="9.5" r="1.5" fill="currentColor" stroke="none"/>
+                </svg>
+              </button>
               <button v-if="!isAiChat" class="btn-icon composer-mic" title="Record voice message" :disabled="uploading" @click="startRecording">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
               </button>
@@ -319,6 +389,7 @@
               </button>
             </template>
           </div>
+          </div><!-- /composer-wrap -->
         </div>
 
         <!-- Members sidebar (group chats) -->
@@ -465,6 +536,7 @@ import UserAvatar from '../components/UserAvatar.vue'
 import AudioPlayer from '../components/AudioPlayer.vue'
 import ImageLightbox from '../components/ImageLightbox.vue'
 import UserProfileModal from '../components/UserProfileModal.vue'
+import EmojiPicker from '../components/EmojiPicker.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -511,6 +583,8 @@ let typingDebounce = null
 const listEl = ref(null)
 const composerEl = ref(null)
 const fileInputEl = ref(null)
+const emojiButtonEl = ref(null)
+const emojiPickerPos = ref({ bottom: 70, left: '50%', transform: 'translateX(-50%)' })
 const pendingFiles = ref([]) // [{ url, type, name, previewUrl }]
 const uploading = ref(false)
 const dragging = ref(false)
@@ -526,6 +600,13 @@ const composerError = ref('')
 const recording = ref(false)
 const aiMessages = ref([])
 const aiLoading = ref(false)
+
+const showEmojiPicker = ref(false)
+const reactionPickerMsgId = ref(null)
+const reactionPickerPos = ref({ x: 0, y: 0 })
+const showFullReactionPicker = ref(false)
+
+const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🔥', '👎']
 const recordingTime = ref(0)
 let mediaRecorder = null
 let recordingChunks = []
@@ -874,6 +955,11 @@ async function connectSse() {
           }
           return
         }
+        if (payload.type === 'message.reaction') {
+          const i = messages.value.findIndex(m => m.id === d.message_id)
+          if (i !== -1) messages.value[i].reactions = d.reactions
+          return
+        }
         if (payload.type === 'user.typing') {
           if (d.username !== myId()) {
             typingUser.value = d.username
@@ -897,6 +983,82 @@ async function connectSse() {
   }
 
   await attempt()
+}
+
+// ─── emoji / reactions ────────────────────────────────────────────
+function toggleEmojiPicker() {
+  closeReactionPicker()
+  if (showEmojiPicker.value) {
+    showEmojiPicker.value = false
+    return
+  }
+  if (emojiButtonEl.value) {
+    const rect = emojiButtonEl.value.getBoundingClientRect()
+    emojiPickerPos.value = {
+      left: rect.left + rect.width / 2,
+      bottom: window.innerHeight - rect.top + 8,
+    }
+  }
+  showEmojiPicker.value = true
+}
+
+function onEmojiSelect(emoji) {
+  if (showFullReactionPicker.value && reactionPickerMsgId.value) {
+    doToggleReaction(reactionPickerMsgId.value, emoji)
+    closeReactionPicker()
+    return
+  }
+  input.value += emoji
+  composerEl.value?.focus()
+}
+
+function openReactionPicker(msgId, event) {
+  if (reactionPickerMsgId.value === msgId) {
+    closeReactionPicker()
+    return
+  }
+  const rect = event.currentTarget.getBoundingClientRect()
+  reactionPickerPos.value = { x: rect.left, y: rect.top }
+  reactionPickerMsgId.value = msgId
+  showFullReactionPicker.value = false
+}
+
+function closeReactionPicker() {
+  reactionPickerMsgId.value = null
+  showFullReactionPicker.value = false
+}
+
+async function doToggleReaction(msgId, emoji) {
+  const msg = messages.value.find(m => m.id === msgId)
+  if (!msg) return
+
+  const myUser = me.value?.username
+  const existing = (msg.reactions || []).find(r => r.emoji === emoji)
+  const isMineReaction = existing?.users?.includes(myUser)
+
+  if (!msg.reactions) msg.reactions = []
+  if (isMineReaction) {
+    const idx = msg.reactions.findIndex(r => r.emoji === emoji)
+    if (idx !== -1) {
+      const newUsers = msg.reactions[idx].users.filter(u => u !== myUser)
+      if (newUsers.length === 0) msg.reactions.splice(idx, 1)
+      else msg.reactions[idx] = { ...msg.reactions[idx], count: newUsers.length, users: newUsers }
+    }
+  } else {
+    const idx = msg.reactions.findIndex(r => r.emoji === emoji)
+    if (idx !== -1) {
+      msg.reactions[idx] = { ...msg.reactions[idx], count: msg.reactions[idx].count + 1, users: [...msg.reactions[idx].users, myUser] }
+    } else {
+      msg.reactions.push({ emoji, count: 1, users: [myUser] })
+    }
+  }
+
+  await api.toggleReaction(chatId.value, msgId, emoji).catch(() => {})
+}
+
+function isMyReaction(msg, emoji) {
+  if (!msg) return false
+  return (msg.reactions || []).find(r => r.emoji === emoji)?.users?.includes(me.value?.username) ?? false
 }
 
 // ─── actions ──────────────────────────────────────────────────────
@@ -1319,6 +1481,8 @@ watch(chatId, async (newId, oldId) => {
   showMembersPanel.value = false
   showRename.value = false
   showAddMember.value = false
+  showEmojiPicker.value = false
+  closeReactionPicker()
   await load()
   await connectSse()
   if (!isAiChat.value) {

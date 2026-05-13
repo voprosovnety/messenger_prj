@@ -110,6 +110,7 @@ final class CreateMessageController
             'attachment_url'  => $msg->getAttachmentUrl(),
             'attachment_type' => $msg->getAttachmentType(),
             'attachment_name' => $msg->getAttachmentName(),
+            'reactions'       => [],
         ];
 
         $payload = json_encode(['type' => 'message.created', 'data' => $msgData], JSON_UNESCAPED_SLASHES);
