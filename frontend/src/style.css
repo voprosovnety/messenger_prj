@@ -1408,13 +1408,6 @@ textarea.input {
 .sidebar-toggle:hover { color: var(--text); background: var(--surface-2); }
 
 /* ─── Composer emoji button ──────────────────────────────────── */
-.composer-emoji {
-  font-size: 17px;
-  padding: 4px 6px;
-  flex-shrink: 0;
-  line-height: 1;
-  transition: background var(--transition), opacity var(--transition);
-}
 .composer-emoji.active { background: var(--accent-dim); color: var(--accent); }
 
 .composer-wrap { position: relative; }

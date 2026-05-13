@@ -345,13 +345,6 @@
                 <svg v-if="!uploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
               </button>
-              <button
-                ref="emojiButtonEl"
-                class="btn-icon composer-emoji"
-                :class="{ active: showEmojiPicker }"
-                title="Emoji"
-                @click.stop="toggleEmojiPicker"
-              >😊</button>
               <textarea
                 ref="composerEl"
                 v-model="input"
@@ -361,6 +354,20 @@
                 @keydown="onKeydown"
                 @input="onTyping"
               />
+              <button
+                ref="emojiButtonEl"
+                class="btn-icon composer-emoji"
+                :class="{ active: showEmojiPicker }"
+                title="Emoji"
+                @click.stop="toggleEmojiPicker"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                  <line x1="9" y1="9" x2="9.01" y2="9" stroke-width="3"/>
+                  <line x1="15" y1="9" x2="15.01" y2="9" stroke-width="3"/>
+                </svg>
+              </button>
               <button v-if="!isAiChat" class="btn-icon composer-mic" title="Record voice message" :disabled="uploading" @click="startRecording">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
               </button>
