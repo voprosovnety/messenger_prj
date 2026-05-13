@@ -1211,6 +1211,40 @@ textarea.input {
 }
 .message-row:not(.own) .reply-quote-content { color: var(--text-2); }
 
+/* ─── Forwarded badge ────────────────────────────────────────── */
+.forwarded-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--accent);
+  margin-bottom: 4px;
+  opacity: 0.85;
+}
+.forwarded-badge strong { font-weight: 600; }
+
+/* ─── Forward modal chat list ────────────────────────────────── */
+.forward-chat-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+  transition: background var(--transition);
+}
+.forward-chat-item:hover { background: var(--surface-3); }
+.forward-chat-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ─── Non-own message actions position ──────────────────────── */
 .message-row:not(.own) .message-actions {
   right: auto;

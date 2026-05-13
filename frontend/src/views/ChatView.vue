@@ -238,6 +238,9 @@
                           <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Reply" @click="startReply(m)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
                           </button>
+                          <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Forward" @click="startForward(m)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+                          </button>
                           <button v-if="canPin" class="btn-icon" style="padding:4px 6px;border-radius:4px" :title="pinnedMessages.some(p => p.id === m.id) ? 'Unpin' : 'Pin'" @click="doPin(m.id)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
                           </button>
@@ -246,6 +249,10 @@
                           </button>
                         </div>
                         <div class="message-bubble" :class="{ deleted: !!m.deleted_at }">
+                          <div v-if="m.forwarded_from" class="forwarded-badge">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+                            Forwarded from <strong>{{ m.forwarded_from }}</strong>
+                          </div>
                           <div v-if="m.reply_to" class="reply-quote" @click.stop="jumpToMessage(m.reply_to.id)">
                             <span class="reply-quote-sender">{{ m.reply_to.sender }}</span>
                             <span class="reply-quote-content">{{ m.reply_to.deleted ? 'Message deleted' : m.reply_to.content }}</span>
@@ -500,6 +507,29 @@
       @navigate="lightboxIndex = $event"
     />
 
+    <!-- Forward modal -->
+    <div v-if="showForwardModal" class="modal-overlay" @click.self="showForwardModal = false">
+      <div class="modal">
+        <div class="modal-header">
+          <span class="modal-title">Forward to…</span>
+          <button class="btn-icon" @click="showForwardModal = false">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="modal-body" style="padding:0;max-height:360px;overflow-y:auto">
+          <button
+            v-for="c in sidebarChats"
+            :key="c.id"
+            class="forward-chat-item"
+            @click="doForward(c.id)"
+          >
+            <UserAvatar :username="c.display_name || c.id" :avatarUrl="c.avatar_url || null" size="sm" />
+            <span class="forward-chat-name">{{ c.display_name || c.id }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- New chat modal -->
     <div v-if="showCreate" class="modal-overlay" @click.self="showCreate = false">
       <div class="modal">
@@ -621,6 +651,9 @@ let searchDebounce = null
 const reactionPickerMsgId = ref(null)
 const reactionPickerPos = ref({ x: 0, y: 0 })
 const showFullReactionPicker = ref(false)
+
+const forwardingMsg = ref(null)
+const showForwardModal = ref(false)
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🔥', '👎']
 const recordingTime = ref(0)
@@ -1414,6 +1447,26 @@ function cancelReply() {
   replyingTo.value = null
 }
 
+function startForward(m) {
+  forwardingMsg.value = m
+  showForwardModal.value = true
+}
+
+async function doForward(targetChatId) {
+  const m = forwardingMsg.value
+  if (!m) return
+  showForwardModal.value = false
+  forwardingMsg.value = null
+  try {
+    await api.sendForwardedMessage(targetChatId, m.id)
+    if (targetChatId !== chatId.value) {
+      router.push(`/chats/${targetChatId}`)
+    }
+  } catch (e) {
+    error.value = e.message
+  }
+}
+
 function startEdit(m) {
   if (m.deleted_at) return
   editingId.value = m.id
@@ -1620,6 +1673,8 @@ watch(chatId, async (newId, oldId) => {
   closeReactionPicker()
   showGroupProfile.value = false
   closeSearch()
+  showForwardModal.value = false
+  forwardingMsg.value = null
   await load()
   await connectSse()
   if (!isAiChat.value) {

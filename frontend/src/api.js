@@ -223,6 +223,14 @@ export const api = {
         return res.json()
     },
 
+    sendForwardedMessage: async (chatId, originalMessageId) => {
+        const res = await request(`/api/chats/${chatId}/messages`, {
+            method: 'POST',
+            body: JSON.stringify({ forwarded_from_id: originalMessageId }),
+        })
+        return res.json()
+    },
+
     editMessage: async (chatId, messageId, content) => {
         const res = await request(`/api/chats/${chatId}/messages/${messageId}`, {
             method: 'PATCH',

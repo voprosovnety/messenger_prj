@@ -5,7 +5,9 @@ namespace App\Controller;
 use App\Entity\Chat;
 use App\Entity\ChatMember;
 use App\Entity\Message;
+use App\Entity\Poll;
 use App\Entity\User;
+use App\Service\PollHelper;
 use App\Service\ReactionHelper;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -103,6 +105,16 @@ final class ListMessagesController
 
         $reactionsMap = ReactionHelper::buildReactionsForMessages($em, $rows);
 
+        // Load polls for poll-type messages
+        $pollMessages = array_filter($rows, static fn($m) => $m->getType() === 'poll');
+        $pollMap = [];
+        foreach ($pollMessages as $pm) {
+            $poll = $em->getRepository(Poll::class)->findOneBy(['message' => $pm]);
+            if ($poll) {
+                $pollMap[(string) $pm->getId()] = PollHelper::buildPollData($em, $poll, $me);
+            }
+        }
+
         $items = [];
         foreach ($rows as $m) {
             $r = $m->getReplyTo();
@@ -121,11 +133,13 @@ final class ListMessagesController
                     'content' => $r->getDeletedAt() ? null : $r->getContent(),
                     'deleted' => $r->getDeletedAt() !== null,
                 ] : null,
+                'forwarded_from'  => $m->getForwardedFrom(),
                 'attachments'     => $m->getAttachments(),
                 'attachment_url'  => $m->getAttachmentUrl(),
                 'attachment_type' => $m->getAttachmentType(),
                 'attachment_name' => $m->getAttachmentName(),
                 'reactions'       => $reactionsMap[(string) $m->getId()] ?? [],
+                'poll'            => $pollMap[(string) $m->getId()] ?? null,
             ];
         }
 

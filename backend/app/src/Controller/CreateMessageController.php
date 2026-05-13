@@ -57,6 +57,22 @@ final class CreateMessageController
             }, $data['attachments'])));
         }
 
+        // Forward: copy content + attachments from original message
+        $forwardedFrom = null;
+        $forwardedFromId = $data['forwarded_from_id'] ?? null;
+        if ($forwardedFromId) {
+            $origMsg = $em->getRepository(Message::class)->find($forwardedFromId);
+            if (!$origMsg || $origMsg->getDeletedAt() !== null) {
+                return new JsonResponse(['error' => 'invalid forwarded_from_id'], 400);
+            }
+            $content        = $origMsg->getContent();
+            $attachments    = $origMsg->getAttachments() ?? $attachments;
+            $attachmentUrl  = $origMsg->getAttachmentUrl() ?? $attachmentUrl;
+            $attachmentType = $origMsg->getAttachmentType() ?? $attachmentType;
+            $attachmentName = $origMsg->getAttachmentName() ?? $attachmentName;
+            $forwardedFrom  = $origMsg->getSender()?->getUsername();
+        }
+
         if ((!is_string($content) || trim($content) === '') && !$attachmentUrl && !$attachments) {
             return new JsonResponse(['error' => 'content or attachment is required'], 400);
         }
@@ -78,6 +94,7 @@ final class CreateMessageController
         if ($attachmentUrl)  $msg->setAttachmentUrl($attachmentUrl);
         if ($attachmentType) $msg->setAttachmentType($attachmentType);
         if ($attachmentName) $msg->setAttachmentName($attachmentName);
+        if ($forwardedFrom)  $msg->setForwardedFrom($forwardedFrom);
         if ($replyToMsg) {
             $msg->setReplyTo($replyToMsg);
         }
@@ -106,6 +123,7 @@ final class CreateMessageController
             'content'         => $msg->getContent(),
             'created_at'      => $msg->getCreatedAt()?->format(DATE_ATOM),
             'reply_to'        => $serializeReply($replyToMsg),
+            'forwarded_from'  => $msg->getForwardedFrom(),
             'attachments'     => $msg->getAttachments(),
             'attachment_url'  => $msg->getAttachmentUrl(),
             'attachment_type' => $msg->getAttachmentType(),

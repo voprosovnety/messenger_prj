@@ -54,6 +54,9 @@ class Message
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $attachments = null;
 
+    #[ORM\Column(length: 150, nullable: true)]
+    private ?string $forwardedFrom = null;
+
     public function __construct()
     {
         $this->id = Uuid::v7();
@@ -165,4 +168,7 @@ class Message
 
     public function getAttachments(): ?array { return $this->attachments; }
     public function setAttachments(?array $v): static { $this->attachments = $v; return $this; }
+
+    public function getForwardedFrom(): ?string { return $this->forwardedFrom; }
+    public function setForwardedFrom(?string $v): static { $this->forwardedFrom = $v; return $this; }
 }
