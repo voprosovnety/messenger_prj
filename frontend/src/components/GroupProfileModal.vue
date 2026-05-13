@@ -90,7 +90,15 @@
                 {{ p.username }}
                 <span v-if="p.is_me" style="color:var(--text-3);font-weight:400;font-size:12px"> (you)</span>
               </div>
-              <div class="member-item-role">{{ p.role.toLowerCase() }}</div>
+              <div class="member-item-role">
+                {{ p.role.toLowerCase() }}
+                <template v-if="!p.is_me">
+                  <span class="member-status-sep">·</span>
+                  <span v-if="isUserOnline(p)" class="member-online">online</span>
+                  <span v-else-if="p.last_seen_at" class="member-last-seen">last seen {{ formatRelative(p.last_seen_at) }}</span>
+                  <span v-else class="member-last-seen">offline</span>
+                </template>
+              </div>
             </div>
             <div class="member-item-actions">
               <button
@@ -321,7 +329,35 @@ async function deleteChat() {
   }
 }
 
+function isUserOnline(user) {
+  if (!user?.last_seen_at) return false
+  return (Date.now() - new Date(user.last_seen_at).getTime()) < 65000
+}
+
+function formatRelative(iso) {
+  if (!iso) return 'a while ago'
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (diff < 60) return 'just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
+
 function onKey(e) { if (e.key === 'Escape') emit('close') }
 onMounted(() => document.addEventListener('keydown', onKey))
 onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 </script>
+
+<style scoped>
+.member-status-sep {
+  margin: 0 3px;
+  color: var(--text-3);
+}
+.member-online {
+  color: #4caf7d;
+  font-weight: 500;
+}
+.member-last-seen {
+  color: var(--text-3);
+}
+</style>

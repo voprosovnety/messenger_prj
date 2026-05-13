@@ -113,14 +113,56 @@
               <span v-else-if="peerUser.last_seen_at">Last seen {{ formatRelative(peerUser.last_seen_at) }}</span>
               <span v-else>Offline</span>
             </span>
-            <span v-else-if="isGroup">{{ participants.length }} members</span>
+            <span v-else-if="isGroup">{{ participants.length }} members<template v-if="onlineParticipantsCount > 0">, <span class="chat-header-online">{{ onlineParticipantsCount }} online</span></template></span>
           </div>
         </div>
         <div class="chat-header-actions">
+          <button v-if="!isAiChat" class="btn-icon" :title="searchOpen ? 'Close search' : 'Search messages'" :style="searchOpen ? 'color:var(--accent)' : ''" @click="toggleSearch">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </button>
           <button v-if="!isGroup" class="btn-icon" title="Delete chat" style="color:var(--danger)" @click="deleteChat">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
           </button>
         </div>
+      </div>
+
+      <!-- Search bar -->
+      <div v-if="searchOpen && !isAiChat" class="msg-search-bar">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input
+          ref="searchInputEl"
+          v-model="searchQuery"
+          class="msg-search-input"
+          placeholder="Search messages…"
+          @input="onSearchInput"
+          @keydown.escape="closeSearch"
+        />
+        <button v-if="searchQuery" class="btn-icon" style="padding:4px" title="Clear" @click="searchQuery = ''; searchResults = []; searchLoading = false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Search results panel -->
+      <div v-if="searchOpen && !isAiChat && (searchLoading || searchQuery.trim().length >= 2)" class="msg-search-results">
+        <div v-if="searchLoading" class="msg-search-status">Searching…</div>
+        <template v-else>
+          <div v-if="!searchResults.length" class="msg-search-status">No messages found for "{{ searchQuery.trim() }}"</div>
+          <button
+            v-for="r in searchResults"
+            :key="r.id"
+            class="msg-search-item"
+            @click="jumpToSearchResult(r.id)"
+          >
+            <UserAvatar :username="r.sender" :avatarUrl="r.sender_avatar_url" size="sm" />
+            <div class="msg-search-item-info">
+              <div class="msg-search-item-meta">
+                <span class="msg-search-item-sender">{{ r.sender }}</span>
+                <span class="msg-search-item-time">{{ formatTimeShort(r.created_at) }}</span>
+              </div>
+              <div class="msg-search-item-text">{{ r.content }}</div>
+            </div>
+          </button>
+        </template>
       </div>
 
       <!-- Pinned message bar -->
@@ -568,6 +610,13 @@ const showOnlinePanel = ref(false)
 const onlineUsers = ref([])
 const draftMap = ref({})
 const showEmojiPicker = ref(false)
+
+const searchOpen = ref(false)
+const searchQuery = ref('')
+const searchResults = ref([])
+const searchLoading = ref(false)
+const searchInputEl = ref(null)
+let searchDebounce = null
 const reactionPickerMsgId = ref(null)
 const reactionPickerPos = ref({ x: 0, y: 0 })
 const showFullReactionPicker = ref(false)
@@ -606,6 +655,7 @@ function isUserOnline(user) {
 }
 
 const isPeerOnline = computed(() => peerUser.value ? isUserOnline(peerUser.value) : false)
+const onlineParticipantsCount = computed(() => participants.value.filter(p => isUserOnline(p)).length)
 const canPin = computed(() => !isAiChat.value && (isOwner.value || !isGroup.value))
 const currentPinned = computed(() => pinnedMessages.value[pinnedIndex.value] || null)
 
@@ -1067,6 +1117,53 @@ function isMyReaction(msg, emoji) {
   return (msg.reactions || []).find(r => r.emoji === emoji)?.users?.includes(me.value?.username) ?? false
 }
 
+// ─── search ───────────────────────────────────────────────────────
+function toggleSearch() {
+  if (searchOpen.value) {
+    closeSearch()
+  } else {
+    searchOpen.value = true
+    nextTick(() => searchInputEl.value?.focus())
+  }
+}
+
+function closeSearch() {
+  searchOpen.value = false
+  searchQuery.value = ''
+  searchResults.value = []
+  searchLoading.value = false
+  clearTimeout(searchDebounce)
+}
+
+function onSearchInput() {
+  clearTimeout(searchDebounce)
+  const q = searchQuery.value.trim()
+  if (q.length < 2) {
+    searchResults.value = []
+    searchLoading.value = false
+    return
+  }
+  searchLoading.value = true
+  searchDebounce = setTimeout(() => doSearch(q), 300)
+}
+
+async function doSearch(q) {
+  try {
+    const data = await api.searchMessages(chatId.value, q)
+    if (searchQuery.value.trim() !== q) return
+    searchResults.value = data.items || []
+  } catch {
+    searchResults.value = []
+  } finally {
+    searchLoading.value = false
+  }
+}
+
+async function jumpToSearchResult(id) {
+  closeSearch()
+  await jumpToMessage(id)
+}
+
 // ─── actions ──────────────────────────────────────────────────────
 async function send() {
   if (isAiChat.value) {
@@ -1521,6 +1618,7 @@ watch(chatId, async (newId, oldId) => {
   showEmojiPicker.value = false
   closeReactionPicker()
   showGroupProfile.value = false
+  closeSearch()
   await load()
   await connectSse()
   if (!isAiChat.value) {
