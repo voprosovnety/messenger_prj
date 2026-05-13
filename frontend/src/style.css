@@ -2,19 +2,19 @@
 
 /* ─── Design tokens ──────────────────────────────────────────── */
 :root {
-  --bg:           #0a0a0a;
-  --surface:      #131313;
-  --surface-2:    #1a1a1a;
-  --surface-3:    #222222;
-  --border:       #2e2e2e;
-  --text:         #f0f0f0;
-  --text-2:       #808080;
-  --text-3:       #505050;
+  --bg:           #0d1117;
+  --surface:      #161b22;
+  --surface-2:    #1c2128;
+  --surface-3:    #22272e;
+  --border:       #30363d;
+  --text:         #e6edf3;
+  --text-2:       #7d8590;
+  --text-3:       #484f58;
   --accent:       #5b8dee;
   --accent-hover: #4a7cdd;
   --accent-dim:   rgba(91, 141, 238, 0.12);
-  --sent-bg:      #0f1e3a;
-  --recv-bg:      #131313;
+  --sent-bg:      #132240;
+  --recv-bg:      #161b22;
   --danger:       #ff4757;
   --danger-dim:   rgba(255, 71, 87, 0.12);
   --online:       #22c55e;
