@@ -1068,17 +1068,19 @@ textarea.input {
 }
 @keyframes ai-shimmer { to { background-position: 200% center; } }
 
-/* ─── Composer attach / mic buttons ──────────────────────────── */
+/* ─── Composer icon buttons (attach / emoji / mic) ───────────── */
 .composer-attach,
+.composer-emoji,
 .composer-mic {
   width: 36px;
   height: 36px;
   border-radius: 50%;
   flex-shrink: 0;
   color: var(--text-3);
-  transition: color var(--transition);
+  transition: color var(--transition), background var(--transition);
 }
 .composer-attach:hover,
+.composer-emoji:hover,
 .composer-mic:hover { color: var(--accent); }
 
 /* ─── Recording indicator ────────────────────────────────────── */
