@@ -13,7 +13,13 @@
       <template v-else>
         <div class="profile-avatar-section">
           <div style="position:relative;flex-shrink:0">
-            <UserAvatar :username="username || '?'" :avatarUrl="avatarUrl || null" size="xl" />
+            <UserAvatar
+              :username="username || '?'"
+              :avatarUrl="avatarUrl || null"
+              size="xl"
+              :style="avatarUrl ? 'cursor:zoom-in' : ''"
+              @click="avatarUrl ? (lightboxOpen = true) : undefined"
+            />
             <label class="avatar-upload-btn" title="Change photo" :class="{ loading: uploadingAvatar }">
               <input type="file" accept="image/*" style="display:none" :disabled="uploadingAvatar" @change="onAvatarFile" />
               <svg v-if="!uploadingAvatar" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -23,6 +29,22 @@
           <div>
             <div style="font-size:15px;font-weight:600;color:var(--text)">{{ username }}</div>
             <div style="font-size:13px;color:var(--text-2);margin-top:2px">{{ email }}</div>
+          </div>
+        </div>
+
+        <!-- Avatar history -->
+        <div v-if="avatarHistory.length" style="margin-bottom:20px">
+          <div class="avatar-history-label">Previous photos</div>
+          <div class="avatar-history-grid">
+            <img
+              v-for="h in avatarHistory"
+              :key="h.url"
+              :src="h.url"
+              class="avatar-history-item"
+              :class="{ current: h.url === avatarUrl }"
+              :title="h.url === avatarUrl ? 'Current' : 'Apply this photo'"
+              @click="applyHistoryAvatar(h.url)"
+            />
           </div>
         </div>
 
@@ -54,6 +76,15 @@
       </template>
     </div>
   </div>
+
+  <!-- Avatar lightbox -->
+  <ImageLightbox
+    v-if="lightboxOpen && avatarUrl"
+    :images="[avatarUrl]"
+    :index="0"
+    @close="lightboxOpen = false"
+    @navigate="() => {}"
+  />
 </template>
 
 <script setup>
@@ -61,6 +92,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 import UserAvatar from '../components/UserAvatar.vue'
+import ImageLightbox from '../components/ImageLightbox.vue'
 
 const router = useRouter()
 
@@ -72,6 +104,8 @@ const saving = ref(false)
 const uploadingAvatar = ref(false)
 const error = ref('')
 const success = ref(false)
+const lightboxOpen = ref(false)
+const avatarHistory = ref([])
 
 onMounted(async () => {
   try {
@@ -79,6 +113,8 @@ onMounted(async () => {
     username.value = me.username || ''
     email.value = me.email || ''
     avatarUrl.value = me.avatar_url || ''
+    const hist = await api.getUserAvatarHistory()
+    avatarHistory.value = hist.items || []
   } catch {
     router.push('/login')
   } finally {
@@ -91,9 +127,7 @@ async function save() {
   success.value = false
   saving.value = true
   try {
-    await api.updateProfile({
-      avatarUrl: avatarUrl.value.trim() || null,
-    })
+    await api.updateProfile({ avatarUrl: avatarUrl.value.trim() || null })
     success.value = true
     setTimeout(() => { success.value = false }, 3000)
   } catch (e) {
@@ -113,6 +147,25 @@ async function onAvatarFile(e) {
     const result = await api.uploadFile(file)
     avatarUrl.value = result.url
     await api.updateProfile({ avatarUrl: result.url })
+    if (!avatarHistory.value.find(h => h.url === result.url)) {
+      avatarHistory.value.unshift({ url: result.url, created_at: new Date().toISOString() })
+    }
+    success.value = true
+    setTimeout(() => { success.value = false }, 3000)
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    uploadingAvatar.value = false
+  }
+}
+
+async function applyHistoryAvatar(url) {
+  if (url === avatarUrl.value) return
+  uploadingAvatar.value = true
+  error.value = ''
+  try {
+    await api.updateProfile({ avatarUrl: url })
+    avatarUrl.value = url
     success.value = true
     setTimeout(() => { success.value = false }, 3000)
   } catch (err) {

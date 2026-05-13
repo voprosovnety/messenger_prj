@@ -10,7 +10,14 @@
 
         <template v-else-if="user">
           <div class="user-profile-avatar">
-            <UserAvatar :username="user.username" :avatarUrl="user.avatar_url" :isOnline="user.is_online" size="xl" />
+            <UserAvatar
+              :username="user.username"
+              :avatarUrl="user.avatar_url"
+              :isOnline="user.is_online"
+              size="xl"
+              :style="user.avatar_url ? 'cursor:zoom-in' : ''"
+              @click="user.avatar_url ? (lightboxOpen = true) : undefined"
+            />
           </div>
           <div class="user-profile-name">{{ user.username }}</div>
           <div class="user-profile-status">
@@ -32,12 +39,21 @@
         <div v-else class="user-profile-loading">User not found</div>
       </div>
     </div>
+
+    <ImageLightbox
+      v-if="lightboxOpen && user?.avatar_url"
+      :images="[user.avatar_url]"
+      :index="0"
+      @close="lightboxOpen = false"
+      @navigate="() => {}"
+    />
   </Teleport>
 </template>
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import UserAvatar from './UserAvatar.vue'
+import ImageLightbox from './ImageLightbox.vue'
 import { api } from '../api.js'
 
 const props = defineProps({
@@ -49,6 +65,7 @@ const emit = defineEmits(['close', 'open-chat', 'go-profile'])
 const user = ref(null)
 const loading = ref(true)
 const starting = ref(false)
+const lightboxOpen = ref(false)
 
 onMounted(async () => {
   try {

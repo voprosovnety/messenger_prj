@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\AvatarHistory;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -32,7 +33,14 @@ final class MeController
         $data = json_decode($request->getContent(), true) ?? [];
 
         if (array_key_exists('avatar_url', $data)) {
-            $user->setAvatarUrl($data['avatar_url'] !== '' ? $data['avatar_url'] : null);
+            $newUrl = $data['avatar_url'] !== '' ? $data['avatar_url'] : null;
+            if ($newUrl && $newUrl !== $user->getAvatarUrl()) {
+                $h = new AvatarHistory();
+                $h->setUser($user);
+                $h->setAvatarUrl($newUrl);
+                $em->persist($h);
+            }
+            $user->setAvatarUrl($newUrl);
         }
 
         $em->flush();

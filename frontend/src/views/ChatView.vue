@@ -91,10 +91,10 @@
           :username="chatTitle"
           :avatarUrl="isGroup ? chat?.avatar_url : (peerUser?.avatar_url ?? null)"
           size="md"
-          :style="!isGroup && peerUser ? 'cursor:pointer' : ''"
-          @click="!isGroup && peerUser ? openUserProfile(peerUser.username) : undefined"
+          style="cursor:pointer"
+          @click="isGroup ? openGroupProfile() : peerUser ? openUserProfile(peerUser.username) : undefined"
         />
-        <div class="chat-header-info">
+        <div class="chat-header-info" style="cursor:pointer" @click="isGroup ? openGroupProfile() : peerUser ? openUserProfile(peerUser.username) : undefined">
           <div class="chat-header-name">{{ chatTitle }}</div>
           <div class="chat-header-sub">
             <span v-if="!isGroup && peerUser">
@@ -106,13 +106,7 @@
           </div>
         </div>
         <div class="chat-header-actions">
-          <button v-if="isGroup" class="btn-icon" :title="showMembersPanel ? 'Hide members' : 'Show members'" @click="showMembersPanel = !showMembersPanel">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          </button>
-          <button v-if="isGroup && !isOwner" class="btn-icon" title="Leave chat" style="color:var(--danger)" @click="leaveChat">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          </button>
-          <button v-if="canDeleteChat" class="btn-icon" title="Delete chat" style="color:var(--danger)" @click="deleteChat">
+          <button v-if="!isGroup" class="btn-icon" title="Delete chat" style="color:var(--danger)" @click="deleteChat">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
           </button>
         </div>
@@ -392,86 +386,23 @@
           </div><!-- /composer-wrap -->
         </div>
 
-        <!-- Members sidebar (group chats) -->
-        <div v-if="isGroup && showMembersPanel" class="members-panel">
-          <!-- Group avatar -->
-          <div class="members-panel-avatar">
-            <div style="position:relative;display:inline-block">
-              <UserAvatar :username="chatTitle" :avatarUrl="chat?.avatar_url" size="xl" />
-              <label v-if="isOwner" class="avatar-upload-btn" title="Change group photo" :class="{ loading: groupAvatarUploading }">
-                <input type="file" accept="image/*" style="display:none" :disabled="groupAvatarUploading" @change="onGroupAvatarFile" />
-                <svg v-if="!groupAvatarUploading" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-              </label>
-            </div>
-            <div class="members-panel-title">{{ chatTitle }}</div>
-          </div>
-
-          <div v-if="isOwner" style="padding:10px 12px;border-bottom:1px solid var(--border)">
-            <div v-if="!showRename">
-              <button class="btn btn-ghost" style="width:100%;font-size:13px" @click="startRename">✏️ Rename group</button>
-            </div>
-            <div v-else style="display:flex;flex-direction:column;gap:8px">
-              <input
-                v-model="renameInput"
-                class="input"
-                placeholder="Group name"
-                style="font-size:13px"
-                :disabled="renaming"
-                @keydown.enter.prevent="saveRename"
-                @keydown.esc.prevent="showRename = false"
-              />
-              <div style="display:flex;gap:6px">
-                <button class="btn btn-ghost" style="flex:1;font-size:13px" @click="showRename = false">Cancel</button>
-                <button class="btn btn-primary" style="flex:1;font-size:13px" :disabled="renaming || !renameInput.trim()" @click="saveRename">Save</button>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="isOwner" style="padding:10px 12px">
-            <div v-if="!showAddMember">
-              <button class="btn btn-ghost" style="width:100%;font-size:13px" @click="showAddMember = true">+ Add member</button>
-            </div>
-            <div v-else style="display:flex;flex-direction:column;gap:8px">
-              <input
-                v-model="participantInput"
-                class="input"
-                placeholder="username or email"
-                style="font-size:13px"
-                :disabled="busy"
-                @keydown.enter.prevent="addParticipant"
-              />
-              <div style="display:flex;gap:6px">
-                <button class="btn btn-ghost" style="flex:1;font-size:13px" @click="showAddMember = false">Cancel</button>
-                <button class="btn btn-primary" style="flex:1;font-size:13px" :disabled="busy || !participantInput.trim()" @click="addParticipant">Add</button>
-              </div>
-            </div>
-          </div>
-
-          <div v-for="p in participants" :key="p.id" class="member-item">
-            <UserAvatar :username="p.username" :avatarUrl="p.avatar_url" :isOnline="isUserOnline(p)" size="sm" :style="!p.is_me ? 'cursor:pointer' : ''" @click="!p.is_me ? openUserProfile(p.username) : undefined" />
-            <div class="member-item-info" :style="!p.is_me ? 'cursor:pointer' : ''" @click="!p.is_me ? openUserProfile(p.username) : undefined">
-              <div class="member-item-name">{{ p.username }}<span v-if="p.is_me" style="color:var(--text-3);font-weight:400;font-size:12px"> (you)</span></div>
-              <div class="member-item-role">{{ p.role.toLowerCase() }}</div>
-            </div>
-            <div class="member-item-actions">
-              <button
-                v-if="isOwner && !p.is_me && p.role !== 'OWNER'"
-                class="btn-icon"
-                style="color:var(--danger)"
-                title="Remove"
-                :disabled="busy"
-                @click="removeParticipant(p.id)"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-          </div>
-
-          <div v-if="error" style="padding:8px 12px;font-size:12px;color:var(--danger)">{{ error }}</div>
-        </div>
       </div>
     </div>
+
+    <!-- Group profile modal -->
+    <GroupProfileModal
+      v-if="showGroupProfile && isGroup && chat"
+      :chat="chat"
+      :participants="participants"
+      :me="me"
+      @close="showGroupProfile = false"
+      @updated="onGroupUpdated($event)"
+      @member-added="onGroupMembersChanged($event)"
+      @member-removed="onGroupMembersChanged($event)"
+      @left="sidebarChats = sidebarChats.filter(c => c.id !== chatId); router.push('/')"
+      @deleted="sidebarChats = sidebarChats.filter(c => c.id !== chatId); router.push('/')"
+      @open-user="openUserProfile($event)"
+    />
 
     <!-- User profile modal -->
     <UserProfileModal
@@ -537,6 +468,7 @@ import AudioPlayer from '../components/AudioPlayer.vue'
 import ImageLightbox from '../components/ImageLightbox.vue'
 import UserProfileModal from '../components/UserProfileModal.vue'
 import EmojiPicker from '../components/EmojiPicker.vue'
+import GroupProfileModal from '../components/GroupProfileModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -561,13 +493,6 @@ const replyingTo = ref(null)
 const highlightedId = ref(null)
 const busy = ref(false)
 const error = ref('')
-
-const showMembersPanel = ref(false)
-const showAddMember = ref(false)
-const participantInput = ref('')
-const showRename = ref(false)
-const renameInput = ref('')
-const renaming = ref(false)
 
 const showCreate = ref(false)
 const createIsGroup = ref(false)
@@ -594,13 +519,13 @@ const lightboxOpen = ref(false)
 const lightboxIndex = ref(0)
 
 const profileUsername = ref(null)
-const groupAvatarUploading = ref(false)
 const sidebarHidden = ref(window.innerWidth < 640)
 const composerError = ref('')
 const recording = ref(false)
 const aiMessages = ref([])
 const aiLoading = ref(false)
 
+const showGroupProfile = ref(false)
 const showEmojiPicker = ref(false)
 const reactionPickerMsgId = ref(null)
 const reactionPickerPos = ref({ x: 0, y: 0 })
@@ -624,7 +549,6 @@ const isAiChat = computed(() => chatId.value === 'ai')
 const chatTitle = computed(() => isAiChat.value ? 'AI Assistant' : (chat.value?.display_name || 'Chat'))
 const isGroup = computed(() => !!chat.value?.is_group)
 const isOwner = computed(() => chat.value?.my_role === 'OWNER')
-const canDeleteChat = computed(() => !isGroup.value || isOwner.value)
 const displayMessages = computed(() => isAiChat.value ? aiMessages.value : messages.value)
 
 const peerUser = computed(() => {
@@ -1266,24 +1190,24 @@ function onKeydown(e) {
   }
 }
 
+function openGroupProfile() {
+  if (!isGroup.value) return
+  showGroupProfile.value = true
+}
+
+function onGroupUpdated(patch) {
+  chat.value = { ...chat.value, ...patch }
+  const idx = sidebarChats.value.findIndex(c => c.id === chatId.value)
+  if (idx !== -1) sidebarChats.value = sidebarChats.value.map((c, i) => i === idx ? { ...c, ...patch } : c)
+}
+
+function onGroupMembersChanged(newParticipants) {
+  participants.value = newParticipants
+}
+
 function openUserProfile(username) {
   if (!username || username === me.value?.username) return
   profileUsername.value = username
-}
-
-async function onGroupAvatarFile(e) {
-  const file = e.target.files[0]
-  e.target.value = ''
-  if (!file) return
-  groupAvatarUploading.value = true
-  try {
-    const result = await api.uploadFile(file)
-    await api.updateChatAvatar(chatId.value, result.url)
-    chat.value = { ...chat.value, avatar_url: result.url }
-    const idx = sidebarChats.value.findIndex(c => c.id === chatId.value)
-    if (idx !== -1) sidebarChats.value = sidebarChats.value.map((c, i) => i === idx ? { ...c, avatar_url: result.url } : c)
-  } catch (e) { error.value = e.message }
-  finally { groupAvatarUploading.value = false }
 }
 
 function startReply(m) {
@@ -1355,67 +1279,12 @@ async function removeMessage(m) {
   finally { busy.value = false }
 }
 
-function startRename() {
-  renameInput.value = chat.value?.title || ''
-  showRename.value = true
-}
-
-async function saveRename() {
-  const title = renameInput.value.trim()
-  if (!title) return
-  renaming.value = true
-  try {
-    const res = await api.renameChat(chatId.value, title)
-    chat.value = { ...chat.value, title: res.title, display_name: res.title }
-    const idx = sidebarChats.value.findIndex(c => c.id === chatId.value)
-    if (idx !== -1) sidebarChats.value = sidebarChats.value.map((c, i) => i === idx ? { ...c, display_name: res.title, title: res.title } : c)
-    showRename.value = false
-  } catch (e) { error.value = e.message }
-  finally { renaming.value = false }
-}
-
-async function addParticipant() {
-  const ident = participantInput.value.trim()
-  if (!ident) return
-  busy.value = true
-  try {
-    await api.addChatMember(chatId.value, ident)
-    participantInput.value = ''
-    showAddMember.value = false
-    const data = await api.getChat(chatId.value)
-    chat.value = data
-    participants.value = data.participants || []
-  } catch (e) { error.value = e.message }
-  finally { busy.value = false }
-}
-
-async function removeParticipant(userId) {
-  busy.value = true
-  try {
-    await api.removeChatMember(chatId.value, userId)
-    const data = await api.getChat(chatId.value)
-    chat.value = data
-    participants.value = data.participants || []
-  } catch (e) { error.value = e.message }
-  finally { busy.value = false }
-}
-
 async function deleteChat() {
   if (!confirm('Delete this chat permanently?')) return
   const id = chatId.value
   await api.deleteChat(id)
   sidebarChats.value = sidebarChats.value.filter(c => c.id !== id)
   router.push('/')
-}
-
-async function leaveChat() {
-  if (!confirm('Leave this chat?')) return
-  const id = chatId.value
-  try {
-    await api.leaveChat(id)
-    sidebarChats.value = sidebarChats.value.filter(c => c.id !== id)
-    router.push('/')
-  } catch (e) { error.value = e.message }
 }
 
 async function logout() {
@@ -1478,11 +1347,9 @@ watch(chatId, async (newId, oldId) => {
   lightboxOpen.value = false
   error.value = ''
   composerError.value = ''
-  showMembersPanel.value = false
-  showRename.value = false
-  showAddMember.value = false
   showEmojiPicker.value = false
   closeReactionPicker()
+  showGroupProfile.value = false
   await load()
   await connectSse()
   if (!isAiChat.value) {

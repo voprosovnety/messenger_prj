@@ -274,6 +274,20 @@ export const api = {
         })
     },
 
+    getUserAvatarHistory: async () => {
+        const res = await request('/api/me/avatars')
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to load avatar history')
+        return json
+    },
+
+    getChatAvatarHistory: async (chatId) => {
+        const res = await request(`/api/chats/${chatId}/avatars`)
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to load avatar history')
+        return json
+    },
+
     toggleReaction: async (chatId, messageId, emoji) => {
         const res = await request(`/api/chats/${chatId}/messages/${messageId}/reactions`, {
             method: 'POST',
