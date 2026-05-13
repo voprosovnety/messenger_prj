@@ -129,11 +129,11 @@
           <span class="pinned-bar-content">{{ pinnedPreview(currentPinned) }}</span>
         </div>
         <div v-if="pinnedMessages.length > 1" class="pinned-nav-row">
-          <button class="btn-icon pinned-nav-btn" title="Previous pinned" @click.stop="navigatePin(-1)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          <button class="btn-icon pinned-nav-btn" title="Newer pinned" @click.stop="navigatePin(1)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <button class="btn-icon pinned-nav-btn" title="Next pinned" @click.stop="navigatePin(1)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          <button class="btn-icon pinned-nav-btn" title="Older pinned" @click.stop="navigatePin(-1)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
           </button>
         </div>
         <button v-if="canPin" class="btn-icon" style="padding:4px;flex-shrink:0" title="Unpin" @click.stop="doPin(currentPinned.id)">
@@ -743,7 +743,7 @@ async function load() {
     chat.value = chatData
     participants.value = chatData.participants || []
     pinnedMessages.value = chatData.pinned_messages || []
-    pinnedIndex.value = 0
+    pinnedIndex.value = Math.max(0, (chatData.pinned_messages || []).length - 1)
     messages.value = msgData.items || []
     nextCursor.value = msgData.next_cursor || null
     hasMore.value = !!msgData.next_cursor
@@ -1385,7 +1385,7 @@ async function clickPinnedBar() {
   const pm = currentPinned.value
   if (!pm) return
   const len = pinnedMessages.value.length
-  const nextIdx = len > 1 ? (pinnedIndex.value + 1) % len : pinnedIndex.value
+  const nextIdx = len > 1 ? (pinnedIndex.value - 1 + len) % len : pinnedIndex.value
   lockPinnedNav()
   await jumpToMessage(pm.id)
   pinnedIndex.value = nextIdx
@@ -1402,16 +1402,21 @@ async function navigatePin(delta) {
 }
 
 function updatePinnedIndexFromScroll() {
-  if (pinnedNavLock || pinnedMessages.value.length <= 1 || !listEl.value) return
+  if (pinnedNavLock || !pinnedMessages.value.length || !listEl.value) return
   const container = listEl.value
-  const containerRect = container.getBoundingClientRect()
-  let bestIdx = 0
-  for (let i = 0; i < pinnedMessages.value.length; i++) {
+  const bottom = container.getBoundingClientRect().bottom
+  // Find the newest (highest index) pin whose element hasn't scrolled past the bottom fold.
+  // When scrolling UP, a pin is "scrolled past" once its element exits below the container.
+  let targetIdx = 0
+  for (let i = pinnedMessages.value.length - 1; i >= 0; i--) {
     const el = document.getElementById(`msg-${pinnedMessages.value[i].id}`)
     if (!el) continue
-    if (el.getBoundingClientRect().top < containerRect.top + 100) bestIdx = i
+    if (el.getBoundingClientRect().top <= bottom) {
+      targetIdx = i
+      break
+    }
   }
-  if (pinnedIndex.value !== bestIdx) pinnedIndex.value = bestIdx
+  if (pinnedIndex.value !== targetIdx) pinnedIndex.value = targetIdx
 }
 
 async function deleteChat() {
