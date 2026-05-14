@@ -372,4 +372,44 @@ export const api = {
         if (!res.ok) throw new Error(json.error || 'Failed to vote')
         return json
     },
+
+    listScheduledMessages: async (chatId) => {
+        const res = await request(`/api/chats/${chatId}/scheduled-messages`)
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to load scheduled messages')
+        return json
+    },
+
+    createScheduledMessage: async (chatId, { content, scheduledAt, replyToId = null, attachments = [] }) => {
+        const body = { content, scheduled_at: scheduledAt }
+        if (replyToId) body.reply_to_id = replyToId
+        if (attachments.length) body.attachments = attachments.map(a => ({ url: a.url, type: a.type, name: a.name }))
+        const res = await request(`/api/chats/${chatId}/scheduled-messages`, {
+            method: 'POST',
+            body: JSON.stringify(body),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to schedule message')
+        return json
+    },
+
+    updateScheduledMessage: async (id, { content, scheduledAt }) => {
+        const body = {}
+        if (content !== undefined) body.content = content
+        if (scheduledAt !== undefined) body.scheduled_at = scheduledAt
+        const res = await request(`/api/scheduled-messages/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(body),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to update scheduled message')
+        return json
+    },
+
+    deleteScheduledMessage: async (id) => {
+        const res = await request(`/api/scheduled-messages/${id}`, { method: 'DELETE' })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to delete scheduled message')
+        return json
+    },
 }

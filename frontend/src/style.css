@@ -921,6 +921,56 @@ textarea.input {
   color: var(--text);
 }
 .modal-body { display: flex; flex-direction: column; gap: 14px; }
+
+/* ─── Scheduled messages modal ─────────────────────────────────── */
+.scheduled-modal { max-width: 480px; }
+.scheduled-body { max-height: 60vh; overflow-y: auto; }
+.scheduled-empty {
+  color: var(--text-3);
+  font-size: 14px;
+  text-align: center;
+  padding: 18px 0;
+}
+.scheduled-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.scheduled-item {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 10px);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.scheduled-item-content {
+  color: var(--text);
+  font-size: 14px;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.scheduled-item-content .muted { color: var(--text-3); font-style: italic; }
+.scheduled-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.scheduled-item-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 2px;
+}
+.scheduled-item-actions .btn.danger { color: var(--danger); }
+.scheduled-edit-content,
+.scheduled-edit-when { width: 100%; }
 .modal-footer {
   display: flex;
   gap: 10px;
@@ -1276,7 +1326,8 @@ textarea.input {
 /* ─── Composer icon buttons (attach / emoji / mic) ───────────── */
 .composer-attach,
 .composer-emoji,
-.composer-mic {
+.composer-mic,
+.composer-clock {
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -1286,7 +1337,28 @@ textarea.input {
 }
 .composer-attach:hover,
 .composer-emoji:hover,
-.composer-mic:hover { color: var(--accent); }
+.composer-mic:hover,
+.composer-clock:hover { color: var(--accent); }
+
+.composer-clock {
+  position: relative;
+  color: var(--accent);
+}
+.composer-clock-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 14px;
+  text-align: center;
+}
 
 /* ─── Recording indicator ────────────────────────────────────── */
 .recording-dot {
@@ -2169,6 +2241,25 @@ textarea.input {
 .attach-menu-item svg { color: var(--text-2); flex-shrink: 0; }
 .attach-menu-item:hover svg { color: var(--accent); }
 
+.send-menu-wrap {
+  position: relative;
+}
+.send-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+  min-width: 180px;
+  z-index: 50;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 /* ─── Poll card ──────────────────────────────────────────────── */
 .poll-card {
   min-width: 220px;
@@ -2264,9 +2355,8 @@ textarea.input {
 }
 .poll-option-voters {
   font-size: 11px;
-  color: var(--text-3);
-  padding: 0 10px 6px 36px;
-  position: relative;
+  color: var(--text-2);
+  padding: 0 10px 7px 36px;
 }
 .poll-option-disabled { cursor: default; }
 .poll-footer {

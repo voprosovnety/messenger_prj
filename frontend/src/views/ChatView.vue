@@ -94,7 +94,7 @@
       @dragover.prevent
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
-      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false"
+      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false"
     >
       <!-- Drag-and-drop overlay -->
       <div v-if="dragging && !isAiChat" class="drop-overlay">
@@ -483,10 +483,38 @@
                   <circle cx="15" cy="9.5" r="1.5" fill="currentColor" stroke="none"/>
                 </svg>
               </button>
+              <button
+                v-if="!isAiChat && scheduledMessages.length > 0"
+                class="btn-icon composer-clock"
+                :title="`Scheduled (${scheduledMessages.length})`"
+                @click="showScheduledList = true"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span class="composer-clock-badge">{{ scheduledMessages.length }}</span>
+              </button>
               <button v-if="!isAiChat" class="btn-icon composer-mic" title="Record voice message" :disabled="uploading" @click="startRecording">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
               </button>
-              <button class="composer-send" :disabled="isAiChat ? (!input.trim() || aiLoading) : (!input.trim() && !pendingFiles.length)" @click="send">
+              <div v-if="!isAiChat" class="send-menu-wrap">
+                <div v-if="showSendMenu" class="send-menu" @click.stop>
+                  <button class="attach-menu-item" @click="showSendMenu = false; openSchedulePicker()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Schedule message
+                  </button>
+                </div>
+                <button
+                  class="composer-send"
+                  :disabled="!input.trim() && !pendingFiles.length"
+                  @click="send"
+                  @contextmenu.prevent="showSendMenu = !showSendMenu"
+                  @touchstart="onSendTouchStart"
+                  @touchend="onSendTouchEnd"
+                  @touchmove="onSendTouchEnd"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
+              <button v-else class="composer-send" :disabled="!input.trim() || aiLoading" @click="send">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
             </template>
@@ -608,6 +636,20 @@
       @close="showPollForm = false"
       @submit="submitPoll"
     />
+
+    <ScheduledMessagesModal
+      v-if="showScheduledList"
+      :items="scheduledMessages"
+      @close="showScheduledList = false"
+      @updated="onScheduledUpdated"
+      @deleted="onScheduledDeleted"
+    />
+
+    <SchedulePickerModal
+      v-if="showSchedulePicker"
+      @close="showSchedulePicker = false"
+      @submit="onSchedulePicked"
+    />
   </div>
 </template>
 
@@ -625,6 +667,8 @@ import OnlineUsersPanel from '../components/OnlineUsersPanel.vue'
 import PollMessage from '../components/PollMessage.vue'
 import PollForm from '../components/PollForm.vue'
 import GlobalSearchPanel from '../components/GlobalSearchPanel.vue'
+import ScheduledMessagesModal from '../components/ScheduledMessagesModal.vue'
+import SchedulePickerModal from '../components/SchedulePickerModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -693,6 +737,11 @@ const showEmojiPicker = ref(false)
 const showAttachMenu = ref(false)
 const showPollForm = ref(false)
 
+const scheduledMessages = ref([])
+const showScheduledList = ref(false)
+const showSchedulePicker = ref(false)
+const showSendMenu = ref(false)
+
 const searchOpen = ref(false)
 const searchQuery = ref('')
 const searchResults = ref([])
@@ -712,6 +761,8 @@ let mediaRecorder = null
 let recordingChunks = []
 let recordingStream = null
 let recordingTimer = null
+let sendLongPressTimer = null
+let sendLongPressTriggered = false
 let es = null
 let chatSseStopped = false
 let chatSseDelay = 1000
@@ -914,6 +965,78 @@ async function load() {
   const last = messages.value[messages.value.length - 1]
   if (last) await api.markDelivered(chatId.value, last.id).catch(() => {})
   await scrollToBottom()
+  loadScheduled()
+}
+
+async function loadScheduled() {
+  if (isAiChat.value) { scheduledMessages.value = []; return }
+  try {
+    const data = await api.listScheduledMessages(chatId.value)
+    scheduledMessages.value = data.items || []
+  } catch { scheduledMessages.value = [] }
+}
+
+async function openSchedulePicker() {
+  if (isAiChat.value) return
+  const text = input.value.trim()
+  const atts = pendingFiles.value.slice()
+  if (!text && !atts.length) {
+    composerError.value = 'Type a message first to schedule it'
+    return
+  }
+  composerError.value = ''
+  showSchedulePicker.value = true
+}
+
+function onSendTouchStart() {
+  sendLongPressTriggered = false
+  sendLongPressTimer = setTimeout(() => {
+    sendLongPressTriggered = true
+    showSendMenu.value = true
+  }, 500)
+}
+
+function onSendTouchEnd(e) {
+  clearTimeout(sendLongPressTimer)
+  if (sendLongPressTriggered) {
+    e.preventDefault()
+    sendLongPressTriggered = false
+  }
+}
+
+async function onSchedulePicked(isoTime) {
+  showSchedulePicker.value = false
+  const text = input.value.trim()
+  const atts = pendingFiles.value.slice()
+  const replyId = replyingTo.value?.id ?? null
+  try {
+    await api.createScheduledMessage(chatId.value, {
+      content: text,
+      scheduledAt: isoTime,
+      replyToId: replyId,
+      attachments: atts,
+    })
+    input.value = ''
+    replyingTo.value = null
+    pendingFiles.value = []
+    await loadScheduled()
+  } catch (e) {
+    composerError.value = e.message
+  }
+}
+
+function onScheduledUpdated(updated) {
+  const i = scheduledMessages.value.findIndex(s => s.id === updated.id)
+  if (i !== -1) {
+    scheduledMessages.value = scheduledMessages.value
+      .map((s, idx) => idx === i ? updated : s)
+      .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))
+  }
+}
+
+function onScheduledDeleted(id) {
+  scheduledMessages.value = scheduledMessages.value.filter(s => s.id !== id)
+  if (!scheduledMessages.value.length) showScheduledList.value = false
 }
 
 async function loadMore() {
@@ -1064,6 +1187,7 @@ async function connectSse() {
           await api.markDelivered(chatId.value, d.id).catch(() => {})
           await markReadIfPossible()
           if (shouldStick) await scrollToBottom()
+          if (d.sender === myId() && scheduledMessages.value.length) loadScheduled()
           return
         }
         if (payload.type === 'message.edited') {
@@ -1805,6 +1929,10 @@ watch(chatId, async (newId, oldId) => {
   showEmojiPicker.value = false
   closeReactionPicker()
   showGroupProfile.value = false
+  scheduledMessages.value = []
+  showScheduledList.value = false
+  showSchedulePicker.value = false
+  showSendMenu.value = false
   closeSearch()
   globalSearchOpen.value = false
   showForwardModal.value = false
