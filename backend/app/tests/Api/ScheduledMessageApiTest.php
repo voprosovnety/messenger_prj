@@ -2,6 +2,7 @@
 
 namespace App\Tests\Api;
 
+use App\Entity\Chat;
 use App\Entity\Message;
 use App\Entity\ScheduledMessage;
 use App\Service\ScheduledMessageDispatcher;
@@ -72,6 +73,92 @@ final class ScheduledMessageApiTest extends ApiTestCase
 
         $client2->request('DELETE', sprintf('/api/scheduled-messages/%s', $created['id']));
         self::assertSame(403, $client2->getResponse()->getStatusCode());
+    }
+
+    public function testNonMemberCannotCreateScheduledMessage(): void
+    {
+        $owner    = $this->createUser('schowner');
+        $stranger = $this->createUser('schstranger');
+        $chat     = $this->createGroupChat($owner);
+        $client   = $this->createAuthenticatedClient($stranger);
+
+        $client->jsonRequest('POST', sprintf('/api/chats/%s/scheduled-messages', $chat->getId()), [
+            'content'      => 'infiltrate',
+            'scheduled_at' => (new \DateTimeImmutable('+1 hour'))->format(\DATE_ATOM),
+        ]);
+
+        self::assertSame(403, $client->getResponse()->getStatusCode());
+    }
+
+    public function testPastDatetimeDispatchesImmediately(): void
+    {
+        $author = $this->createUser('schpast');
+        $chat   = $this->createGroupChat($author);
+        $client = $this->createAuthenticatedClient($author);
+
+        $past = (new \DateTimeImmutable('-5 minutes'))->format(\DATE_ATOM);
+        $client->jsonRequest('POST', sprintf('/api/chats/%s/scheduled-messages', $chat->getId()), [
+            'content'      => 'already due',
+            'scheduled_at' => $past,
+        ]);
+
+        self::assertSame(201, $client->getResponse()->getStatusCode());
+        $body = json_decode($client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
+        self::assertTrue($body['dispatched']);
+
+        // Message was created immediately
+        $this->em->clear();
+        $messages = $this->em->getRepository(Message::class)->findBy(['chat' => $chat]);
+        self::assertCount(1, $messages);
+        self::assertSame('already due', $messages[0]->getContent());
+    }
+
+    public function testValidationRequiresContent(): void
+    {
+        $author = $this->createUser('schvalid');
+        $chat   = $this->createGroupChat($author);
+        $client = $this->createAuthenticatedClient($author);
+
+        $client->jsonRequest('POST', sprintf('/api/chats/%s/scheduled-messages', $chat->getId()), [
+            'content'      => '',
+            'scheduled_at' => (new \DateTimeImmutable('+1 hour'))->format(\DATE_ATOM),
+        ]);
+
+        self::assertSame(400, $client->getResponse()->getStatusCode());
+    }
+
+    public function testValidationRequiresScheduledAt(): void
+    {
+        $author = $this->createUser('schvalid2');
+        $chat   = $this->createGroupChat($author);
+        $client = $this->createAuthenticatedClient($author);
+
+        $client->jsonRequest('POST', sprintf('/api/chats/%s/scheduled-messages', $chat->getId()), [
+            'content' => 'no time given',
+        ]);
+
+        self::assertSame(400, $client->getResponse()->getStatusCode());
+    }
+
+    public function testDispatcherSkipsFutureMessages(): void
+    {
+        $author = $this->createUser('schfuture');
+        $chat   = $this->createGroupChat($author);
+
+        $future = new \DateTimeImmutable('+1 hour');
+        $sm = new ScheduledMessage($chat, $author, $future);
+        $sm->setContent('not yet');
+        $this->em->persist($sm);
+        $this->em->flush();
+
+        /** @var ScheduledMessageDispatcher $dispatcher */
+        $dispatcher = static::getContainer()->get(ScheduledMessageDispatcher::class);
+        $n = $dispatcher->dispatchDue();
+
+        self::assertSame(0, $n);
+
+        $this->em->clear();
+        self::assertNotNull($this->em->getRepository(ScheduledMessage::class)->find((string) $sm->getId()));
     }
 
     public function testDispatcherTurnsDueScheduleIntoRealMessage(): void
