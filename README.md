@@ -44,6 +44,9 @@ docker compose up -d --build
 - Мягкое удаление сообщений (placeholder "message deleted")
 - Emoji-реакции на сообщения с Mercure-обновлением в реальном времени
 - Закреп нескольких сообщений (multi-pin, Telegram-style) с навигационной панелью
+- Опросы (polls) в чате: одиночный и множественный выбор, анонимные и именные
+- Отложенные сообщения (Telegram-style): выбор даты/времени, управление очередью, фоновая отправка каждые 30 с
+- Поиск сообщений: глобальный по всем чатам (`GET /api/messages/search`) и внутри чата
 
 **Медиа и файлы**
 - Вложения: несколько файлов на одно сообщение (изображения, видео, аудио, документы до 50 МБ)
@@ -95,3 +98,11 @@ docker compose up -d --build
 | DELETE | `/api/chats/{id}/avatar-history/{id}` | Удалить запись истории аватара группы |
 | POST | `/api/upload` | Загрузить файл (до 50 МБ) |
 | POST | `/api/ai/chat` | AI-ассистент (Claude Haiku) |
+| GET | `/api/chats/{id}/messages/search` | Поиск сообщений внутри чата |
+| GET | `/api/messages/search` | Глобальный поиск по всем чатам |
+| POST | `/api/chats/{chatId}/messages/poll` | Создать опрос |
+| POST | `/api/chats/{chatId}/messages/{mid}/poll/vote` | Проголосовать / снять голос |
+| GET | `/api/chats/{chatId}/scheduled-messages` | Список отложенных сообщений |
+| POST | `/api/chats/{chatId}/scheduled-messages` | Запланировать сообщение |
+| PATCH | `/api/scheduled-messages/{id}` | Изменить отложенное сообщение |
+| DELETE | `/api/scheduled-messages/{id}` | Отменить отложенное сообщение |
