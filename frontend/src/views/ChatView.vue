@@ -8,7 +8,7 @@
         <button class="online-indicator" :class="{ active: showOnlinePanel }" :title="showOnlinePanel ? 'Close' : 'Online users'" @click="showOnlinePanel = !showOnlinePanel">
           <span class="online-indicator-dot"></span>{{ onlineUsers.length }} online
         </button>
-        <button class="btn-icon" title="New chat" @click="showCreate = true">
+        <button class="btn-icon" title="New chat" @click="openCreate">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </div>
@@ -597,18 +597,18 @@
     </div>
 
     <!-- New chat modal -->
-    <div v-if="showCreate" class="modal-overlay" @click.self="showCreate = false">
+    <div v-if="showCreate" class="modal-overlay" @click.self="closeCreate">
       <div class="modal">
         <div class="modal-header">
           <span class="modal-title">New conversation</span>
-          <button class="btn-icon" @click="showCreate = false">
+          <button class="btn-icon" @click="closeCreate">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
         <div class="modal-body">
           <div class="toggle-tabs">
-            <div class="toggle-tab" :class="{ active: !createIsGroup }" @click="createIsGroup = false">Direct</div>
-            <div class="toggle-tab" :class="{ active: createIsGroup }" @click="createIsGroup = true">Group</div>
+            <div class="toggle-tab" :class="{ active: !createIsGroup }" @click="createIsGroup = false; selectedUsers = []">Direct</div>
+            <div class="toggle-tab" :class="{ active: createIsGroup }" @click="createIsGroup = true; selectedUsers = []">Group</div>
           </div>
           <div v-if="createIsGroup">
             <label class="form-label">Title</label>
@@ -616,14 +616,46 @@
           </div>
           <div>
             <label class="form-label">{{ createIsGroup ? 'Participants' : 'Username or email' }}</label>
-            <input v-if="!createIsGroup" v-model="createParticipants" class="input" placeholder="friend@example.com" />
-            <textarea v-else v-model="createParticipants" class="input" rows="3" placeholder="user1, user2" />
+            <div v-if="createIsGroup && selectedUsers.length" class="user-chips">
+              <span v-for="u in selectedUsers" :key="u.username" class="user-chip">
+                {{ u.username }}
+                <button type="button" class="user-chip-remove" @click="removeUser(u.username)">×</button>
+              </span>
+            </div>
+            <div style="position:relative">
+              <input
+                v-model="userSearchQuery"
+                class="input"
+                :placeholder="createIsGroup ? 'Search users…' : 'Search by username or email'"
+                autocomplete="off"
+                @input="onUserSearchInput"
+                @focus="showSuggestions = userSuggestions.length > 0"
+                @blur="onSearchBlur"
+              />
+              <div v-if="showSuggestions && userSuggestions.length" class="user-suggestions">
+                <button
+                  v-for="u in userSuggestions"
+                  :key="u.username"
+                  type="button"
+                  class="user-suggestion-item"
+                  @mousedown.prevent
+                  @click="selectUser(u)"
+                >
+                  <span class="user-suggestion-avatar">{{ u.username[0].toUpperCase() }}</span>
+                  <span class="user-suggestion-name">{{ u.username }}</span>
+                </button>
+              </div>
+            </div>
           </div>
           <div v-if="createError" class="auth-error" style="margin:0">{{ createError }}</div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-ghost" @click="showCreate = false">Cancel</button>
-          <button class="btn btn-primary" :disabled="creating" @click="createChat">
+          <button class="btn btn-ghost" @click="closeCreate">Cancel</button>
+          <button
+            class="btn btn-primary"
+            :disabled="creating || selectedUsers.length === 0 || (createIsGroup && !createTitle.trim())"
+            @click="createChat"
+          >
             {{ creating ? 'Creating…' : 'Create' }}
           </button>
         </div>
@@ -697,9 +729,13 @@ const error = ref('')
 const showCreate = ref(false)
 const createIsGroup = ref(false)
 const createTitle = ref('')
-const createParticipants = ref('')
 const createError = ref('')
 const creating = ref(false)
+const selectedUsers = ref([])
+const userSearchQuery = ref('')
+const userSuggestions = ref([])
+const showSuggestions = ref(false)
+let createSearchDebounce = null
 
 const typingUser = ref('')
 let typingTimeout = null
@@ -1349,11 +1385,11 @@ function closeSearch() {
   searchQuery.value = ''
   searchResults.value = []
   searchLoading.value = false
-  clearTimeout(searchDebounce)
+  clearTimeout(createSearchDebounce)
 }
 
 function onSearchInput() {
-  clearTimeout(searchDebounce)
+  clearTimeout(createSearchDebounce)
   const q = searchQuery.value.trim()
   if (q.length < 2) {
     searchResults.value = []
@@ -1863,19 +1899,77 @@ async function logout() {
   router.push('/login')
 }
 
+function openCreate() {
+  selectedUsers.value = []
+  userSearchQuery.value = ''
+  userSuggestions.value = []
+  showSuggestions.value = false
+  createTitle.value = ''
+  createError.value = ''
+  createIsGroup.value = false
+  clearTimeout(createSearchDebounce)
+  showCreate.value = true
+}
+
+function closeCreate() {
+  showCreate.value = false
+  selectedUsers.value = []
+  userSearchQuery.value = ''
+  userSuggestions.value = []
+  showSuggestions.value = false
+  clearTimeout(createSearchDebounce)
+}
+
+function onUserSearchInput() {
+  clearTimeout(createSearchDebounce)
+  const q = userSearchQuery.value.trim()
+  if (!q) {
+    userSuggestions.value = []
+    showSuggestions.value = false
+    return
+  }
+  createSearchDebounce = setTimeout(async () => {
+    const results = await api.searchUsers(q)
+    const selectedNames = new Set(selectedUsers.value.map(u => u.username))
+    userSuggestions.value = results.filter(u => !selectedNames.has(u.username))
+    showSuggestions.value = userSuggestions.value.length > 0
+  }, 300)
+}
+
+function onSearchBlur() {
+  setTimeout(() => { showSuggestions.value = false }, 150)
+}
+
+async function selectUser(user) {
+  if (createIsGroup.value) {
+    selectedUsers.value.push(user)
+    userSearchQuery.value = ''
+    userSuggestions.value = []
+    showSuggestions.value = false
+  } else {
+    selectedUsers.value = [user]
+    userSearchQuery.value = ''
+    userSuggestions.value = []
+    showSuggestions.value = false
+    await createChat()
+  }
+}
+
+function removeUser(username) {
+  selectedUsers.value = selectedUsers.value.filter(u => u.username !== username)
+}
+
 async function createChat() {
   createError.value = ''
   creating.value = true
   try {
-    const parts = createParticipants.value.split(/[\s,\n]+/).map(s => s.trim()).filter(Boolean)
+    const participants = selectedUsers.value.map(u => u.username)
     const newChat = await api.createChat({
       isGroup: createIsGroup.value,
       title: createTitle.value.trim(),
-      participants: parts,
+      participants,
     })
-    showCreate.value = false
-    createTitle.value = ''
-    createParticipants.value = ''
+    closeCreate()
     // Optimistic insert — появляется мгновенно без перезагрузки
     if (!sidebarChats.value.find(c => c.id === newChat.id)) {
       sidebarChats.value.unshift({
@@ -1989,3 +2083,77 @@ onBeforeUnmount(() => {
   cancelRecording()
 })
 </script>
+
+<style scoped>
+.user-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 10px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 12px;
+  font-size: 13px;
+}
+.user-chip-remove {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.8);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+.user-chip-remove:hover { color: #fff; }
+.user-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  z-index: 50;
+  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.user-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-1);
+  font-size: 14px;
+  transition: background 0.12s;
+}
+.user-suggestion-item:hover { background: var(--bg-3); }
+.user-suggestion-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.user-suggestion-name { font-weight: 500; }
+</style>
