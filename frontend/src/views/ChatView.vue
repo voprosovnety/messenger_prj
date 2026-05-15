@@ -653,7 +653,7 @@
           <button class="btn btn-ghost" @click="closeCreate">Cancel</button>
           <button
             class="btn btn-primary"
-            :disabled="creating || selectedUsers.length === 0 || (createIsGroup && !createTitle.trim())"
+            :disabled="creating || (selectedUsers.length === 0 && !userSearchQuery.trim()) || (createIsGroup && !createTitle.trim())"
             @click="createChat"
           >
             {{ creating ? 'Creating…' : 'Create' }}
@@ -1962,10 +1962,14 @@ function removeUser(username) {
 async function createChat() {
   createError.value = ''
   creating.value = true
+  const isGroup = createIsGroup.value
   try {
-    const participants = selectedUsers.value.map(u => u.username)
+    const typedIdentifier = userSearchQuery.value.trim()
+    const participants = selectedUsers.value.length > 0
+      ? selectedUsers.value.map(u => u.username)
+      : typedIdentifier ? [typedIdentifier] : []
     const newChat = await api.createChat({
-      isGroup: createIsGroup.value,
+      isGroup,
       title: createTitle.value.trim(),
       participants,
     })
@@ -1976,7 +1980,7 @@ async function createChat() {
         id: newChat.id,
         is_group: newChat.is_group,
         title: newChat.title,
-        display_name: newChat.title || newChat.peer_username || (createIsGroup.value ? 'Group chat' : 'New chat'),
+        display_name: newChat.title || newChat.peer_username || (isGroup ? 'Group chat' : 'New chat'),
         last_message: null,
         unread_count: 0,
         created_at: new Date().toISOString(),
