@@ -1,5 +1,9 @@
 <template>
-  <div class="app-shell">
+  <div
+    class="app-shell"
+    @touchstart.passive="onSwipeTouchStart"
+    @touchend.passive="onSwipeTouchEnd"
+  >
     <!-- Sidebar with chat list -->
     <aside class="sidebar" :class="{ 'sidebar-hidden': sidebarHidden }">
       <div class="sidebar-header">
@@ -87,6 +91,13 @@
         </button>
       </div>
     </aside>
+
+    <!-- Mobile: tap-outside backdrop behind the open sidebar -->
+    <div
+      class="sidebar-backdrop"
+      :class="{ 'sidebar-backdrop--active': !sidebarHidden }"
+      @click="sidebarHidden = true"
+    />
 
     <!-- Main chat area -->
     <div
@@ -2086,6 +2097,32 @@ watch(chatId, async (newId, oldId) => {
   }
   await maybeJumpFromQuery()
 }, { immediate: false })
+
+// ─── Mobile swipe gesture to open / close sidebar ────────────────
+// Only activates on ≤640 px; no preventDefault needed because
+// .app-shell already has overflow:hidden (no horizontal page scroll).
+const SWIPE_THRESHOLD = 55  // px to count as intentional swipe
+const OPEN_EDGE_ZONE  = 40  // px from left edge that triggers open
+
+let swipeStartX = 0
+let swipeStartY = 0
+
+function onSwipeTouchStart(e) {
+  swipeStartX = e.touches[0].clientX
+  swipeStartY = e.touches[0].clientY
+}
+
+function onSwipeTouchEnd(e) {
+  if (window.innerWidth > 640) return
+  const dx = e.changedTouches[0].clientX - swipeStartX
+  const dy = e.changedTouches[0].clientY - swipeStartY
+  if (Math.abs(dx) < Math.abs(dy)) return  // mostly vertical → ignore
+  if (sidebarHidden.value) {
+    if (dx > SWIPE_THRESHOLD && swipeStartX < OPEN_EDGE_ZONE) sidebarHidden.value = false
+  } else {
+    if (dx < -SWIPE_THRESHOLD) sidebarHidden.value = true
+  }
+}
 
 // ─── lifecycle ────────────────────────────────────────────────────
 function onWindowResize() {

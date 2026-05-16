@@ -2425,14 +2425,54 @@ textarea.input {
 }
 
 /* ─── Responsive ─────────────────────────────────────────────── */
+
+/* Backdrop behind mobile sidebar (hidden on desktop) */
+.sidebar-backdrop {
+  display: none;
+}
+
 @media (max-width: 640px) {
-  .sidebar:not(.sidebar-hidden) {
+  /* Prevent horizontal browser overscroll during swipe gesture */
+  html, body {
+    overscroll-behavior-x: none;
+  }
+
+  /* Switch from width-collapse to transform-slide on mobile */
+  .sidebar {
     position: absolute;
     z-index: 40;
     height: 100%;
     width: 280px;
-    box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+    padding-left: env(safe-area-inset-left, 0px);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+    transform: translateX(0);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
   }
+  .sidebar.sidebar-hidden {
+    transform: translateX(-100%);
+    width: 280px;
+    border-right: 1px solid var(--border);
+    box-shadow: none;
+  }
+
+  /* Dimming overlay that appears behind the open sidebar */
+  .sidebar-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 39;
+    background: rgba(0, 0, 0, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+    cursor: pointer;
+  }
+  .sidebar-backdrop--active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .message-bubble-wrap { max-width: 85%; }
   .emoji-picker-portal { bottom: 80px; }
 }
