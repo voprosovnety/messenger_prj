@@ -11,7 +11,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 
 final class SearchUsersController
 {
-    #[Route('/api/users/search', name: 'users_search', methods: ['GET'])]
+    #[Route('/api/users/search', name: 'users_search', methods: ['GET'], priority: 1)]
     public function __invoke(
         Request $request,
         EntityManagerInterface $em,
