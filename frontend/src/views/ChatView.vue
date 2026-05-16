@@ -532,8 +532,8 @@
               <button class="btn-icon" style="color:var(--danger);padding:6px 8px" title="Cancel" @click="cancelRecording">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
-              <button class="composer-send" title="Stop and send" @click="stopRecording">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+              <button class="composer-send" title="Send voice message" @click="sendRecording">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
             </template>
           </div>
@@ -1652,18 +1652,10 @@ async function startRecording() {
   }
   recordingChunks = []
   mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordingChunks.push(e.data) }
-  mediaRecorder.onstop = handleRecordingStop
   mediaRecorder.start()
   recording.value = true
   recordingTime.value = 0
   recordingTimer = setInterval(() => recordingTime.value++, 1000)
-}
-
-async function stopRecording() {
-  clearInterval(recordingTimer)
-  recording.value = false
-  mediaRecorder?.stop()
-  releaseStream()
 }
 
 function cancelRecording() {
@@ -1672,22 +1664,43 @@ function cancelRecording() {
   recordingTime.value = 0
   if (mediaRecorder) {
     mediaRecorder.onstop = null
-    mediaRecorder.stop()
+    if (mediaRecorder.state !== 'inactive') mediaRecorder.stop()
   }
   recordingChunks = []
   releaseStream()
 }
 
-async function handleRecordingStop() {
-  const type = recordingChunks[0]?.type || 'audio/webm'
-  const blob = new Blob(recordingChunks, { type })
+async function sendRecording() {
+  clearInterval(recordingTimer)
+  recording.value = false
+
+  if (!mediaRecorder) return
+
+  const blob = await new Promise(resolve => {
+    mediaRecorder.onstop = () => {
+      const type = recordingChunks[0]?.type || 'audio/webm'
+      resolve(new Blob(recordingChunks, { type }))
+    }
+    if (mediaRecorder.state !== 'inactive') mediaRecorder.stop()
+    else {
+      const type = recordingChunks[0]?.type || 'audio/webm'
+      resolve(new Blob(recordingChunks, { type }))
+    }
+  })
+
+  releaseStream()
   recordingChunks = []
+  recordingTime.value = 0
+
+  if (blob.size === 0) return
+
   uploading.value = true
   try {
+    const type = blob.type || 'audio/webm'
     const ext = type.includes('ogg') ? 'ogg' : 'webm'
     const file = new File([blob], `voice-${Date.now()}.${ext}`, { type })
     const result = await api.uploadFile(file)
-    pendingFile.value = { url: result.url, type: 'audio', name: 'Voice message', previewUrl: null }
+    await api.sendMessage(chatId.value, '', null, [{ url: result.url, type: 'audio', name: 'Voice message' }]).catch(() => {})
   } catch (err) {
     error.value = err.message
   } finally {
