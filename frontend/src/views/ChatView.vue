@@ -1,5 +1,10 @@
 <template>
-  <div class="app-shell">
+  <div
+    class="app-shell"
+    @touchstart.passive="onSwipeTouchStart"
+    @touchend.passive="onSwipeTouchEnd"
+    @touchcancel.passive="onSwipeTouchCancel"
+  >
     <!-- Sidebar with chat list -->
     <aside class="sidebar" :class="{ 'sidebar-hidden': sidebarHidden }">
       <div class="sidebar-header">
@@ -87,6 +92,13 @@
         </button>
       </div>
     </aside>
+
+    <!-- Mobile: tap-outside backdrop behind the open sidebar -->
+    <div
+      class="sidebar-backdrop"
+      :class="{ 'sidebar-backdrop--active': !sidebarHidden }"
+      @click="sidebarHidden = true"
+    />
 
     <!-- Main chat area -->
     <div
@@ -2087,6 +2099,51 @@ watch(chatId, async (newId, oldId) => {
   await maybeJumpFromQuery()
 }, { immediate: false })
 
+// ─── Mobile swipe gesture to open / close sidebar ────────────────
+// Strategy: use a non-passive touchmove listener (registered imperatively
+// below) to call preventDefault() the moment a horizontal swipe is confirmed.
+// This stops iOS from firing touchcancel (which it does when a scrollable
+// container intercepts the touch) and guarantees touchend fires.
+const SWIPE_THRESHOLD = 50  // px to commit to sidebar toggle
+
+let swipeStartX  = 0
+let swipeStartY  = 0
+let swipeDecided = null  // null | 'h' | 'v' — direction locked after 5 px
+
+function onSwipeTouchStart(e) {
+  swipeStartX  = e.touches[0].clientX
+  swipeStartY  = e.touches[0].clientY
+  swipeDecided = null
+}
+
+// Must be registered with { passive: false } so preventDefault() is allowed.
+function _swipeTouchMove(e) {
+  if (window.innerWidth > 640) return
+  if (swipeDecided !== null) {
+    if (swipeDecided === 'h') e.preventDefault()
+    return
+  }
+  const dx = Math.abs(e.touches[0].clientX - swipeStartX)
+  const dy = Math.abs(e.touches[0].clientY - swipeStartY)
+  if (dx < 5 && dy < 5) return          // not enough movement yet
+  swipeDecided = dx > dy ? 'h' : 'v'
+  if (swipeDecided === 'h') e.preventDefault()
+}
+
+function onSwipeTouchEnd(e) {
+  const wasH = swipeDecided === 'h'
+  swipeDecided = null
+  if (window.innerWidth > 640 || !wasH) return
+  const dx = e.changedTouches[0].clientX - swipeStartX
+  if (sidebarHidden.value) {
+    if (dx > SWIPE_THRESHOLD) sidebarHidden.value = false
+  } else {
+    if (dx < -SWIPE_THRESHOLD) sidebarHidden.value = true
+  }
+}
+
+function onSwipeTouchCancel() { swipeDecided = null }
+
 // ─── lifecycle ────────────────────────────────────────────────────
 function onWindowResize() {
   if (window.innerWidth < 640 && !sidebarHidden.value) sidebarHidden.value = true
@@ -2121,6 +2178,7 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', markReadIfPossible)
   window.addEventListener('resize', onWindowResize)
   window.visualViewport?.addEventListener('resize', updateVVH)
+  document.addEventListener('touchmove', _swipeTouchMove, { passive: false })
   updateVVH()
   api.ping().catch(() => {})
   loadOnlineUsers()
@@ -2137,6 +2195,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', markReadIfPossible)
   window.removeEventListener('resize', onWindowResize)
   window.visualViewport?.removeEventListener('resize', updateVVH)
+  document.removeEventListener('touchmove', _swipeTouchMove)
   cancelRecording()
   document.title = 'RealtimeChat'
 })
