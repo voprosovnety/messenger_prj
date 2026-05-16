@@ -233,7 +233,7 @@
                     own: isMine(m),
                     'same-sender': idx > 0 && g.items[idx-1].sender === m.sender && !g.items[idx-1].deleted_at,
                     'msg-highlighted': highlightedId === m.id,
-                    'msg-new': newMessageIds.value.has(m.id),
+                    'msg-new': newMessageIds.has(m.id),
                   }"
                 >
                   <!-- Avatar slot (others only) -->
