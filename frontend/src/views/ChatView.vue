@@ -233,6 +233,7 @@
                     own: isMine(m),
                     'same-sender': idx > 0 && g.items[idx-1].sender === m.sender && !g.items[idx-1].deleted_at,
                     'msg-highlighted': highlightedId === m.id,
+                    'msg-new': newMessageIds.value.has(m.id),
                   }"
                 >
                   <!-- Avatar slot (others only) -->
@@ -360,7 +361,7 @@
           <div class="typing-indicator">
             <span v-if="isAiChat && aiLoading" class="ai-thinking">AI Assistant is thinking…</span>
             <span v-else-if="composerError" style="color:var(--danger);cursor:pointer" @click="composerError=''">⚠ {{ composerError }}</span>
-            <span v-else-if="typingUser">{{ typingUser }} is typing…</span>
+            <span v-else-if="typingUser" class="typing-indicator-content">{{ typingUser }}&nbsp;<span class="typing-dots"><span></span><span></span><span></span></span></span>
           </div>
 
           <!-- Editing bar -->
@@ -765,6 +766,7 @@ const editingId = ref(null)
 const editingText = ref('')
 const replyingTo = ref(null)
 const highlightedId = ref(null)
+const newMessageIds = ref(new Set())
 const busy = ref(false)
 const error = ref('')
 
@@ -1261,7 +1263,13 @@ async function connectSse() {
         const shouldStick = isNearBottom()
 
         if (payload.type === 'message.created') {
-          if (!messages.value.find(m => m.id === d.id)) messages.value.push(d)
+          if (!messages.value.find(m => m.id === d.id)) {
+            messages.value.push(d)
+            newMessageIds.value = new Set([...newMessageIds.value, d.id])
+            setTimeout(() => {
+              newMessageIds.value = new Set([...newMessageIds.value].filter(x => x !== d.id))
+            }, 300)
+          }
           await api.markDelivered(chatId.value, d.id).catch(() => {})
           await markReadIfPossible()
           if (shouldStick) await scrollToBottom()
