@@ -609,6 +609,7 @@ textarea.input {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  touch-action: pan-y; /* free horizontal touches for swipe-to-open-sidebar */
 }
 
 .load-more-spinner {
