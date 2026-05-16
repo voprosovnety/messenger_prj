@@ -63,13 +63,13 @@
           <div class="chat-item-info">
             <div class="chat-item-top">
               <span class="chat-item-name">{{ c.display_name || c.id }}</span>
+              <svg v-if="isMuted(c.id)" class="muted-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
               <span class="chat-item-time">{{ formatTimeShort(c.last_message?.created_at) }}</span>
             </div>
             <div class="chat-item-top" style="margin-top:1px">
               <span class="chat-item-preview">
                 <span v-if="draftMap[c.id]" class="draft-label">Draft: </span>{{ sidebarPreview(c) }}
               </span>
-              <svg v-if="isMuted(c.id)" class="muted-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
               <span v-if="(c.unread_count || 0) > 0" class="unread-badge" :class="{ 'unread-badge--muted': isMuted(c.id) }">{{ c.unread_count }}</span>
             </div>
           </div>
