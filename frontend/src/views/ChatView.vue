@@ -2105,7 +2105,6 @@ watch(chatId, async (newId, oldId) => {
 // This stops iOS from firing touchcancel (which it does when a scrollable
 // container intercepts the touch) and guarantees touchend fires.
 const SWIPE_THRESHOLD = 50  // px to commit to sidebar toggle
-const OPEN_EDGE_ZONE  = 60  // px from left edge to start open gesture
 
 let swipeStartX  = 0
 let swipeStartY  = 0
@@ -2137,7 +2136,7 @@ function onSwipeTouchEnd(e) {
   if (window.innerWidth > 640 || !wasH) return
   const dx = e.changedTouches[0].clientX - swipeStartX
   if (sidebarHidden.value) {
-    if (dx > SWIPE_THRESHOLD && swipeStartX < OPEN_EDGE_ZONE) sidebarHidden.value = false
+    if (dx > SWIPE_THRESHOLD) sidebarHidden.value = false
   } else {
     if (dx < -SWIPE_THRESHOLD) sidebarHidden.value = true
   }
