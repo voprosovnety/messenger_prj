@@ -42,6 +42,10 @@ SELECT
   lm.content                                 AS last_message_content,
   lm.created_at                              AS last_message_created_at,
   sender.username                            AS last_message_sender_username,
+  lm.type                                    AS last_message_type,
+  lm.attachment_url                          AS last_message_attachment_url,
+  lm.attachment_type                         AS last_message_attachment_type,
+  lm.attachments::text                       AS last_message_attachments,
 
   COALESCE(uc.unread_count, 0)               AS unread_count
 
@@ -60,7 +64,7 @@ LEFT JOIN LATERAL (
 
 -- последнее сообщение (игнорируем deleted)
 LEFT JOIN LATERAL (
-  SELECT m.id, m.content, m.created_at, m.sender_id
+  SELECT m.id, m.content, m.created_at, m.sender_id, m.type, m.attachment_url, m.attachment_type, m.attachments
   FROM message m
   WHERE m.chat_id = c.id
     AND m.deleted_at IS NULL
@@ -102,6 +106,10 @@ SQL;
                     'content' => $r['last_message_content'],
                     'created_at' => $r['last_message_created_at'] ? (new \DateTimeImmutable($r['last_message_created_at']))->format(DATE_ATOM) : null,
                     'sender_username' => $r['last_message_sender_username'],
+                    'type' => $r['last_message_type'] ?? 'text',
+                    'attachment_url' => $r['last_message_attachment_url'] ?? null,
+                    'attachment_type' => $r['last_message_attachment_type'] ?? null,
+                    'attachments' => !empty($r['last_message_attachments']) ? json_decode($r['last_message_attachments'], true) : null,
                 ];
             }
 

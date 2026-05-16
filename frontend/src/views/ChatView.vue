@@ -72,8 +72,14 @@
               <span class="chat-item-time">{{ formatTimeShort(c.last_message?.created_at) }}</span>
             </div>
             <div class="chat-item-top" style="margin-top:1px">
-              <span class="chat-item-preview">
-                <span v-if="draftMap[c.id]" class="draft-label">Draft: </span>{{ sidebarPreview(c) }}
+              <span class="chat-item-preview" :class="{ 'chat-item-preview--typing': sidebarTypingMap[c.id] }">
+                <template v-if="sidebarTypingMap[c.id]">
+                  <span v-if="c.is_group" class="sidebar-typing-name">{{ sidebarTypingMap[c.id] }}</span>
+                  <span class="typing-dots typing-dots--sm"><span></span><span></span><span></span></span>
+                </template>
+                <template v-else>
+                  <span v-if="draftMap[c.id]" class="draft-label">Draft: </span>{{ sidebarPreview(c) }}
+                </template>
               </span>
               <span v-if="(c.unread_count || 0) > 0" class="unread-badge" :class="{ 'unread-badge--muted': isMuted(c.id) }">{{ c.unread_count }}</span>
             </div>
@@ -783,6 +789,8 @@ let createSearchDebounce = null
 
 const typingUser = ref('')
 let typingTimeout = null
+const sidebarTypingMap = ref({})
+const sidebarTypingTimers = {}
 let typingDebounce = null
 
 const listEl = ref(null)
@@ -988,12 +996,24 @@ function sidebarPreview(c) {
   if (draft) return draft
   const lm = c.last_message
   if (!lm) return 'No messages'
-  const prefix = c.is_group && lm.sender_username ? lm.sender_username + ': ' : (lm.sender_username === me.value?.username ? 'You: ' : '')
+  const isMe = lm.sender_username === me.value?.username
+  const prefix = c.is_group
+    ? (isMe ? 'You: ' : (lm.sender_username ? lm.sender_username + ': ' : ''))
+    : (isMe ? 'You: ' : '')
+  if (lm.type === 'poll') return prefix + '📊 Poll'
+  if (lm.attachments?.length) {
+    const imgs = lm.attachments.filter(a => /\.(jpe?g|png|gif|webp)(\?|$)/i.test(a.url || ''))
+    if (imgs.length > 1) return prefix + imgs.length + ' photos'
+    if (imgs.length === 1) return prefix + 'Photo'
+    const vids = lm.attachments.filter(a => /\.(mp4|webm|mov|avi)(\?|$)/i.test(a.url || ''))
+    if (vids.length) return prefix + 'Video'
+    return prefix + 'File'
+  }
   if (lm.content) return prefix + lm.content
-  if (lm.attachment_type === 'image') return prefix + '🖼 Photo'
-  if (lm.attachment_type === 'video') return prefix + '🎬 Video'
-  if (lm.attachment_type === 'audio') return prefix + '🎵 Audio'
-  if (lm.attachment_url) return prefix + '📎 File'
+  if (lm.attachment_type === 'audio') return prefix + 'Voice message'
+  if (lm.attachment_type === 'image') return prefix + 'Photo'
+  if (lm.attachment_type === 'video') return prefix + 'Video'
+  if (lm.attachment_url) return prefix + 'File'
   return prefix || 'No messages'
 }
 
@@ -1236,15 +1256,51 @@ async function connectSse() {
           return
         }
 
+        // Typing indicator — handled before per-chat filter so all chats get it
+        if (payload.type === 'user.typing') {
+          const tChatId = d.chatId ?? d.chat_id
+          if (tChatId && d.username !== myId()) {
+            sidebarTypingMap.value = { ...sidebarTypingMap.value, [tChatId]: d.username }
+            clearTimeout(sidebarTypingTimers[tChatId])
+            sidebarTypingTimers[tChatId] = setTimeout(() => {
+              const m = { ...sidebarTypingMap.value }
+              delete m[tChatId]
+              sidebarTypingMap.value = m
+            }, 3000)
+            if (tChatId === chatId.value) {
+              typingUser.value = d.username
+              clearTimeout(typingTimeout)
+              typingTimeout = setTimeout(() => { typingUser.value = '' }, 3000)
+            }
+          }
+          return
+        }
+
         // Sidebar update for every message.created regardless of chat
         if (payload.type === 'message.created') {
+          // Clear typing for this chat since message was sent
+          if (sidebarTypingMap.value[d.chat_id]) {
+            clearTimeout(sidebarTypingTimers[d.chat_id])
+            const m = { ...sidebarTypingMap.value }
+            delete m[d.chat_id]
+            sidebarTypingMap.value = m
+          }
+          if (d.chat_id === chatId.value) { typingUser.value = ''; clearTimeout(typingTimeout) }
           const fromMe = d.sender === myId()
           const idx = sidebarChats.value.findIndex(c => c.id === d.chat_id)
           if (idx !== -1) {
             const cur = sidebarChats.value[idx]
             const arr = sidebarChats.value.map((c, i) => i === idx ? {
               ...cur,
-              last_message: { content: d.content, created_at: d.created_at, sender_username: d.sender },
+              last_message: {
+                content: d.content,
+                created_at: d.created_at,
+                sender_username: d.sender,
+                type: d.type ?? 'text',
+                attachment_url: d.attachment_url ?? null,
+                attachment_type: d.attachment_type ?? null,
+                attachments: d.attachments ?? null,
+              },
               unread_count: (d.chat_id === chatId.value || fromMe) ? cur.unread_count : (cur.unread_count || 0) + 1,
             } : c)
             arr.sort((a, b) => {
@@ -1316,14 +1372,6 @@ async function connectSse() {
           if (i !== -1 && d.poll) {
             const myV = messages.value[i].poll?.my_votes
             messages.value[i] = { ...messages.value[i], poll: { ...d.poll, my_votes: myV ?? d.poll.my_votes } }
-          }
-          return
-        }
-        if (payload.type === 'user.typing') {
-          if (d.username !== myId()) {
-            typingUser.value = d.username
-            clearTimeout(typingTimeout)
-            typingTimeout = setTimeout(() => { typingUser.value = '' }, 3000)
           }
           return
         }
