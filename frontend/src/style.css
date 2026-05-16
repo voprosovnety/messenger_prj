@@ -33,6 +33,8 @@
 html, body, #app {
   height: 100%;
   width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 body {
@@ -43,6 +45,7 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-x: none;
 }
 
 a { color: var(--accent); text-decoration: none; }
@@ -223,8 +226,11 @@ textarea.input {
   height: 100%;          /* fallback for browsers without dvh/custom props */
   height: 100dvh;        /* tracks keyboard on iOS 16 + / Chrome 108+ */
   height: var(--vvh, 100dvh); /* set by visualViewport listener; covers iOS 15 */
+  width: 100%;
+  max-width: 100vw;
   overflow: hidden;
   background: var(--bg);
+  position: relative;
 }
 
 /* ─── Sidebar ────────────────────────────────────────────────── */
@@ -474,6 +480,7 @@ textarea.input {
 /* ─── Main chat area ─────────────────────────────────────────── */
 .chat-area {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -605,6 +612,7 @@ textarea.input {
 .messages-area {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -824,6 +832,8 @@ textarea.input {
   gap: 8px;
   padding: 6px 14px;
   margin: 0 16px 4px;
+  max-width: calc(100% - 32px);
+  box-sizing: border-box;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -852,6 +862,8 @@ textarea.input {
 /* ─── Message composer ───────────────────────────────────────── */
 .composer {
   margin: 0 16px 14px;
+  max-width: calc(100% - 32px);
+  box-sizing: border-box;
   border-radius: 16px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -2472,11 +2484,6 @@ textarea.input {
 }
 
 @media (max-width: 640px) {
-  /* Prevent horizontal browser overscroll during swipe gesture */
-  html, body {
-    overscroll-behavior-x: none;
-  }
-
   /* Switch from width-collapse to transform-slide on mobile */
   .sidebar {
     position: absolute;
