@@ -112,22 +112,36 @@
 
           <div>
             <label class="form-label">{{ isGroup ? 'Participants' : 'Username or email' }}</label>
-            <input
-              v-if="!isGroup"
-              v-model="participantsText"
-              class="input"
-              placeholder="friend@example.com"
-            />
-            <textarea
-              v-else
-              v-model="participantsText"
-              class="input"
-              rows="3"
-              placeholder="user1, user2, user3"
-            />
-            <p style="font-size:12px;color:var(--text-3);margin-top:4px">
-              {{ isGroup ? 'Separate with commas, spaces, or new lines.' : 'Exactly one username or email.' }}
-            </p>
+            <div v-if="isGroup && selectedUsers.length" class="user-chips">
+              <span v-for="u in selectedUsers" :key="u.username" class="user-chip">
+                {{ u.username }}
+                <button type="button" class="user-chip-remove" @click="removeUser(u.username)">×</button>
+              </span>
+            </div>
+            <div style="position:relative">
+              <input
+                v-model="userSearchQuery"
+                class="input"
+                :placeholder="isGroup ? 'Search users…' : 'Search by username or email'"
+                autocomplete="off"
+                @input="onUserSearchInput"
+                @focus="showSuggestions = userSuggestions.length > 0"
+                @blur="onSearchBlur"
+              />
+              <div v-if="showSuggestions && userSuggestions.length" class="user-suggestions">
+                <button
+                  v-for="u in userSuggestions"
+                  :key="u.username"
+                  type="button"
+                  class="user-suggestion-item"
+                  @mousedown.prevent
+                  @click="selectUser(u)"
+                >
+                  <span class="user-suggestion-avatar">{{ u.username[0].toUpperCase() }}</span>
+                  <span class="user-suggestion-name">{{ u.username }}</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <div v-if="createError" class="auth-error" style="margin:0">{{ createError }}</div>
@@ -173,8 +187,12 @@ const creating = ref(false)
 const isGroup = ref(false)
 const title = ref('')
 const description = ref('')
-const participantsText = ref('')
 const createError = ref('')
+const selectedUsers = ref([])
+const userSearchQuery = ref('')
+const userSuggestions = ref([])
+const showSuggestions = ref(false)
+let searchDebounce = null
 
 const me = ref(null)
 const showOnlinePanel = ref(false)
@@ -227,10 +245,6 @@ function goToProfile() {
   router.push('/profile')
 }
 
-function parseParticipants(text) {
-  return text.split(/[\s,\n]+/).map(s => s.trim()).filter(Boolean)
-}
-
 function formatTime(iso) {
   if (!iso) return ''
   const d = new Date(iso)
@@ -276,21 +290,24 @@ function closeCreate() {
   isGroup.value = false
   title.value = ''
   description.value = ''
-  participantsText.value = ''
   createError.value = ''
+  selectedUsers.value = []
+  userSearchQuery.value = ''
+  userSuggestions.value = []
+  showSuggestions.value = false
+  clearTimeout(searchDebounce)
 }
 
 const canCreate = computed(() => {
-  const p = parseParticipants(participantsText.value)
-  if (!isGroup.value) return p.length === 1
-  return title.value.trim().length > 0 && p.length >= 1
+  if (!isGroup.value) return selectedUsers.value.length === 1
+  return title.value.trim().length > 0 && selectedUsers.value.length >= 1
 })
 
 async function createChat() {
   createError.value = ''
   creating.value = true
   try {
-    const participants = parseParticipants(participantsText.value)
+    const participants = selectedUsers.value.map(u => u.username)
     const newChat = await api.createChat({
       isGroup: isGroup.value,
       title: title.value.trim(),
@@ -316,6 +333,45 @@ async function createChat() {
   } finally {
     creating.value = false
   }
+}
+
+function onUserSearchInput() {
+  clearTimeout(searchDebounce)
+  const q = userSearchQuery.value.trim()
+  if (!q) {
+    userSuggestions.value = []
+    showSuggestions.value = false
+    return
+  }
+  searchDebounce = setTimeout(async () => {
+    const results = await api.searchUsers(q)
+    const selectedNames = new Set(selectedUsers.value.map(u => u.username))
+    userSuggestions.value = results.filter(u => !selectedNames.has(u.username))
+    showSuggestions.value = userSuggestions.value.length > 0
+  }, 300)
+}
+
+function onSearchBlur() {
+  setTimeout(() => { showSuggestions.value = false }, 150)
+}
+
+async function selectUser(user) {
+  if (isGroup.value) {
+    selectedUsers.value.push(user)
+    userSearchQuery.value = ''
+    userSuggestions.value = []
+    showSuggestions.value = false
+  } else {
+    selectedUsers.value = [user]
+    userSearchQuery.value = ''
+    userSuggestions.value = []
+    showSuggestions.value = false
+    await createChat()
+  }
+}
+
+function removeUser(username) {
+  selectedUsers.value = selectedUsers.value.filter(u => u.username !== username)
 }
 
 async function reconnectSse() {
@@ -412,3 +468,78 @@ onBeforeUnmount(() => {
 
 watch(showOnlinePanel, (val) => { if (val) loadOnlineUsers() })
 </script>
+
+<style scoped>
+.user-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 10px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 12px;
+  font-size: 13px;
+}
+.user-chip-remove {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.8);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+.user-chip-remove:hover { color: #fff; }
+
+.user-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  z-index: 50;
+  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.user-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-1);
+  font-size: 14px;
+  transition: background 0.12s;
+}
+.user-suggestion-item:hover { background: var(--bg-3); }
+.user-suggestion-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.user-suggestion-name { font-weight: 500; }
+</style>

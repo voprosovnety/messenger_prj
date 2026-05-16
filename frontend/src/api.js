@@ -154,6 +154,12 @@ export const api = {
         return json
     },
 
+    searchUsers: async (q) => {
+        const res = await request(`/api/users/search?q=${encodeURIComponent(q)}`)
+        if (!res.ok) return []
+        return res.json()
+    },
+
     deleteChat: async (chatId) => {
         const res = await request(`/api/chats/${chatId}`, { method: 'DELETE' })
         const json = await res.json().catch(() => ({}))
