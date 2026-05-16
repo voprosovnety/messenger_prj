@@ -113,7 +113,7 @@
       @dragover.prevent
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
-      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false"
+      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false; closeMobileMenu()"
     >
       <!-- Drag-and-drop overlay -->
       <div v-if="dragging && !isAiChat" class="drop-overlay">
@@ -260,8 +260,25 @@
                       {{ m.sender }}
                     </div>
 
-                    <div class="message-bubble-outer" :class="{ 'editing-active': editingId === m.id }">
-                        <!-- Actions -->
+                    <div
+                      class="message-bubble-outer"
+                      :class="{ 'editing-active': editingId === m.id }"
+                      :style="swipeMsgId === m.id ? { transform: `translateX(${msgSwipeX}px)`, transition: msgSwipeDone ? 'transform 0.25s cubic-bezier(0.25,1,0.5,1)' : 'none' } : {}"
+                      @touchstart.passive="onMsgTouchStart($event, m)"
+                      @touchend.passive="onMsgTouchEnd($event, m)"
+                      @touchcancel.passive="onMsgTouchCancel()"
+                      @contextmenu.prevent
+                    >
+                      <!-- Swipe-to-reply icon (mobile only, revealed as bubble slides) -->
+                      <div
+                        v-if="!isAiChat && !m.deleted_at && m.type !== 'system'"
+                        class="msg-swipe-icon"
+                        :style="swipeMsgId === m.id && msgSwipeX > 0 ? { opacity: Math.min(msgSwipeX / 50, 1), transform: `translateY(-50%) scale(${0.4 + 0.6 * Math.min(msgSwipeX / 50, 1)})` } : { opacity: 0, transform: 'translateY(-50%) scale(0.4)' }"
+                        aria-hidden="true"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+                      </div>
+                        <!-- Actions (desktop hover only, hidden on mobile) -->
                         <div v-if="!m.deleted_at && !isAiChat" class="message-actions">
                           <button v-if="isMine(m)" class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Edit" @click="startEdit(m)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -454,6 +471,58 @@
                   </button>
                 </div>
                 <EmojiPicker v-else @select="onEmojiSelect" />
+              </div>
+            </Teleport>
+
+            <!-- Mobile long-press context menu -->
+            <Teleport to="body">
+              <div
+                v-if="mobileMenu"
+                class="mobile-ctx-overlay"
+                @click="closeMobileMenu()"
+                @touchstart.prevent="closeMobileMenu()"
+              >
+                <div
+                  class="mobile-ctx-menu"
+                  :style="{ left: mobileMenu.x + 'px', top: mobileMenu.y + 'px' }"
+                  @click.stop
+                  @touchstart.stop
+                >
+                  <!-- Quick reactions -->
+                  <div class="mobile-ctx-reactions">
+                    <button
+                      v-for="e in QUICK_REACTIONS"
+                      :key="e"
+                      class="mobile-ctx-reaction-btn"
+                      :class="{ active: isMyReaction(mobileMenu.msg, e) }"
+                      @click="doToggleReaction(mobileMenu.msg.id, e); closeMobileMenu()"
+                    >{{ e }}</button>
+                  </div>
+                  <button class="mobile-ctx-item" @click="startReply(mobileMenu.msg); closeMobileMenu()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+                    Reply
+                  </button>
+                  <button v-if="mobileMenu.msg.content" class="mobile-ctx-item" @click="copyMessageText(mobileMenu.msg)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy
+                  </button>
+                  <button v-if="isMine(mobileMenu.msg)" class="mobile-ctx-item" @click="startEdit(mobileMenu.msg); closeMobileMenu()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit
+                  </button>
+                  <button v-if="canPin" class="mobile-ctx-item" @click="doPin(mobileMenu.msg.id); closeMobileMenu()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
+                    {{ pinnedMessages.some(p => p.id === mobileMenu.msg.id) ? 'Unpin' : 'Pin' }}
+                  </button>
+                  <button class="mobile-ctx-item" @click="startForward(mobileMenu.msg); closeMobileMenu()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+                    Forward
+                  </button>
+                  <button v-if="isMine(mobileMenu.msg)" class="mobile-ctx-item mobile-ctx-danger" @click="removeMessage(mobileMenu.msg); closeMobileMenu()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    Delete
+                  </button>
+                </div>
               </div>
             </Teleport>
 
@@ -844,6 +913,19 @@ const forwardingMsg = ref(null)
 const showForwardModal = ref(false)
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🔥', '👎']
+
+// ─── Mobile message interactions ──────────────────────────────────
+const swipeMsgId = ref(null)    // message id whose bubble is being swiped
+const msgSwipeX = ref(0)        // current X translate offset (px)
+const msgSwipeDone = ref(false) // true during spring-back transition
+const mobileMenu = ref(null)    // { msg, x, y } or null
+
+let _msgSwipeId = null          // non-reactive; tracks swipe in touchmove handler
+let _msgSwipeStartX = 0
+let _msgSwipeStartY = 0
+let _msgSwipeDecided = null     // null | 'h' | 'v'
+let _msgLongPressTimer = null
+let _msgLongPressTriggered = false
 const recordingTime = ref(0)
 let mediaRecorder = null
 let recordingChunks = []
@@ -2146,6 +2228,11 @@ watch(chatId, async (newId, oldId) => {
   globalSearchOpen.value = false
   showForwardModal.value = false
   forwardingMsg.value = null
+  mobileMenu.value = null
+  swipeMsgId.value = null
+  msgSwipeX.value = 0
+  msgSwipeDone.value = false
+  clearTimeout(_msgLongPressTimer)
   await load()
   await connectSse()
   if (!isAiChat.value) {
@@ -2154,6 +2241,115 @@ watch(chatId, async (newId, oldId) => {
   }
   await maybeJumpFromQuery()
 }, { immediate: false })
+
+// ─── Mobile message swipe-to-reply & long-press menu ─────────────
+function onMsgTouchStart(e, m) {
+  if (window.innerWidth > 640 || isAiChat.value) return
+  if (m.type === 'system' || m.deleted_at) return
+  if (mobileMenu.value) return
+
+  _msgSwipeId = m.id
+  _msgSwipeStartX = e.touches[0].clientX
+  _msgSwipeStartY = e.touches[0].clientY
+  _msgSwipeDecided = null
+  _msgLongPressTriggered = false
+  swipeMsgId.value = m.id
+  msgSwipeX.value = 0
+  msgSwipeDone.value = false
+
+  _msgLongPressTimer = setTimeout(() => {
+    _msgLongPressTriggered = true
+    navigator.vibrate?.(30)
+    // Cancel any in-progress swipe
+    _msgSwipeId = null
+    swipeMsgId.value = null
+    msgSwipeX.value = 0
+    // Position menu near touch point, clamped to viewport
+    const tx = e.touches[0].clientX
+    const ty = e.touches[0].clientY
+    const menuY = ty > window.innerHeight * 0.6 ? ty - 280 : ty + 20
+    const menuX = Math.min(Math.max(tx - 110, 10), window.innerWidth - 230)
+    mobileMenu.value = { msg: m, x: menuX, y: Math.max(menuY, 10) }
+  }, 500)
+}
+
+function onMsgTouchEnd(e, m) {
+  clearTimeout(_msgLongPressTimer)
+  if (_msgLongPressTriggered) return
+
+  const swipeXValue = msgSwipeX.value
+  const hadSwipe = _msgSwipeId !== null
+
+  _msgSwipeId = null
+  _msgSwipeDecided = null
+  msgSwipeDone.value = true
+  msgSwipeX.value = 0
+
+  setTimeout(() => {
+    if (swipeMsgId.value === m.id) {
+      swipeMsgId.value = null
+      msgSwipeDone.value = false
+    }
+  }, 280)
+
+  if (hadSwipe && swipeXValue >= 60) {
+    startReply(m)
+  }
+}
+
+function onMsgTouchCancel() {
+  clearTimeout(_msgLongPressTimer)
+  _msgLongPressTriggered = false
+  _msgSwipeId = null
+  _msgSwipeDecided = null
+  msgSwipeDone.value = true
+  msgSwipeX.value = 0
+  setTimeout(() => {
+    swipeMsgId.value = null
+    msgSwipeDone.value = false
+  }, 280)
+}
+
+// Must be registered with { passive: false } to call preventDefault.
+function _msgAreaTouchMove(e) {
+  if (window.innerWidth > 640 || !_msgSwipeId || _msgLongPressTriggered) return
+
+  const touch = e.touches[0]
+  const dx = touch.clientX - _msgSwipeStartX
+  const dy = touch.clientY - _msgSwipeStartY
+
+  if (_msgSwipeDecided === null) {
+    if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
+    _msgSwipeDecided = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+  }
+
+  if (_msgSwipeDecided === 'v') {
+    // Vertical scroll: cancel swipe and long press, let scroll proceed naturally
+    clearTimeout(_msgLongPressTimer)
+    _msgSwipeId = null
+    swipeMsgId.value = null
+    return
+  }
+
+  // Confirmed horizontal swipe: cancel long press, prevent page scroll
+  clearTimeout(_msgLongPressTimer)
+  e.preventDefault()
+  e.stopPropagation() // prevents sidebar swipe from also triggering
+
+  // Rightward only, rubber-band resistance after 60 px
+  const raw = Math.max(0, dx)
+  const x = raw <= 60 ? raw : 60 + (raw - 60) * 0.25
+  msgSwipeX.value = Math.min(x, 80)
+}
+
+function closeMobileMenu() {
+  mobileMenu.value = null
+}
+
+function copyMessageText(m) {
+  if (m.content) navigator.clipboard?.writeText(m.content).catch(() => {})
+  closeMobileMenu()
+}
 
 // ─── Mobile swipe gesture to open / close sidebar ────────────────
 // Strategy: use a non-passive touchmove listener (registered imperatively
@@ -2235,6 +2431,7 @@ onMounted(async () => {
   window.addEventListener('resize', onWindowResize)
   window.visualViewport?.addEventListener('resize', updateVVH)
   document.addEventListener('touchmove', _swipeTouchMove, { passive: false })
+  if (listEl.value) listEl.value.addEventListener('touchmove', _msgAreaTouchMove, { passive: false })
   updateVVH()
   api.ping().catch(() => {})
   loadOnlineUsers()
@@ -2252,6 +2449,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', onWindowResize)
   window.visualViewport?.removeEventListener('resize', updateVVH)
   document.removeEventListener('touchmove', _swipeTouchMove)
+  if (listEl.value) listEl.value.removeEventListener('touchmove', _msgAreaTouchMove)
+  clearTimeout(_msgLongPressTimer)
   cancelRecording()
   document.title = 'RealtimeChat'
 })
