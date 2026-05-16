@@ -2079,6 +2079,13 @@ function onWindowResize() {
   if (window.innerWidth < 640 && !sidebarHidden.value) sidebarHidden.value = true
 }
 
+// Tracks the visible viewport height (shrinks when iOS keyboard opens).
+// Sets --vvh on :root so .app-shell stays exactly as tall as the visible area.
+function updateVVH() {
+  const h = window.visualViewport?.height ?? window.innerHeight
+  document.documentElement.style.setProperty('--vvh', `${h}px`)
+}
+
 onMounted(async () => {
   [me.value] = await Promise.all([api.me()])
   await Promise.all([load(), loadSidebarChats()])
@@ -2100,6 +2107,8 @@ onMounted(async () => {
   await maybeJumpFromQuery()
   document.addEventListener('visibilitychange', markReadIfPossible)
   window.addEventListener('resize', onWindowResize)
+  window.visualViewport?.addEventListener('resize', updateVVH)
+  updateVVH()
   api.ping().catch(() => {})
   loadOnlineUsers()
   pingInterval = setInterval(() => api.ping().catch(() => {}), 30000)
@@ -2114,6 +2123,7 @@ onBeforeUnmount(() => {
   clearTimeout(typingDebounce)
   document.removeEventListener('visibilitychange', markReadIfPossible)
   window.removeEventListener('resize', onWindowResize)
+  window.visualViewport?.removeEventListener('resize', updateVVH)
   cancelRecording()
   document.title = 'RealtimeChat'
 })
