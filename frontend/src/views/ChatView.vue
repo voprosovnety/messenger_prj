@@ -2426,9 +2426,17 @@ function onWindowResize() {
 
 // Tracks the visible viewport height (shrinks when iOS keyboard opens).
 // Sets --vvh on :root so .app-shell stays exactly as tall as the visible area.
+// Called on both visualViewport resize (keyboard height changes) and scroll
+// (iOS sometimes shifts the visual viewport offset when keyboard is shown).
 function updateVVH() {
-  const h = window.visualViewport?.height ?? window.innerHeight
+  const vv = window.visualViewport
+  const h = vv?.height ?? window.innerHeight
   document.documentElement.style.setProperty('--vvh', `${h}px`)
+  // Safety net: if iOS somehow scrolled the document despite body:fixed, reset it.
+  // Use scrollX/scrollY check to avoid triggering a scroll event unnecessarily.
+  if ((window.scrollY !== 0 || window.scrollX !== 0) && window.scrollTo) {
+    window.scrollTo(0, 0)
+  }
 }
 
 onMounted(async () => {
@@ -2453,6 +2461,7 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', markReadIfPossible)
   window.addEventListener('resize', onWindowResize)
   window.visualViewport?.addEventListener('resize', updateVVH)
+  window.visualViewport?.addEventListener('scroll', updateVVH)
   document.addEventListener('touchmove', _swipeTouchMove, { passive: false })
   if (listEl.value) listEl.value.addEventListener('touchmove', _msgAreaTouchMove, { passive: false })
   updateVVH()
@@ -2471,6 +2480,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', markReadIfPossible)
   window.removeEventListener('resize', onWindowResize)
   window.visualViewport?.removeEventListener('resize', updateVVH)
+  window.visualViewport?.removeEventListener('scroll', updateVVH)
   document.removeEventListener('touchmove', _swipeTouchMove)
   if (listEl.value) listEl.value.removeEventListener('touchmove', _msgAreaTouchMove)
   clearTimeout(_msgLongPressTimer)

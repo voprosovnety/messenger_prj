@@ -2511,6 +2511,19 @@ textarea.input {
 }
 
 @media (max-width: 640px) {
+  /* Lock body to the layout viewport on mobile.
+     Without this, iOS Safari scrolls the layout viewport upward when a text
+     input is focused (to keep it above the keyboard). This scroll moves the
+     entire page, making the app-shell appear to "fly up". With position:fixed
+     on body the document has no scrollable height and iOS cannot scroll it. */
+  body {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
   /* Switch from width-collapse to transform-slide on mobile */
   .sidebar {
     position: absolute;
