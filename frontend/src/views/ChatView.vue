@@ -2361,18 +2361,34 @@ const SWIPE_THRESHOLD = 50  // px to commit to sidebar toggle
 let swipeStartX  = 0
 let swipeStartY  = 0
 let swipeDecided = null  // null | 'h' | 'v' — direction locked after 5 px
+let swipeInScrollZone = false  // true when touch started inside a real scroll container
+
+// Walk up the DOM to check if el is inside a vertically scrollable container.
+// Called once per touch sequence (at touchstart) so getComputedStyle cost is fine.
+function _isInScrollZone(el) {
+  while (el && el !== document.documentElement) {
+    const oy = window.getComputedStyle(el).overflowY
+    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return true
+    el = el.parentElement
+  }
+  return false
+}
 
 function onSwipeTouchStart(e) {
   swipeStartX  = e.touches[0].clientX
   swipeStartY  = e.touches[0].clientY
   swipeDecided = null
+  swipeInScrollZone = _isInScrollZone(e.target)
 }
 
 // Must be registered with { passive: false } so preventDefault() is allowed.
+// On non-scrollable areas (header, composer, backdrop) we also block vertical
+// movement to prevent iOS Safari's elastic page-bounce from shifting the whole UI.
 function _swipeTouchMove(e) {
   if (window.innerWidth > 640) return
   if (swipeDecided !== null) {
     if (swipeDecided === 'h') e.preventDefault()
+    else if (!swipeInScrollZone) e.preventDefault()
     return
   }
   const dx = Math.abs(e.touches[0].clientX - swipeStartX)
@@ -2380,6 +2396,7 @@ function _swipeTouchMove(e) {
   if (dx < 5 && dy < 5) return          // not enough movement yet
   swipeDecided = dx > dy ? 'h' : 'v'
   if (swipeDecided === 'h') e.preventDefault()
+  else if (!swipeInScrollZone) e.preventDefault()
 }
 
 function onSwipeTouchEnd(e) {
