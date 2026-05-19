@@ -2380,17 +2380,9 @@ function onSwipeTouchStart(e) {
   swipeStartY  = touch.clientY
   swipeDecided = null
   swipeInScrollZone = _isInScrollZone(e.target)
-
-  // Guard: if the sidebar is currently hidden, only start tracking a swipe
-  // when the touch originates in the left 30px edge zone. Touches anywhere
-  // else should never open the sidebar — they belong to content interactions.
-  // When the sidebar is already open, any horizontal swipe can close it
-  // (e.g., swiping left from anywhere, or the backdrop tap handled separately).
-  if (sidebarHidden.value && touch.clientX > 30) {
-    // Mark as decided-vertical immediately so _swipeTouchMove is a no-op
-    // for this touch sequence and no preventDefault() is called on it.
-    swipeDecided = 'v'
-  }
+  // No left-edge guard needed: _msgAreaTouchMove calls e.stopPropagation()
+  // on confirmed message swipe-to-reply, so those touches never reach
+  // _swipeTouchMove and cannot accidentally open the sidebar.
 }
 
 // Must be registered with { passive: false } so preventDefault() is allowed.
@@ -2437,24 +2429,30 @@ function onWindowResize() {
 }
 
 // Tracks the visible viewport height (shrinks when iOS keyboard opens).
-// Sets --vvh on :root as a fallback for non-fixed-inset browsers.
-// On mobile we now use position:fixed+inset:0 on .app-shell so the layout
-// is already keyboard-aware without --vvh, but we keep this as a belt-and-
-// suspenders backup for older browsers.
-// requestAnimationFrame defers the write to after the browser has committed
-// the viewport resize, eliminating the one-frame stale-height jump.
+// Sets --vvh on :root; .app-shell uses height:var(--vvh) so the shell
+// shrinks with the keyboard, keeping the composer above it.
+// Two-frame approach: first rAF sets --vvh, second rAF scrolls the
+// messages list to the bottom (after layout recalculates with new height)
+// so the last message stays visible above the composer.
 let _vvhRafId = null
 function updateVVH() {
+  // Capture scroll state now, before the rAF changes clientHeight.
+  const wasAtBottom = isNearBottom(200)
   if (_vvhRafId) cancelAnimationFrame(_vvhRafId)
   _vvhRafId = requestAnimationFrame(() => {
     _vvhRafId = null
     const vv = window.visualViewport
     const h = vv ? vv.height : window.innerHeight
     document.documentElement.style.setProperty('--vvh', `${h}px`)
-    // Safety net: if iOS somehow scrolled the document despite body:fixed,
-    // reset it immediately. Check first to avoid triggering a scroll event.
     if ((window.scrollY !== 0 || window.scrollX !== 0) && window.scrollTo) {
       window.scrollTo(0, 0)
+    }
+    // After --vvh is set the layout reflows; a second rAF runs after that
+    // reflow so scrollHeight reflects the new (shorter) messages-area height.
+    if (wasAtBottom) {
+      requestAnimationFrame(() => {
+        if (listEl.value) listEl.value.scrollTop = listEl.value.scrollHeight
+      })
     }
   })
 }
