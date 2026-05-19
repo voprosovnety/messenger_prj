@@ -1657,6 +1657,7 @@ async function send() {
     const text = input.value.trim()
     if (!text || aiLoading.value) return
     input.value = ''
+    composerEl.value?.focus()
     await sendToAi(text)
     return
   }
@@ -1671,6 +1672,7 @@ async function send() {
   input.value = ''
   replyingTo.value = null
   pendingFiles.value = []
+  composerEl.value?.focus()
   await api.sendMessage(chatId.value, text, replyId, atts).catch(() => {})
 }
 
