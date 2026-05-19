@@ -221,10 +221,19 @@
       <!-- Messages + Members panel wrapper -->
       <div style="display:flex;flex:1;min-height:0;overflow:hidden">
         <!-- Messages -->
-        <div style="display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden">
+        <div style="display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden;position:relative">
           <div ref="listEl" class="messages-area" @scroll="onScroll">
             <div v-if="loadingMore" class="load-more-spinner">Loading…</div>
-            <template v-for="g in grouped" :key="g.key">
+
+            <template v-if="chatLoading && !messages.length">
+              <div class="skeleton-row"><div class="skeleton-bubble" style="width:60%"></div></div>
+              <div class="skeleton-row own"><div class="skeleton-bubble" style="width:40%"></div></div>
+              <div class="skeleton-row"><div class="skeleton-bubble" style="width:75%"></div></div>
+              <div class="skeleton-row own"><div class="skeleton-bubble" style="width:50%"></div></div>
+              <div class="skeleton-row"><div class="skeleton-bubble" style="width:65%"></div></div>
+            </template>
+
+            <template v-else v-for="g in grouped" :key="g.key">
               <div class="date-separator">
                 <span class="date-separator-text">{{ g.title }}</span>
               </div>
@@ -369,7 +378,7 @@
                         class="reaction-pill"
                         :class="{ 'by-me': isMyReaction(m, r.emoji) }"
                         :title="r.users.join(', ')"
-                        @click.stop="doToggleReaction(m.id, r.emoji)"
+                        @click.stop="handleReactionClick(m, r.emoji, $event)"
                       >{{ r.emoji }} {{ r.count }}</button>
                       <button v-if="!isAiChat && !m.deleted_at" class="reaction-add-btn" title="Add reaction" @click.stop="openReactionPicker(m.id, $event)">+</button>
                     </div>
@@ -379,6 +388,17 @@
               </template>
             </template>
           </div>
+
+          <button
+            v-if="!isAiChat"
+            class="scroll-to-bottom"
+            :class="{ hidden: !showScrollBtn }"
+            @click="scrollToBottomFab"
+            aria-label="Scroll to bottom"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            <span v-if="unreadWhileScrolled > 0" class="scroll-to-bottom-badge">{{ unreadWhileScrolled }}</span>
+          </button>
 
           <!-- Typing indicator / inline error -->
           <div class="typing-indicator">
@@ -864,6 +884,9 @@ const messages = ref([])
 const nextCursor = ref(null)
 const hasMore = ref(false)
 const loadingMore = ref(false)
+const chatLoading = ref(false)
+const showScrollBtn = ref(false)
+const unreadWhileScrolled = ref(0)
 const input = ref('')
 const editingId = ref(null)
 const editingText = ref('')
@@ -1144,6 +1167,11 @@ async function scrollToBottom() {
   if (listEl.value) listEl.value.scrollTop = listEl.value.scrollHeight
 }
 
+function scrollToBottomFab() {
+  scrollToBottom()
+  unreadWhileScrolled.value = 0
+}
+
 // ─── online users ─────────────────────────────────────────────────
 async function loadOnlineUsers() {
   try {
@@ -1159,6 +1187,7 @@ async function load() {
     await scrollToBottom()
     return
   }
+  chatLoading.value = true
   try {
     const [chatData, msgData] = await Promise.all([
       api.getChat(chatId.value),
@@ -1174,9 +1203,11 @@ async function load() {
     peerDeliveredId.value = msgData.peer_delivered_message_id || null
     peerReadId.value = msgData.peer_read_message_id || null
   } catch {
+    chatLoading.value = false
     router.push('/')
     return
   }
+  chatLoading.value = false
   const last = messages.value[messages.value.length - 1]
   if (last) await api.markDelivered(chatId.value, last.id).catch(() => {})
   await scrollToBottom()
@@ -1282,6 +1313,11 @@ function onScroll() {
     loadMore()
   }
   updatePinnedIndexFromScroll()
+  if (listEl.value) {
+    const distFromBottom = listEl.value.scrollHeight - listEl.value.scrollTop - listEl.value.clientHeight
+    showScrollBtn.value = distFromBottom > 200
+    if (distFromBottom <= 200) unreadWhileScrolled.value = 0
+  }
 }
 
 async function loadSidebarChats() {
@@ -1445,6 +1481,9 @@ async function connectSse() {
               newMessageIds.value = new Set([...newMessageIds.value].filter(x => x !== d.id))
             }, 300)
           }
+          if (showScrollBtn.value && d.sender !== myId()) {
+            unreadWhileScrolled.value++
+          }
           await api.markDelivered(chatId.value, d.id).catch(() => {})
           await markReadIfPossible()
           if (shouldStick) await scrollToBottom()
@@ -1603,6 +1642,15 @@ async function doToggleReaction(msgId, emoji) {
   }
 
   await api.toggleReaction(chatId.value, msgId, emoji).catch(() => {})
+}
+
+function handleReactionClick(m, emoji, event) {
+  const el = event.currentTarget
+  el.classList.remove('toggling')
+  void el.offsetWidth  // force reflow to restart animation on rapid clicks
+  el.classList.add('toggling')
+  setTimeout(() => el.classList.remove('toggling'), 300)
+  doToggleReaction(m.id, emoji)
 }
 
 function isMyReaction(msg, emoji) {
@@ -2287,6 +2335,9 @@ watch(chatId, async (newId, oldId) => {
   nextCursor.value = null
   hasMore.value = false
   loadingMore.value = false
+  chatLoading.value = false
+  showScrollBtn.value = false
+  unreadWhileScrolled.value = 0
   chat.value = null
   participants.value = []
   pinnedMessages.value = []

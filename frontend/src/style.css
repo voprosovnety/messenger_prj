@@ -674,6 +674,57 @@ textarea.input {
   color: var(--text-3);
 }
 
+.scroll-to-bottom {
+  position: absolute;
+  bottom: 90px;
+  right: 20px;
+  width: 36px; height: 36px;
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: var(--shadow-sm);
+  transition: opacity 0.2s, transform 0.2s;
+  border: none; cursor: pointer; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10;
+  /* Extend tap target to 44×44px without changing visual size */
+}
+.scroll-to-bottom::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+}
+.scroll-to-bottom.hidden { opacity: 0; transform: scale(0.8); pointer-events: none; }
+.scroll-to-bottom-badge {
+  position: absolute;
+  top: -4px; right: -4px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  min-width: 16px; height: 16px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 3px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+@keyframes shimmer {
+  from { background-position: -400px 0; }
+  to   { background-position:  400px 0; }
+}
+.skeleton-bubble {
+  background: linear-gradient(90deg,
+    var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 12px;
+  height: 40px;
+}
+.skeleton-row { display: flex; margin: 8px 16px; }
+.skeleton-row.own { justify-content: flex-end; }
+
 .date-separator {
   display: flex;
   align-items: center;
@@ -2109,6 +2160,9 @@ textarea.input {
   line-height: 1.4;
 }
 .reaction-pill:hover { background: var(--surface-2); border-color: var(--text-3); transform: scale(1.06); }
+@media (hover: none) {
+  .reaction-pill:hover { background: var(--surface-3); border-color: var(--border); transform: none; }
+}
 .reaction-pill.by-me {
   background: var(--accent-dim);
   border-color: rgba(91,141,238,0.35);
@@ -2131,6 +2185,13 @@ textarea.input {
   line-height: 1;
 }
 .reaction-add-btn:hover { background: var(--surface-2); color: var(--text); }
+
+@keyframes reaction-pop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+.reaction-pill.toggling { animation: reaction-pop 0.25s cubic-bezier(0.34,1.5,0.64,1); }
 
 /* ─── Message search ─────────────────────────────────────────── */
 .msg-search-bar {
@@ -2684,6 +2745,15 @@ textarea.input {
      Setting 16px here prevents that without affecting visual design noticeably. */
   .composer-input {
     font-size: 16px;
+  }
+
+  /* Scroll-to-bottom FAB: raise above the taller mobile composer stack
+     (reply bar ~36px + editing bar ~36px + files row ~68px + composer ~52px +
+     margin 8px = up to ~200px) and clear the device safe-area.
+     We use calc so the button sits at a fixed visual distance above the
+     safe-area edge regardless of device. */
+  .scroll-to-bottom {
+    bottom: calc(120px + env(safe-area-inset-bottom, 0px));
   }
 }
 
