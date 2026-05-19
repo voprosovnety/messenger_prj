@@ -72,8 +72,14 @@
               <span class="chat-item-time">{{ formatTimeShort(c.last_message?.created_at) }}</span>
             </div>
             <div class="chat-item-top" style="margin-top:1px">
-              <span class="chat-item-preview">
-                <span v-if="draftMap[c.id]" class="draft-label">Draft: </span>{{ sidebarPreview(c) }}
+              <span class="chat-item-preview" :class="{ 'chat-item-preview--typing': sidebarTypingMap[c.id] }">
+                <template v-if="sidebarTypingMap[c.id]">
+                  <span v-if="c.is_group" class="sidebar-typing-name">{{ sidebarTypingMap[c.id] }}</span>
+                  <span class="typing-dots typing-dots--sm"><span></span><span></span><span></span></span>
+                </template>
+                <template v-else>
+                  <span v-if="draftMap[c.id]" class="draft-label">Draft: </span>{{ sidebarPreview(c) }}
+                </template>
               </span>
               <span v-if="(c.unread_count || 0) > 0" class="unread-badge" :class="{ 'unread-badge--muted': isMuted(c.id) }">{{ c.unread_count }}</span>
             </div>
@@ -107,7 +113,7 @@
       @dragover.prevent
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
-      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false"
+      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false; closeMobileMenu()"
     >
       <!-- Drag-and-drop overlay -->
       <div v-if="dragging && !isAiChat" class="drop-overlay">
@@ -233,6 +239,7 @@
                     own: isMine(m),
                     'same-sender': idx > 0 && g.items[idx-1].sender === m.sender && !g.items[idx-1].deleted_at,
                     'msg-highlighted': highlightedId === m.id,
+                    'msg-new': newMessageIds.has(m.id),
                   }"
                 >
                   <!-- Avatar slot (others only) -->
@@ -253,8 +260,25 @@
                       {{ m.sender }}
                     </div>
 
-                    <div class="message-bubble-outer" :class="{ 'editing-active': editingId === m.id }">
-                        <!-- Actions -->
+                    <div
+                      class="message-bubble-outer"
+                      :class="{ 'editing-active': editingId === m.id }"
+                      :style="swipeMsgId === m.id ? { transform: `translateX(${msgSwipeX}px)`, transition: msgSwipeDone ? 'transform 0.25s cubic-bezier(0.25,1,0.5,1)' : 'none' } : {}"
+                      @touchstart.passive="onMsgTouchStart($event, m)"
+                      @touchend.passive="onMsgTouchEnd($event, m)"
+                      @touchcancel.passive="onMsgTouchCancel()"
+                      @contextmenu.prevent
+                    >
+                      <!-- Swipe-to-reply icon (mobile only, revealed as bubble slides) -->
+                      <div
+                        v-if="!isAiChat && !m.deleted_at && m.type !== 'system'"
+                        class="msg-swipe-icon"
+                        :style="swipeMsgId === m.id && msgSwipeX > 0 ? { opacity: Math.min(msgSwipeX / 50, 1), transform: `translateY(-50%) scale(${0.4 + 0.6 * Math.min(msgSwipeX / 50, 1)})` } : { opacity: 0, transform: 'translateY(-50%) scale(0.4)' }"
+                        aria-hidden="true"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+                      </div>
+                        <!-- Actions (desktop hover only, hidden on mobile) -->
                         <div v-if="!m.deleted_at && !isAiChat" class="message-actions">
                           <button v-if="isMine(m)" class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Edit" @click="startEdit(m)">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -360,7 +384,7 @@
           <div class="typing-indicator">
             <span v-if="isAiChat && aiLoading" class="ai-thinking">AI Assistant is thinking…</span>
             <span v-else-if="composerError" style="color:var(--danger);cursor:pointer" @click="composerError=''">⚠ {{ composerError }}</span>
-            <span v-else-if="typingUser">{{ typingUser }} is typing…</span>
+            <span v-else-if="typingUser" class="typing-indicator-content">{{ typingUser }}&nbsp;<span class="typing-dots"><span></span><span></span><span></span></span></span>
           </div>
 
           <!-- Editing bar -->
@@ -412,6 +436,44 @@
 
           <!-- Composer -->
           <div class="composer-wrap">
+            <!-- Attach menu portal -->
+            <Teleport to="body">
+              <template v-if="showAttachMenu">
+                <div class="floating-menu-backdrop" @click="showAttachMenu = false" @touchstart.prevent="showAttachMenu = false"></div>
+                <div
+                  class="attach-menu-portal"
+                  :style="{ bottom: attachMenuPos.bottom + 'px', left: attachMenuPos.left + 'px' }"
+                  @click.stop
+                  @touchstart.stop
+                >
+                  <button class="attach-menu-item" @click="fileInputEl.click(); showAttachMenu = false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    Attach file
+                  </button>
+                  <button class="attach-menu-item" @click="showPollForm = true; showAttachMenu = false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
+                    Create poll
+                  </button>
+                </div>
+              </template>
+            </Teleport>
+            <!-- Send menu portal -->
+            <Teleport to="body">
+              <template v-if="showSendMenu">
+                <div class="floating-menu-backdrop" @click="showSendMenu = false" @touchstart.prevent="showSendMenu = false"></div>
+                <div
+                  class="send-menu-portal"
+                  :style="{ bottom: sendMenuPos.bottom + 'px', right: sendMenuPos.right + 'px' }"
+                  @click.stop
+                  @touchstart.stop
+                >
+                  <button class="attach-menu-item" @click="showSendMenu = false; openSchedulePicker()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Schedule message
+                  </button>
+                </div>
+              </template>
+            </Teleport>
             <!-- Emoji picker for composer -->
             <Teleport to="body">
               <div
@@ -450,6 +512,62 @@
               </div>
             </Teleport>
 
+            <!-- Mobile long-press context menu -->
+            <Teleport to="body">
+              <div
+                v-if="mobileMenu"
+                class="mobile-ctx-overlay"
+                @click="closeMobileMenu()"
+                @touchstart.prevent="closeMobileMenu()"
+              >
+                <div
+                  ref="mobileMenuEl"
+                  class="mobile-ctx-menu"
+                  :style="{ left: mobileMenu.x + 'px', top: mobileMenu.y + 'px', visibility: mobileMenu.adjusted ? 'visible' : 'hidden' }"
+                  @click.stop
+                  @touchstart.stop
+                >
+                  <!-- Quick reactions — always visible, never scrolled away -->
+                  <div class="mobile-ctx-reactions">
+                    <button
+                      v-for="e in QUICK_REACTIONS"
+                      :key="e"
+                      class="mobile-ctx-reaction-btn"
+                      :class="{ active: isMyReaction(mobileMenu.msg, e) }"
+                      @click="doToggleReaction(mobileMenu.msg.id, e); closeMobileMenu()"
+                    >{{ e }}</button>
+                  </div>
+                  <!-- Action items in a scrollable block so they never overflow off-screen -->
+                  <div class="mobile-ctx-items">
+                    <button class="mobile-ctx-item" @click="startReply(mobileMenu.msg); closeMobileMenu()">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+                      Reply
+                    </button>
+                    <button v-if="mobileMenu.msg.content" class="mobile-ctx-item" @click="copyMessageText(mobileMenu.msg)">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      Copy
+                    </button>
+                    <button v-if="isMine(mobileMenu.msg)" class="mobile-ctx-item" @click="startEdit(mobileMenu.msg); closeMobileMenu()">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      Edit
+                    </button>
+                    <button v-if="canPin" class="mobile-ctx-item" @click="doPin(mobileMenu.msg.id); closeMobileMenu()">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
+                      {{ pinnedMessages.some(p => p.id === mobileMenu.msg.id) ? 'Unpin' : 'Pin' }}
+                    </button>
+                    <button class="mobile-ctx-item" @click="startForward(mobileMenu.msg); closeMobileMenu()">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+                      Forward
+                    </button>
+                    <button v-if="isMine(mobileMenu.msg)" class="mobile-ctx-item mobile-ctx-danger" @click="removeMessage(mobileMenu.msg); closeMobileMenu()">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Teleport>
+
           <div class="composer">
             <!-- Normal mode -->
             <template v-if="!recording">
@@ -457,25 +575,16 @@
               <!-- Attach menu -->
               <div v-if="!isAiChat" class="attach-menu-wrap">
                 <button
+                  ref="attachBtnEl"
                   class="btn-icon composer-attach"
                   :class="{ active: showAttachMenu }"
                   title="Attach"
                   :disabled="uploading"
-                  @click.stop="showAttachMenu = !showAttachMenu"
+                  @click.stop="toggleAttachMenu()"
                 >
                   <svg v-if="!uploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                   <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                 </button>
-                <div v-if="showAttachMenu" class="attach-menu" @click.stop>
-                  <button class="attach-menu-item" @click="fileInputEl.click(); showAttachMenu = false">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                    Attach file
-                  </button>
-                  <button class="attach-menu-item" @click="showPollForm = true; showAttachMenu = false">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
-                    Create poll
-                  </button>
-                </div>
               </div>
               <textarea
                 ref="composerEl"
@@ -513,17 +622,12 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
               </button>
               <div v-if="!isAiChat" class="send-menu-wrap">
-                <div v-if="showSendMenu" class="send-menu" @click.stop>
-                  <button class="attach-menu-item" @click="showSendMenu = false; openSchedulePicker()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    Schedule message
-                  </button>
-                </div>
                 <button
+                  ref="sendBtnEl"
                   class="composer-send"
                   :disabled="!input.trim() && !pendingFiles.length"
                   @click="send"
-                  @contextmenu.prevent="showSendMenu = !showSendMenu"
+                  @contextmenu.prevent="openSendMenu()"
                   @touchstart="onSendTouchStart"
                   @touchend="onSendTouchEnd"
                   @touchmove="onSendTouchEnd"
@@ -765,6 +869,7 @@ const editingId = ref(null)
 const editingText = ref('')
 const replyingTo = ref(null)
 const highlightedId = ref(null)
+const newMessageIds = ref(new Set())
 const busy = ref(false)
 const error = ref('')
 
@@ -781,6 +886,8 @@ let createSearchDebounce = null
 
 const typingUser = ref('')
 let typingTimeout = null
+const sidebarTypingMap = ref({})
+const sidebarTypingTimers = {}
 let typingDebounce = null
 
 const listEl = ref(null)
@@ -813,12 +920,16 @@ const onlineUsers = ref([])
 const draftMap = ref({})
 const showEmojiPicker = ref(false)
 const showAttachMenu = ref(false)
+const attachBtnEl = ref(null)
+const attachMenuPos = ref({ bottom: 0, left: 0 })
 const showPollForm = ref(false)
 
 const scheduledMessages = ref([])
 const showScheduledList = ref(false)
 const showSchedulePicker = ref(false)
 const showSendMenu = ref(false)
+const sendBtnEl = ref(null)
+const sendMenuPos = ref({ bottom: 0, right: 0 })
 
 const searchOpen = ref(false)
 const searchQuery = ref('')
@@ -834,6 +945,20 @@ const forwardingMsg = ref(null)
 const showForwardModal = ref(false)
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🔥', '👎']
+
+// ─── Mobile message interactions ──────────────────────────────────
+const swipeMsgId = ref(null)    // message id whose bubble is being swiped
+const msgSwipeX = ref(0)        // current X translate offset (px)
+const msgSwipeDone = ref(false) // true during spring-back transition
+const mobileMenu = ref(null)    // { msg, rawX, rawY, x, y, adjusted } or null
+const mobileMenuEl = ref(null)  // ref to the rendered menu DOM element
+
+let _msgSwipeId = null          // non-reactive; tracks swipe in touchmove handler
+let _msgSwipeStartX = 0
+let _msgSwipeStartY = 0
+let _msgSwipeDecided = null     // null | 'h' | 'v'
+let _msgLongPressTimer = null
+let _msgLongPressTriggered = false
 const recordingTime = ref(0)
 let mediaRecorder = null
 let recordingChunks = []
@@ -986,12 +1111,24 @@ function sidebarPreview(c) {
   if (draft) return draft
   const lm = c.last_message
   if (!lm) return 'No messages'
-  const prefix = c.is_group && lm.sender_username ? lm.sender_username + ': ' : (lm.sender_username === me.value?.username ? 'You: ' : '')
+  const isMe = lm.sender_username === me.value?.username
+  const prefix = c.is_group
+    ? (isMe ? 'You: ' : (lm.sender_username ? lm.sender_username + ': ' : ''))
+    : (isMe ? 'You: ' : '')
+  if (lm.type === 'poll') return prefix + '📊 Poll'
+  if (lm.attachments?.length) {
+    const imgs = lm.attachments.filter(a => /\.(jpe?g|png|gif|webp)(\?|$)/i.test(a.url || ''))
+    if (imgs.length > 1) return prefix + imgs.length + ' photos'
+    if (imgs.length === 1) return prefix + 'Photo'
+    const vids = lm.attachments.filter(a => /\.(mp4|webm|mov|avi)(\?|$)/i.test(a.url || ''))
+    if (vids.length) return prefix + 'Video'
+    return prefix + 'File'
+  }
   if (lm.content) return prefix + lm.content
-  if (lm.attachment_type === 'image') return prefix + '🖼 Photo'
-  if (lm.attachment_type === 'video') return prefix + '🎬 Video'
-  if (lm.attachment_type === 'audio') return prefix + '🎵 Audio'
-  if (lm.attachment_url) return prefix + '📎 File'
+  if (lm.attachment_type === 'audio') return prefix + 'Voice message'
+  if (lm.attachment_type === 'image') return prefix + 'Photo'
+  if (lm.attachment_type === 'video') return prefix + 'Video'
+  if (lm.attachment_url) return prefix + 'File'
   return prefix || 'No messages'
 }
 
@@ -1070,6 +1207,10 @@ function onSendTouchStart() {
   sendLongPressTriggered = false
   sendLongPressTimer = setTimeout(() => {
     sendLongPressTriggered = true
+    if (sendBtnEl.value) {
+      const rect = sendBtnEl.value.getBoundingClientRect()
+      sendMenuPos.value = { bottom: window.innerHeight - rect.top + 8, right: window.innerWidth - rect.right }
+    }
     showSendMenu.value = true
   }, 500)
 }
@@ -1234,15 +1375,51 @@ async function connectSse() {
           return
         }
 
+        // Typing indicator — handled before per-chat filter so all chats get it
+        if (payload.type === 'user.typing') {
+          const tChatId = d.chatId ?? d.chat_id
+          if (tChatId && d.username !== myId()) {
+            sidebarTypingMap.value = { ...sidebarTypingMap.value, [tChatId]: d.username }
+            clearTimeout(sidebarTypingTimers[tChatId])
+            sidebarTypingTimers[tChatId] = setTimeout(() => {
+              const m = { ...sidebarTypingMap.value }
+              delete m[tChatId]
+              sidebarTypingMap.value = m
+            }, 3000)
+            if (tChatId === chatId.value) {
+              typingUser.value = d.username
+              clearTimeout(typingTimeout)
+              typingTimeout = setTimeout(() => { typingUser.value = '' }, 3000)
+            }
+          }
+          return
+        }
+
         // Sidebar update for every message.created regardless of chat
         if (payload.type === 'message.created') {
+          // Clear typing for this chat since message was sent
+          if (sidebarTypingMap.value[d.chat_id]) {
+            clearTimeout(sidebarTypingTimers[d.chat_id])
+            const m = { ...sidebarTypingMap.value }
+            delete m[d.chat_id]
+            sidebarTypingMap.value = m
+          }
+          if (d.chat_id === chatId.value) { typingUser.value = ''; clearTimeout(typingTimeout) }
           const fromMe = d.sender === myId()
           const idx = sidebarChats.value.findIndex(c => c.id === d.chat_id)
           if (idx !== -1) {
             const cur = sidebarChats.value[idx]
             const arr = sidebarChats.value.map((c, i) => i === idx ? {
               ...cur,
-              last_message: { content: d.content, created_at: d.created_at, sender_username: d.sender },
+              last_message: {
+                content: d.content,
+                created_at: d.created_at,
+                sender_username: d.sender,
+                type: d.type ?? 'text',
+                attachment_url: d.attachment_url ?? null,
+                attachment_type: d.attachment_type ?? null,
+                attachments: d.attachments ?? null,
+              },
               unread_count: (d.chat_id === chatId.value || fromMe) ? cur.unread_count : (cur.unread_count || 0) + 1,
             } : c)
             arr.sort((a, b) => {
@@ -1261,7 +1438,13 @@ async function connectSse() {
         const shouldStick = isNearBottom()
 
         if (payload.type === 'message.created') {
-          if (!messages.value.find(m => m.id === d.id)) messages.value.push(d)
+          if (!messages.value.find(m => m.id === d.id)) {
+            messages.value.push(d)
+            newMessageIds.value = new Set([...newMessageIds.value, d.id])
+            setTimeout(() => {
+              newMessageIds.value = new Set([...newMessageIds.value].filter(x => x !== d.id))
+            }, 300)
+          }
           await api.markDelivered(chatId.value, d.id).catch(() => {})
           await markReadIfPossible()
           if (shouldStick) await scrollToBottom()
@@ -1311,14 +1494,6 @@ async function connectSse() {
           }
           return
         }
-        if (payload.type === 'user.typing') {
-          if (d.username !== myId()) {
-            typingUser.value = d.username
-            clearTimeout(typingTimeout)
-            typingTimeout = setTimeout(() => { typingUser.value = '' }, 3000)
-          }
-          return
-        }
       }
       source.onerror = () => {
         source.close()
@@ -1336,6 +1511,26 @@ async function connectSse() {
   await attempt()
 }
 
+// ─── attach menu / send menu ──────────────────────────────────────
+function toggleAttachMenu() {
+  if (!showAttachMenu.value && attachBtnEl.value) {
+    const rect = attachBtnEl.value.getBoundingClientRect()
+    attachMenuPos.value = { bottom: window.innerHeight - rect.top + 8, left: rect.left }
+  }
+  showAttachMenu.value = !showAttachMenu.value
+}
+
+function openSendMenu() {
+  if (sendBtnEl.value) {
+    const rect = sendBtnEl.value.getBoundingClientRect()
+    sendMenuPos.value = {
+      bottom: window.innerHeight - rect.top + 8,
+      right: window.innerWidth - rect.right,
+    }
+  }
+  showSendMenu.value = !showSendMenu.value
+}
+
 // ─── emoji / reactions ────────────────────────────────────────────
 function toggleEmojiPicker() {
   closeReactionPicker()
@@ -1345,8 +1540,11 @@ function toggleEmojiPicker() {
   }
   if (emojiButtonEl.value) {
     const rect = emojiButtonEl.value.getBoundingClientRect()
+    const PICKER_W = 310
+    const center = rect.left + rect.width / 2
+    const clampedLeft = Math.max(PICKER_W / 2 + 8, Math.min(center, window.innerWidth - PICKER_W / 2 - 8))
     emojiPickerPos.value = {
-      left: rect.left + rect.width / 2,
+      left: clampedLeft,
       bottom: window.innerHeight - rect.top + 8,
     }
   }
@@ -1519,6 +1717,7 @@ async function send() {
     const text = input.value.trim()
     if (!text || aiLoading.value) return
     input.value = ''
+    composerEl.value?.focus()
     await sendToAi(text)
     return
   }
@@ -1533,6 +1732,7 @@ async function send() {
   input.value = ''
   replyingTo.value = null
   pendingFiles.value = []
+  composerEl.value?.focus()
   await api.sendMessage(chatId.value, text, replyId, atts).catch(() => {})
 }
 
@@ -2048,6 +2248,30 @@ async function createChat() {
 
 watch(showOnlinePanel, (val) => { if (val) loadOnlineUsers() })
 
+// ─── Smart repositioning of mobile long-press menu ────────────────
+// Runs after Vue updates the DOM so we can measure actual menu dimensions.
+watch(mobileMenu, (newVal) => {
+  if (!newVal || newVal.adjusted) return
+  if (!mobileMenuEl.value) return
+  const el = mobileMenuEl.value
+  const menuW = el.offsetWidth
+  const menuH = el.offsetHeight
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const EDGE = 8
+  const SAFE_BOTTOM = 20   // covers env(safe-area-inset-bottom) on most devices
+  const tx = newVal.rawX
+  const ty = newVal.rawY
+  // Prefer opening below touch, fall back to above when not enough room
+  let y = ty + 16
+  if (y + menuH > vh - EDGE - SAFE_BOTTOM) y = ty - menuH - 16
+  y = Math.max(EDGE, Math.min(y, vh - menuH - EDGE - SAFE_BOTTOM))
+  // Center horizontally on touch point, clamp to edges
+  let x = tx - menuW / 2
+  x = Math.max(EDGE, Math.min(x, vw - menuW - EDGE))
+  mobileMenu.value = { ...newVal, x, y, adjusted: true }
+}, { flush: 'post' })
+
 watch(input, (val) => {
   if (!editingId.value && !isAiChat.value) saveDraft(chatId.value, val)
 })
@@ -2090,6 +2314,11 @@ watch(chatId, async (newId, oldId) => {
   globalSearchOpen.value = false
   showForwardModal.value = false
   forwardingMsg.value = null
+  mobileMenu.value = null
+  swipeMsgId.value = null
+  msgSwipeX.value = 0
+  msgSwipeDone.value = false
+  clearTimeout(_msgLongPressTimer)
   await load()
   await connectSse()
   if (!isAiChat.value) {
@@ -2098,6 +2327,113 @@ watch(chatId, async (newId, oldId) => {
   }
   await maybeJumpFromQuery()
 }, { immediate: false })
+
+// ─── Mobile message swipe-to-reply & long-press menu ─────────────
+function onMsgTouchStart(e, m) {
+  if (window.innerWidth > 640 || isAiChat.value) return
+  if (m.type === 'system' || m.deleted_at) return
+  if (mobileMenu.value) return
+
+  _msgSwipeId = m.id
+  _msgSwipeStartX = e.touches[0].clientX
+  _msgSwipeStartY = e.touches[0].clientY
+  _msgSwipeDecided = null
+  _msgLongPressTriggered = false
+  swipeMsgId.value = m.id
+  msgSwipeX.value = 0
+  msgSwipeDone.value = false
+
+  _msgLongPressTimer = setTimeout(() => {
+    _msgLongPressTriggered = true
+    navigator.vibrate?.(30)
+    // Cancel any in-progress swipe
+    _msgSwipeId = null
+    swipeMsgId.value = null
+    msgSwipeX.value = 0
+    // Store raw touch position; watcher will clamp to viewport after render
+    const tx = e.touches[0].clientX
+    const ty = e.touches[0].clientY
+    mobileMenu.value = { msg: m, rawX: tx, rawY: ty, x: -9999, y: -9999, adjusted: false }
+  }, 500)
+}
+
+function onMsgTouchEnd(e, m) {
+  clearTimeout(_msgLongPressTimer)
+  if (_msgLongPressTriggered) return
+
+  const swipeXValue = msgSwipeX.value
+  const hadSwipe = _msgSwipeId !== null
+
+  _msgSwipeId = null
+  _msgSwipeDecided = null
+  msgSwipeDone.value = true
+  msgSwipeX.value = 0
+
+  setTimeout(() => {
+    if (swipeMsgId.value === m.id) {
+      swipeMsgId.value = null
+      msgSwipeDone.value = false
+    }
+  }, 280)
+
+  if (hadSwipe && swipeXValue >= 60) {
+    startReply(m)
+  }
+}
+
+function onMsgTouchCancel() {
+  clearTimeout(_msgLongPressTimer)
+  _msgLongPressTriggered = false
+  _msgSwipeId = null
+  _msgSwipeDecided = null
+  msgSwipeDone.value = true
+  msgSwipeX.value = 0
+  setTimeout(() => {
+    swipeMsgId.value = null
+    msgSwipeDone.value = false
+  }, 280)
+}
+
+// Must be registered with { passive: false } to call preventDefault.
+function _msgAreaTouchMove(e) {
+  if (window.innerWidth > 640 || !_msgSwipeId || _msgLongPressTriggered) return
+
+  const touch = e.touches[0]
+  const dx = touch.clientX - _msgSwipeStartX
+  const dy = touch.clientY - _msgSwipeStartY
+
+  if (_msgSwipeDecided === null) {
+    if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
+    _msgSwipeDecided = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+  }
+
+  if (_msgSwipeDecided === 'v') {
+    // Vertical scroll: cancel swipe and long press, let scroll proceed naturally
+    clearTimeout(_msgLongPressTimer)
+    _msgSwipeId = null
+    swipeMsgId.value = null
+    return
+  }
+
+  // Confirmed horizontal swipe: cancel long press, prevent page scroll
+  clearTimeout(_msgLongPressTimer)
+  e.preventDefault()
+  e.stopPropagation() // prevents sidebar swipe from also triggering
+
+  // Rightward only, rubber-band resistance after 60 px
+  const raw = Math.max(0, dx)
+  const x = raw <= 60 ? raw : 60 + (raw - 60) * 0.25
+  msgSwipeX.value = Math.min(x, 80)
+}
+
+function closeMobileMenu() {
+  mobileMenu.value = null
+}
+
+function copyMessageText(m) {
+  if (m.content) navigator.clipboard?.writeText(m.content).catch(() => {})
+  closeMobileMenu()
+}
 
 // ─── Mobile swipe gesture to open / close sidebar ────────────────
 // Strategy: use a non-passive touchmove listener (registered imperatively
@@ -2109,25 +2445,52 @@ const SWIPE_THRESHOLD = 50  // px to commit to sidebar toggle
 let swipeStartX  = 0
 let swipeStartY  = 0
 let swipeDecided = null  // null | 'h' | 'v' — direction locked after 5 px
+let swipeInScrollZone = false  // true when touch started inside a real scroll container
+
+// Walk up the DOM to check if el is inside a vertically scrollable container.
+// Called once per touch sequence (at touchstart) so getComputedStyle cost is fine.
+function _isInScrollZone(el) {
+  while (el && el !== document.documentElement) {
+    const oy = window.getComputedStyle(el).overflowY
+    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return true
+    el = el.parentElement
+  }
+  return false
+}
 
 function onSwipeTouchStart(e) {
-  swipeStartX  = e.touches[0].clientX
-  swipeStartY  = e.touches[0].clientY
+  const touch = e.touches[0]
+  swipeStartX  = touch.clientX
+  swipeStartY  = touch.clientY
   swipeDecided = null
+  swipeInScrollZone = _isInScrollZone(e.target)
+  // No left-edge guard needed: _msgAreaTouchMove calls e.stopPropagation()
+  // on confirmed message swipe-to-reply, so those touches never reach
+  // _swipeTouchMove and cannot accidentally open the sidebar.
 }
 
 // Must be registered with { passive: false } so preventDefault() is allowed.
+// Horizontal moves always get preventDefault so the browser never native-scrolls
+// the page left/right (there is no horizontal scroll target — only our JS sidebar).
+// Vertical moves get preventDefault outside scroll zones to stop iOS page bounce.
 function _swipeTouchMove(e) {
   if (window.innerWidth > 640) return
   if (swipeDecided !== null) {
     if (swipeDecided === 'h') e.preventDefault()
+    else if (!swipeInScrollZone) e.preventDefault()
     return
   }
   const dx = Math.abs(e.touches[0].clientX - swipeStartX)
   const dy = Math.abs(e.touches[0].clientY - swipeStartY)
-  if (dx < 5 && dy < 5) return          // not enough movement yet
+  // Before direction is locked: if there is any horizontal component that clearly
+  // dominates the vertical, prevent immediately so iOS can't start a native scroll.
+  if (dx < 5 && dy < 5) {
+    if (dx > 0 && dx >= dy) e.preventDefault()
+    return
+  }
   swipeDecided = dx > dy ? 'h' : 'v'
   if (swipeDecided === 'h') e.preventDefault()
+  else if (!swipeInScrollZone) e.preventDefault()
 }
 
 function onSwipeTouchEnd(e) {
@@ -2150,10 +2513,32 @@ function onWindowResize() {
 }
 
 // Tracks the visible viewport height (shrinks when iOS keyboard opens).
-// Sets --vvh on :root so .app-shell stays exactly as tall as the visible area.
+// Sets --vvh on :root; .app-shell uses height:var(--vvh) so the shell
+// shrinks with the keyboard, keeping the composer above it.
+// Two-frame approach: first rAF sets --vvh, second rAF scrolls the
+// messages list to the bottom (after layout recalculates with new height)
+// so the last message stays visible above the composer.
+let _vvhRafId = null
 function updateVVH() {
-  const h = window.visualViewport?.height ?? window.innerHeight
-  document.documentElement.style.setProperty('--vvh', `${h}px`)
+  // Capture scroll state now, before the rAF changes clientHeight.
+  const wasAtBottom = isNearBottom(200)
+  if (_vvhRafId) cancelAnimationFrame(_vvhRafId)
+  _vvhRafId = requestAnimationFrame(() => {
+    _vvhRafId = null
+    const vv = window.visualViewport
+    const h = vv ? vv.height : window.innerHeight
+    document.documentElement.style.setProperty('--vvh', `${h}px`)
+    if ((window.scrollY !== 0 || window.scrollX !== 0) && window.scrollTo) {
+      window.scrollTo(0, 0)
+    }
+    // After --vvh is set the layout reflows; a second rAF runs after that
+    // reflow so scrollHeight reflects the new (shorter) messages-area height.
+    if (wasAtBottom) {
+      requestAnimationFrame(() => {
+        if (listEl.value) listEl.value.scrollTop = listEl.value.scrollHeight
+      })
+    }
+  })
 }
 
 onMounted(async () => {
@@ -2175,10 +2560,16 @@ onMounted(async () => {
     await markReadIfPossible()
   }
   await maybeJumpFromQuery()
+  // Disable browser pinch-zoom while in chat: ImageLightbox uses JS zoom instead.
+  // Scoped to ChatView so /login, /register, /profile retain normal zoom.
+  const _metaVP = document.querySelector('meta[name="viewport"]')
+  if (_metaVP) _metaVP.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
   document.addEventListener('visibilitychange', markReadIfPossible)
   window.addEventListener('resize', onWindowResize)
   window.visualViewport?.addEventListener('resize', updateVVH)
+  window.visualViewport?.addEventListener('scroll', updateVVH)
   document.addEventListener('touchmove', _swipeTouchMove, { passive: false })
+  if (listEl.value) listEl.value.addEventListener('touchmove', _msgAreaTouchMove, { passive: false })
   updateVVH()
   api.ping().catch(() => {})
   loadOnlineUsers()
@@ -2195,7 +2586,14 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', markReadIfPossible)
   window.removeEventListener('resize', onWindowResize)
   window.visualViewport?.removeEventListener('resize', updateVVH)
+  window.visualViewport?.removeEventListener('scroll', updateVVH)
   document.removeEventListener('touchmove', _swipeTouchMove)
+  if (listEl.value) listEl.value.removeEventListener('touchmove', _msgAreaTouchMove)
+  clearTimeout(_msgLongPressTimer)
+  if (_vvhRafId) cancelAnimationFrame(_vvhRafId)
+  // Restore default viewport so other routes can zoom normally.
+  const _metaVP = document.querySelector('meta[name="viewport"]')
+  if (_metaVP) _metaVP.content = 'width=device-width, initial-scale=1.0, viewport-fit=cover'
   cancelRecording()
   document.title = 'RealtimeChat'
 })
