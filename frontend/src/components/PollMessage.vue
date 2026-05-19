@@ -8,7 +8,7 @@
 
     <div class="poll-options">
       <button
-        v-for="opt in poll.options"
+        v-for="(opt, index) in poll.options"
         :key="opt.id"
         class="poll-option"
         :class="{
@@ -16,6 +16,7 @@
           'poll-option-winner': showResults && isWinner(opt),
           'poll-option-disabled': isDeleted,
         }"
+        :style="{ transitionDelay: index * 60 + 'ms' }"
         :disabled="isDeleted"
         @click="vote(opt.id)"
       >

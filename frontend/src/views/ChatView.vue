@@ -60,7 +60,7 @@
           v-for="c in sidebarChats"
           :key="c.id"
           class="chat-item"
-          :class="{ active: c.id === chatId.value }"
+          :class="{ active: c.id === chatId.value, unread: (c.unread_count || 0) > 0 }"
           type="button"
           @click="router.push(`/chats/${c.id}`)"
         >
@@ -1606,7 +1606,11 @@ function openReactionPicker(msgId, event) {
     return
   }
   const rect = event.currentTarget.getBoundingClientRect()
-  reactionPickerPos.value = { x: rect.left, y: rect.top }
+  // Clamp x so the picker (which uses translate(-50%)) never overflows the
+  // viewport on narrow mobile screens. Half the quick-picker width ≈ 144px.
+  const halfW = 144
+  const clampedX = Math.max(halfW + 8, Math.min(rect.left, window.innerWidth - halfW - 8))
+  reactionPickerPos.value = { x: clampedX, y: rect.top }
   reactionPickerMsgId.value = msgId
   showFullReactionPicker.value = false
 }
@@ -1619,6 +1623,7 @@ function closeReactionPicker() {
 async function doToggleReaction(msgId, emoji) {
   const msg = messages.value.find(m => m.id === msgId)
   if (!msg) return
+  navigator.vibrate?.(10)
 
   const myUser = me.value?.username
   const existing = (msg.reactions || []).find(r => r.emoji === emoji)
@@ -1781,6 +1786,7 @@ async function send() {
   replyingTo.value = null
   pendingFiles.value = []
   composerEl.value?.focus()
+  navigator.vibrate?.(10)
   await api.sendMessage(chatId.value, text, replyId, atts).catch(() => {})
 }
 
