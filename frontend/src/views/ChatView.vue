@@ -436,6 +436,44 @@
 
           <!-- Composer -->
           <div class="composer-wrap">
+            <!-- Attach menu portal -->
+            <Teleport to="body">
+              <template v-if="showAttachMenu">
+                <div class="floating-menu-backdrop" @click="showAttachMenu = false" @touchstart.prevent="showAttachMenu = false"></div>
+                <div
+                  class="attach-menu-portal"
+                  :style="{ bottom: attachMenuPos.bottom + 'px', left: attachMenuPos.left + 'px' }"
+                  @click.stop
+                  @touchstart.stop
+                >
+                  <button class="attach-menu-item" @click="fileInputEl.click(); showAttachMenu = false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    Attach file
+                  </button>
+                  <button class="attach-menu-item" @click="showPollForm = true; showAttachMenu = false">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
+                    Create poll
+                  </button>
+                </div>
+              </template>
+            </Teleport>
+            <!-- Send menu portal -->
+            <Teleport to="body">
+              <template v-if="showSendMenu">
+                <div class="floating-menu-backdrop" @click="showSendMenu = false" @touchstart.prevent="showSendMenu = false"></div>
+                <div
+                  class="send-menu-portal"
+                  :style="{ bottom: sendMenuPos.bottom + 'px', right: sendMenuPos.right + 'px' }"
+                  @click.stop
+                  @touchstart.stop
+                >
+                  <button class="attach-menu-item" @click="showSendMenu = false; openSchedulePicker()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Schedule message
+                  </button>
+                </div>
+              </template>
+            </Teleport>
             <!-- Emoji picker for composer -->
             <Teleport to="body">
               <div
@@ -537,25 +575,16 @@
               <!-- Attach menu -->
               <div v-if="!isAiChat" class="attach-menu-wrap">
                 <button
+                  ref="attachBtnEl"
                   class="btn-icon composer-attach"
                   :class="{ active: showAttachMenu }"
                   title="Attach"
                   :disabled="uploading"
-                  @click.stop="showAttachMenu = !showAttachMenu"
+                  @click.stop="toggleAttachMenu()"
                 >
                   <svg v-if="!uploading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                   <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                 </button>
-                <div v-if="showAttachMenu" class="attach-menu" @click.stop>
-                  <button class="attach-menu-item" @click="fileInputEl.click(); showAttachMenu = false">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                    Attach file
-                  </button>
-                  <button class="attach-menu-item" @click="showPollForm = true; showAttachMenu = false">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
-                    Create poll
-                  </button>
-                </div>
               </div>
               <textarea
                 ref="composerEl"
@@ -593,17 +622,12 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
               </button>
               <div v-if="!isAiChat" class="send-menu-wrap">
-                <div v-if="showSendMenu" class="send-menu" @click.stop>
-                  <button class="attach-menu-item" @click="showSendMenu = false; openSchedulePicker()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    Schedule message
-                  </button>
-                </div>
                 <button
+                  ref="sendBtnEl"
                   class="composer-send"
                   :disabled="!input.trim() && !pendingFiles.length"
                   @click="send"
-                  @contextmenu.prevent="showSendMenu = !showSendMenu"
+                  @contextmenu.prevent="openSendMenu()"
                   @touchstart="onSendTouchStart"
                   @touchend="onSendTouchEnd"
                   @touchmove="onSendTouchEnd"
@@ -896,12 +920,16 @@ const onlineUsers = ref([])
 const draftMap = ref({})
 const showEmojiPicker = ref(false)
 const showAttachMenu = ref(false)
+const attachBtnEl = ref(null)
+const attachMenuPos = ref({ bottom: 0, left: 0 })
 const showPollForm = ref(false)
 
 const scheduledMessages = ref([])
 const showScheduledList = ref(false)
 const showSchedulePicker = ref(false)
 const showSendMenu = ref(false)
+const sendBtnEl = ref(null)
+const sendMenuPos = ref({ bottom: 0, right: 0 })
 
 const searchOpen = ref(false)
 const searchQuery = ref('')
@@ -1179,6 +1207,10 @@ function onSendTouchStart() {
   sendLongPressTriggered = false
   sendLongPressTimer = setTimeout(() => {
     sendLongPressTriggered = true
+    if (sendBtnEl.value) {
+      const rect = sendBtnEl.value.getBoundingClientRect()
+      sendMenuPos.value = { bottom: window.innerHeight - rect.top + 8, right: window.innerWidth - rect.right }
+    }
     showSendMenu.value = true
   }, 500)
 }
@@ -1479,6 +1511,26 @@ async function connectSse() {
   await attempt()
 }
 
+// ─── attach menu / send menu ──────────────────────────────────────
+function toggleAttachMenu() {
+  if (!showAttachMenu.value && attachBtnEl.value) {
+    const rect = attachBtnEl.value.getBoundingClientRect()
+    attachMenuPos.value = { bottom: window.innerHeight - rect.top + 8, left: rect.left }
+  }
+  showAttachMenu.value = !showAttachMenu.value
+}
+
+function openSendMenu() {
+  if (sendBtnEl.value) {
+    const rect = sendBtnEl.value.getBoundingClientRect()
+    sendMenuPos.value = {
+      bottom: window.innerHeight - rect.top + 8,
+      right: window.innerWidth - rect.right,
+    }
+  }
+  showSendMenu.value = !showSendMenu.value
+}
+
 // ─── emoji / reactions ────────────────────────────────────────────
 function toggleEmojiPicker() {
   closeReactionPicker()
@@ -1488,8 +1540,11 @@ function toggleEmojiPicker() {
   }
   if (emojiButtonEl.value) {
     const rect = emojiButtonEl.value.getBoundingClientRect()
+    const PICKER_W = 310
+    const center = rect.left + rect.width / 2
+    const clampedLeft = Math.max(PICKER_W / 2 + 8, Math.min(center, window.innerWidth - PICKER_W / 2 - 8))
     emojiPickerPos.value = {
-      left: rect.left + rect.width / 2,
+      left: clampedLeft,
       bottom: window.innerHeight - rect.top + 8,
     }
   }

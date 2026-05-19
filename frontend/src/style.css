@@ -2291,16 +2291,21 @@ textarea.input {
 .attach-menu-wrap {
   position: relative;
 }
-.attach-menu {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
+
+.floating-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 299;
+}
+
+.attach-menu-portal {
+  position: fixed;
+  z-index: 300;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.35);
   min-width: 160px;
-  z-index: 50;
   padding: 4px;
   display: flex;
   flex-direction: column;
@@ -2329,16 +2334,14 @@ textarea.input {
 .send-menu-wrap {
   position: relative;
 }
-.send-menu {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  right: 0;
+.send-menu-portal {
+  position: fixed;
+  z-index: 300;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.35);
   min-width: 180px;
-  z-index: 50;
   padding: 4px;
   display: flex;
   flex-direction: column;
