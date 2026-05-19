@@ -674,6 +674,12 @@ textarea.input {
   overscroll-behavior: contain; /* prevent elastic bounce propagating to page */
 }
 
+.message-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
 .load-more-spinner {
   text-align: center;
   padding: 8px 0 4px;

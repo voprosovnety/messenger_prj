@@ -233,7 +233,7 @@
               <div class="skeleton-row"><div class="skeleton-bubble" style="width:65%"></div></div>
             </template>
 
-            <template v-else v-for="g in grouped" :key="g.key">
+            <div class="message-group" v-else v-for="g in grouped" :key="g.key">
               <div class="date-separator">
                 <span class="date-separator-text">{{ g.title }}</span>
               </div>
@@ -386,7 +386,7 @@
 
                 </div>
               </template>
-            </template>
+            </div>
           </div>
 
           <button
