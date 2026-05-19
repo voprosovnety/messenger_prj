@@ -483,12 +483,13 @@
                 @touchstart.prevent="closeMobileMenu()"
               >
                 <div
+                  ref="mobileMenuEl"
                   class="mobile-ctx-menu"
-                  :style="{ left: mobileMenu.x + 'px', top: mobileMenu.y + 'px' }"
+                  :style="{ left: mobileMenu.x + 'px', top: mobileMenu.y + 'px', visibility: mobileMenu.adjusted ? 'visible' : 'hidden' }"
                   @click.stop
                   @touchstart.stop
                 >
-                  <!-- Quick reactions -->
+                  <!-- Quick reactions — always visible, never scrolled away -->
                   <div class="mobile-ctx-reactions">
                     <button
                       v-for="e in QUICK_REACTIONS"
@@ -498,30 +499,33 @@
                       @click="doToggleReaction(mobileMenu.msg.id, e); closeMobileMenu()"
                     >{{ e }}</button>
                   </div>
-                  <button class="mobile-ctx-item" @click="startReply(mobileMenu.msg); closeMobileMenu()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
-                    Reply
-                  </button>
-                  <button v-if="mobileMenu.msg.content" class="mobile-ctx-item" @click="copyMessageText(mobileMenu.msg)">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    Copy
-                  </button>
-                  <button v-if="isMine(mobileMenu.msg)" class="mobile-ctx-item" @click="startEdit(mobileMenu.msg); closeMobileMenu()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    Edit
-                  </button>
-                  <button v-if="canPin" class="mobile-ctx-item" @click="doPin(mobileMenu.msg.id); closeMobileMenu()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
-                    {{ pinnedMessages.some(p => p.id === mobileMenu.msg.id) ? 'Unpin' : 'Pin' }}
-                  </button>
-                  <button class="mobile-ctx-item" @click="startForward(mobileMenu.msg); closeMobileMenu()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
-                    Forward
-                  </button>
-                  <button v-if="isMine(mobileMenu.msg)" class="mobile-ctx-item mobile-ctx-danger" @click="removeMessage(mobileMenu.msg); closeMobileMenu()">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                    Delete
-                  </button>
+                  <!-- Action items in a scrollable block so they never overflow off-screen -->
+                  <div class="mobile-ctx-items">
+                    <button class="mobile-ctx-item" @click="startReply(mobileMenu.msg); closeMobileMenu()">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+                      Reply
+                    </button>
+                    <button v-if="mobileMenu.msg.content" class="mobile-ctx-item" @click="copyMessageText(mobileMenu.msg)">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      Copy
+                    </button>
+                    <button v-if="isMine(mobileMenu.msg)" class="mobile-ctx-item" @click="startEdit(mobileMenu.msg); closeMobileMenu()">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      Edit
+                    </button>
+                    <button v-if="canPin" class="mobile-ctx-item" @click="doPin(mobileMenu.msg.id); closeMobileMenu()">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
+                      {{ pinnedMessages.some(p => p.id === mobileMenu.msg.id) ? 'Unpin' : 'Pin' }}
+                    </button>
+                    <button class="mobile-ctx-item" @click="startForward(mobileMenu.msg); closeMobileMenu()">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+                      Forward
+                    </button>
+                    <button v-if="isMine(mobileMenu.msg)" class="mobile-ctx-item mobile-ctx-danger" @click="removeMessage(mobileMenu.msg); closeMobileMenu()">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             </Teleport>
@@ -918,7 +922,8 @@ const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🔥
 const swipeMsgId = ref(null)    // message id whose bubble is being swiped
 const msgSwipeX = ref(0)        // current X translate offset (px)
 const msgSwipeDone = ref(false) // true during spring-back transition
-const mobileMenu = ref(null)    // { msg, x, y } or null
+const mobileMenu = ref(null)    // { msg, rawX, rawY, x, y, adjusted } or null
+const mobileMenuEl = ref(null)  // ref to the rendered menu DOM element
 
 let _msgSwipeId = null          // non-reactive; tracks swipe in touchmove handler
 let _msgSwipeStartX = 0
@@ -2188,6 +2193,30 @@ async function createChat() {
 
 watch(showOnlinePanel, (val) => { if (val) loadOnlineUsers() })
 
+// ─── Smart repositioning of mobile long-press menu ────────────────
+// Runs after Vue updates the DOM so we can measure actual menu dimensions.
+watch(mobileMenu, (newVal) => {
+  if (!newVal || newVal.adjusted) return
+  if (!mobileMenuEl.value) return
+  const el = mobileMenuEl.value
+  const menuW = el.offsetWidth
+  const menuH = el.offsetHeight
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const EDGE = 8
+  const SAFE_BOTTOM = 20   // covers env(safe-area-inset-bottom) on most devices
+  const tx = newVal.rawX
+  const ty = newVal.rawY
+  // Prefer opening below touch, fall back to above when not enough room
+  let y = ty + 16
+  if (y + menuH > vh - EDGE - SAFE_BOTTOM) y = ty - menuH - 16
+  y = Math.max(EDGE, Math.min(y, vh - menuH - EDGE - SAFE_BOTTOM))
+  // Center horizontally on touch point, clamp to edges
+  let x = tx - menuW / 2
+  x = Math.max(EDGE, Math.min(x, vw - menuW - EDGE))
+  mobileMenu.value = { ...newVal, x, y, adjusted: true }
+}, { flush: 'post' })
+
 watch(input, (val) => {
   if (!editingId.value && !isAiChat.value) saveDraft(chatId.value, val)
 })
@@ -2266,12 +2295,10 @@ function onMsgTouchStart(e, m) {
     _msgSwipeId = null
     swipeMsgId.value = null
     msgSwipeX.value = 0
-    // Position menu near touch point, clamped to viewport
+    // Store raw touch position; watcher will clamp to viewport after render
     const tx = e.touches[0].clientX
     const ty = e.touches[0].clientY
-    const menuY = ty > window.innerHeight * 0.6 ? ty - 280 : ty + 20
-    const menuX = Math.min(Math.max(tx - 110, 10), window.innerWidth - 230)
-    mobileMenu.value = { msg: m, x: menuX, y: Math.max(menuY, 10) }
+    mobileMenu.value = { msg: m, rawX: tx, rawY: ty, x: -9999, y: -9999, adjusted: false }
   }, 500)
 }
 
