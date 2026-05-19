@@ -2382,8 +2382,9 @@ function onSwipeTouchStart(e) {
 }
 
 // Must be registered with { passive: false } so preventDefault() is allowed.
-// On non-scrollable areas (header, composer, backdrop) we also block vertical
-// movement to prevent iOS Safari's elastic page-bounce from shifting the whole UI.
+// Horizontal moves always get preventDefault so the browser never native-scrolls
+// the page left/right (there is no horizontal scroll target — only our JS sidebar).
+// Vertical moves get preventDefault outside scroll zones to stop iOS page bounce.
 function _swipeTouchMove(e) {
   if (window.innerWidth > 640) return
   if (swipeDecided !== null) {
@@ -2393,7 +2394,12 @@ function _swipeTouchMove(e) {
   }
   const dx = Math.abs(e.touches[0].clientX - swipeStartX)
   const dy = Math.abs(e.touches[0].clientY - swipeStartY)
-  if (dx < 5 && dy < 5) return          // not enough movement yet
+  // Before direction is locked: if there is any horizontal component that clearly
+  // dominates the vertical, prevent immediately so iOS can't start a native scroll.
+  if (dx < 5 && dy < 5) {
+    if (dx > 0 && dx >= dy) e.preventDefault()
+    return
+  }
   swipeDecided = dx > dy ? 'h' : 'v'
   if (swipeDecided === 'h') e.preventDefault()
   else if (!swipeInScrollZone) e.preventDefault()
