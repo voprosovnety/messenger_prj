@@ -5,6 +5,14 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>RealtimeChat</title>
+    <script>
+      // Set --vvh immediately so the app-shell has a correct height before
+      // ChatView.vue mounts and the visualViewport listener takes over.
+      (function () {
+        var h = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+        document.documentElement.style.setProperty('--vvh', h + 'px');
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

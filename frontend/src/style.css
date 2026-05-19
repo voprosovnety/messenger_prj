@@ -2523,17 +2523,19 @@ textarea.input {
     overflow: hidden;
   }
 
-  /* App shell: position:fixed + inset:0 locks the shell to the exact
-     visible viewport rectangle at all times — including when the
-     keyboard is open. height:auto lets the inset values control height
-     instead of a JS-computed variable (avoids the one-frame jump). */
+  /* App shell: position:fixed + top:0 + height:--vvh.
+     --vvh is set by the visualViewport resize listener in ChatView.vue
+     to visualViewport.height, which shrinks when the iOS keyboard opens.
+     bottom:auto + explicit height (not inset) is necessary because
+     position:fixed bottom:0 anchors to the layout viewport (behind the
+     keyboard), not the visual viewport — so the composer would be hidden. */
   .app-shell {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    bottom: 0;
-    height: auto;
+    bottom: auto;
+    height: var(--vvh, 100dvh);
     overflow: hidden;
     overflow-x: hidden;
   }
