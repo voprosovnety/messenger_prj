@@ -2550,7 +2550,7 @@ textarea.input {
   /* Messages area: vertical pan only. pinch-zoom kept for image zoom.
      overscroll-behavior:contain stops bounce propagating to body. */
   .messages-area {
-    touch-action: pan-y pinch-zoom;
+    touch-action: pan-y;
     overscroll-behavior: contain;
     overscroll-behavior-x: none;
     -webkit-user-select: none;
@@ -2628,6 +2628,12 @@ textarea.input {
   .composer {
     padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
     margin-bottom: 8px;
+  }
+
+  /* iOS Safari auto-zooms the page when focusing an input with font-size < 16px.
+     Setting 16px here prevents that without affecting visual design noticeably. */
+  .composer-input {
+    font-size: 16px;
   }
 }
 
