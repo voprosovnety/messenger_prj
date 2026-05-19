@@ -2375,10 +2375,22 @@ function _isInScrollZone(el) {
 }
 
 function onSwipeTouchStart(e) {
-  swipeStartX  = e.touches[0].clientX
-  swipeStartY  = e.touches[0].clientY
+  const touch = e.touches[0]
+  swipeStartX  = touch.clientX
+  swipeStartY  = touch.clientY
   swipeDecided = null
   swipeInScrollZone = _isInScrollZone(e.target)
+
+  // Guard: if the sidebar is currently hidden, only start tracking a swipe
+  // when the touch originates in the left 30px edge zone. Touches anywhere
+  // else should never open the sidebar — they belong to content interactions.
+  // When the sidebar is already open, any horizontal swipe can close it
+  // (e.g., swiping left from anywhere, or the backdrop tap handled separately).
+  if (sidebarHidden.value && touch.clientX > 30) {
+    // Mark as decided-vertical immediately so _swipeTouchMove is a no-op
+    // for this touch sequence and no preventDefault() is called on it.
+    swipeDecided = 'v'
+  }
 }
 
 // Must be registered with { passive: false } so preventDefault() is allowed.
@@ -2425,18 +2437,26 @@ function onWindowResize() {
 }
 
 // Tracks the visible viewport height (shrinks when iOS keyboard opens).
-// Sets --vvh on :root so .app-shell stays exactly as tall as the visible area.
-// Called on both visualViewport resize (keyboard height changes) and scroll
-// (iOS sometimes shifts the visual viewport offset when keyboard is shown).
+// Sets --vvh on :root as a fallback for non-fixed-inset browsers.
+// On mobile we now use position:fixed+inset:0 on .app-shell so the layout
+// is already keyboard-aware without --vvh, but we keep this as a belt-and-
+// suspenders backup for older browsers.
+// requestAnimationFrame defers the write to after the browser has committed
+// the viewport resize, eliminating the one-frame stale-height jump.
+let _vvhRafId = null
 function updateVVH() {
-  const vv = window.visualViewport
-  const h = vv?.height ?? window.innerHeight
-  document.documentElement.style.setProperty('--vvh', `${h}px`)
-  // Safety net: if iOS somehow scrolled the document despite body:fixed, reset it.
-  // Use scrollX/scrollY check to avoid triggering a scroll event unnecessarily.
-  if ((window.scrollY !== 0 || window.scrollX !== 0) && window.scrollTo) {
-    window.scrollTo(0, 0)
-  }
+  if (_vvhRafId) cancelAnimationFrame(_vvhRafId)
+  _vvhRafId = requestAnimationFrame(() => {
+    _vvhRafId = null
+    const vv = window.visualViewport
+    const h = vv ? vv.height : window.innerHeight
+    document.documentElement.style.setProperty('--vvh', `${h}px`)
+    // Safety net: if iOS somehow scrolled the document despite body:fixed,
+    // reset it immediately. Check first to avoid triggering a scroll event.
+    if ((window.scrollY !== 0 || window.scrollX !== 0) && window.scrollTo) {
+      window.scrollTo(0, 0)
+    }
+  })
 }
 
 onMounted(async () => {
@@ -2484,6 +2504,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('touchmove', _swipeTouchMove)
   if (listEl.value) listEl.value.removeEventListener('touchmove', _msgAreaTouchMove)
   clearTimeout(_msgLongPressTimer)
+  if (_vvhRafId) cancelAnimationFrame(_vvhRafId)
   cancelRecording()
   document.title = 'RealtimeChat'
 })

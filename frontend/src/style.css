@@ -637,7 +637,7 @@ textarea.input {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  touch-action: pan-y; /* free horizontal touches for swipe-to-open-sidebar */
+  touch-action: pan-y pinch-zoom; /* vertical scroll + pinch-zoom only; horizontal overridden per-platform */
   overscroll-behavior: contain; /* prevent elastic bounce propagating to page */
 }
 
@@ -2511,40 +2511,72 @@ textarea.input {
 }
 
 @media (max-width: 640px) {
-  /* Lock body to the layout viewport on mobile.
-     Without this, iOS Safari scrolls the layout viewport upward when a text
-     input is focused (to keep it above the keyboard). This scroll moves the
-     entire page, making the app-shell appear to "fly up". With position:fixed
-     on body the document has no scrollable height and iOS cannot scroll it. */
+  /* Lock body: position:fixed removes it from the scroll flow.
+     iOS Safari cannot scroll it upward when a keyboard opens.
+     overflow:hidden clips any accidental child overflow. */
   body {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
+    overflow: hidden;
   }
 
-  /* Switch from width-collapse to transform-slide on mobile */
+  /* App shell: position:fixed + inset:0 locks the shell to the exact
+     visible viewport rectangle at all times — including when the
+     keyboard is open. height:auto lets the inset values control height
+     instead of a JS-computed variable (avoids the one-frame jump). */
+  .app-shell {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: auto;
+    overflow: hidden;
+    overflow-x: hidden;
+  }
+
+  /* Contain horizontal overflow on all layout children. */
+  .chat-area,
+  .messages-area,
+  .composer-wrap,
+  .composer {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Messages area: vertical pan only. pinch-zoom kept for image zoom.
+     overscroll-behavior:contain stops bounce propagating to body. */
+  .messages-area {
+    touch-action: pan-y pinch-zoom;
+    overscroll-behavior: contain;
+    overscroll-behavior-x: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Sidebar: only .sidebar gets translateX. Never .chat-area or .app-shell.
+     will-change omitted: it causes iOS Safari to bypass overflow:hidden clip. */
   .sidebar {
     position: absolute;
     z-index: 40;
+    top: 0;
+    left: 0;
     height: 100%;
     width: 280px;
     padding-left: env(safe-area-inset-left, 0px);
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
     transform: translateX(0);
     transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-    /* will-change intentionally omitted: it causes iOS Safari to bypass the parent's
-       overflow:hidden clip, making the off-screen sidebar horizontally scrollable */
   }
   .sidebar.sidebar-hidden {
     transform: translateX(-100%);
-    width: 280px;
-    border-right: 1px solid var(--border);
     box-shadow: none;
   }
 
-  /* Dimming overlay that appears behind the open sidebar */
+  /* Dimming overlay behind open sidebar */
   .sidebar-backdrop {
     display: block;
     position: absolute;
@@ -2564,19 +2596,13 @@ textarea.input {
   .message-bubble-wrap { max-width: 85%; }
   .emoji-picker-portal { bottom: 80px; }
 
-  /* Disable hover-based action buttons on touch screens */
+  /* Disable hover-based desktop action buttons on touch */
   .message-row .message-actions,
   .message-row:hover .message-actions {
     display: none;
   }
 
-  /* Prevent text selection flicker during swipe */
-  .messages-area {
-    -webkit-user-select: none;
-    user-select: none;
-  }
-
-  /* Swipe-to-reply indicator icon */
+  /* Swipe-to-reply icon */
   .msg-swipe-icon {
     display: flex;
     position: absolute;
@@ -2588,20 +2614,20 @@ textarea.input {
     justify-content: center;
     color: var(--accent);
     pointer-events: none;
-    /* will-change omitted: would create compositing layer that leaks outside messages-area overflow:hidden */
+    /* will-change omitted: would create compositing layer that leaks
+       outside messages-area overflow:hidden on iOS Safari */
   }
   .message-row.own .msg-swipe-icon {
     right: auto;
     left: calc(100% + 6px);
   }
 
-  /* Anchor composer above iOS home indicator.
-     padding-bottom extends the composer's background over the home indicator area.
-     margin-bottom keeps the base 14px gap and adds safe-area on top (env() returns 0
-     on non-notch devices so we cannot use it as the sole value). */
+  /* Composer safe-area: apply env() only to padding-bottom so the
+     background colour covers the home indicator.
+     margin-bottom is a plain gap — no env() here to avoid double-counting. */
   .composer {
-    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    margin-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    margin-bottom: 8px;
   }
 }
 
