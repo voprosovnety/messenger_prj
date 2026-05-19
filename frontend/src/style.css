@@ -741,18 +741,11 @@ textarea.input {
 .date-separator {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
   margin: 20px 0 10px;
   position: sticky;
   top: 8px;
   z-index: 2;
-}
-.date-separator::before,
-.date-separator::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--border);
 }
 .date-separator-text {
   font-size: 11px;
