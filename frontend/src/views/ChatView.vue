@@ -2476,6 +2476,10 @@ onMounted(async () => {
     await markReadIfPossible()
   }
   await maybeJumpFromQuery()
+  // Disable browser pinch-zoom while in chat: ImageLightbox uses JS zoom instead.
+  // Scoped to ChatView so /login, /register, /profile retain normal zoom.
+  const _metaVP = document.querySelector('meta[name="viewport"]')
+  if (_metaVP) _metaVP.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
   document.addEventListener('visibilitychange', markReadIfPossible)
   window.addEventListener('resize', onWindowResize)
   window.visualViewport?.addEventListener('resize', updateVVH)
@@ -2503,6 +2507,9 @@ onBeforeUnmount(() => {
   if (listEl.value) listEl.value.removeEventListener('touchmove', _msgAreaTouchMove)
   clearTimeout(_msgLongPressTimer)
   if (_vvhRafId) cancelAnimationFrame(_vvhRafId)
+  // Restore default viewport so other routes can zoom normally.
+  const _metaVP = document.querySelector('meta[name="viewport"]')
+  if (_metaVP) _metaVP.content = 'width=device-width, initial-scale=1.0, viewport-fit=cover'
   cancelRecording()
   document.title = 'RealtimeChat'
 })

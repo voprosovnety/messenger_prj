@@ -2537,7 +2537,6 @@ textarea.input {
     bottom: auto;
     height: var(--vvh, 100dvh);
     overflow: hidden;
-    overflow-x: hidden;
   }
 
   /* Contain horizontal overflow on all layout children. */
