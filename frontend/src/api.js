@@ -435,4 +435,11 @@ export const api = {
         if (!res.ok) throw new Error(json.error || 'Failed to delete scheduled message')
         return json
     },
+
+    toggleSidebarPin: async (chatId) => {
+        const res = await request(`/api/chats/${chatId}/pin-sidebar`, { method: 'POST' })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to toggle pin')
+        return json
+    },
 }

@@ -70,19 +70,22 @@
           />
           <button class="sidebar-search-close" @click="sidebarSearch = ''; sidebarSearchOpen = false">×</button>
         </div>
-        <button
-          v-for="c in filteredSidebarChats"
-          :key="c.id"
-          class="chat-item"
-          :class="{ active: c.id === chatId.value, unread: (c.unread_count || 0) > 0 }"
-          type="button"
-          @click="router.push(`/chats/${c.id}`)"
-        >
+        <template v-for="(c, idx) in filteredSidebarChats" :key="c.id">
+          <div v-if="c.is_pinned && (idx === 0 || !filteredSidebarChats[idx - 1]?.is_pinned)" class="sidebar-section-label">Pinned</div>
+          <div v-if="!c.is_pinned && hasPinnedChats && (idx === 0 || filteredSidebarChats[idx - 1]?.is_pinned)" class="sidebar-section-label">Chats</div>
+          <button
+            class="chat-item"
+            :class="{ active: c.id === chatId.value, unread: (c.unread_count || 0) > 0 }"
+            type="button"
+            @click="router.push(`/chats/${c.id}`)"
+            @contextmenu.prevent="openSidebarMenu($event, c)"
+          >
           <UserAvatar :username="c.display_name || c.id" :avatarUrl="c.avatar_url || null" size="md" />
           <div class="chat-item-info">
             <div class="chat-item-top">
               <span class="chat-item-name">{{ c.display_name || c.id }}</span>
               <svg v-if="isMuted(c.id)" class="muted-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              <svg v-if="c.is_pinned" class="sidebar-pin-icon" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M16 1l-1.5 1.5 1 1-5.5 5.5-2-1L6.5 9.5 9 12H5l-1 1 4 4 1-1v-4l2.5 2.5 1.5-1.5-1-2 5.5-5.5 1 1L19 5.5z"/></svg>
               <span class="chat-item-time">{{ formatTimeShort(c.last_message?.created_at) }}</span>
             </div>
             <div class="chat-item-top" style="margin-top:1px">
@@ -98,7 +101,8 @@
               <span v-if="(c.unread_count || 0) > 0" class="unread-badge" :class="{ 'unread-badge--muted': isMuted(c.id) }">{{ c.unread_count }}</span>
             </div>
           </div>
-        </button>
+          </button>
+        </template>
       </div>
 
       <div class="sidebar-footer">
@@ -1002,6 +1006,25 @@
       </div>
     </div>
   </div>
+
+  <!-- Sidebar chat context menu (pin/unpin) -->
+  <Teleport to="body">
+    <template v-if="sidebarItemMenu">
+      <div class="sidebar-ctx-backdrop" @click="closeSidebarMenu" @contextmenu.prevent="closeSidebarMenu"></div>
+      <div
+        ref="sidebarCtxMenuEl"
+        class="sidebar-ctx-menu"
+        :style="{ left: sidebarItemMenu.x + 'px', top: sidebarItemMenu.y + 'px' }"
+      >
+        <button class="sidebar-ctx-item" @click="togglePin(sidebarItemMenu.chat)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <path d="M16 1l-1.5 1.5 1 1-5.5 5.5-2-1L6.5 9.5 9 12H5l-1 1 4 4 1-1v-4l2.5 2.5 1.5-1.5-1-2 5.5-5.5 1 1L19 5.5z"/>
+          </svg>
+          {{ sidebarItemMenu.chat.is_pinned ? 'Unpin' : 'Pin' }}
+        </button>
+      </div>
+    </template>
+  </Teleport>
 </template>
 
 <script setup>
@@ -1041,6 +1064,30 @@ function toggleMute(id) {
   else s.add(id)
   mutedChats.value = s
   localStorage.setItem('mutedChats', JSON.stringify([...s]))
+}
+
+// ─── Sidebar pin ──────────────────────────────────────────────────
+function openSidebarMenu(e, chat) {
+  e.preventDefault()
+  sidebarItemMenu.value = { chat, x: e.clientX, y: e.clientY }
+}
+
+function closeSidebarMenu() {
+  sidebarItemMenu.value = null
+}
+
+async function togglePin(c) {
+  try {
+    const result = await api.toggleSidebarPin(c.id)
+    const idx = sidebarChats.value.findIndex(sc => sc.id === c.id)
+    if (idx !== -1) {
+      sidebarChats.value[idx] = { ...sidebarChats.value[idx], is_pinned: result.is_pinned }
+    }
+  } catch (e) {
+    console.error('togglePin error', e)
+  } finally {
+    closeSidebarMenu()
+  }
 }
 
 // ── Tab title ─────────────────────────────────────────────────────────────────
@@ -1149,6 +1196,10 @@ const sidebarSearch = ref('')
 const sidebarSearchOpen = ref(false)
 const sidebarFilterInputRef = ref(null)
 
+// ─── Sidebar item context menu (pin/unpin) ────────────────────────
+const sidebarItemMenu = ref(null) // { chat, x, y }
+const sidebarCtxMenuEl = ref(null)
+
 // ─── Toast notifications ──────────────────────────────────────────
 const toastMsg = ref(null)
 let toastTimer = null
@@ -1236,10 +1287,16 @@ function selectMention(username) {
 }
 
 const filteredSidebarChats = computed(() => {
-  if (!sidebarSearch.value.trim()) return sidebarChats.value
+  const sorted = [...sidebarChats.value].sort((a, b) => {
+    if (a.is_pinned === b.is_pinned) return 0
+    return a.is_pinned ? -1 : 1
+  })
+  if (!sidebarSearch.value.trim()) return sorted
   const q = sidebarSearch.value.toLowerCase()
-  return sidebarChats.value.filter(c => (c.title || c.display_name || '').toLowerCase().includes(q))
+  return sorted.filter(c => (c.title || c.display_name || '').toLowerCase().includes(q))
 })
+
+const hasPinnedChats = computed(() => filteredSidebarChats.value.some(c => c.is_pinned))
 
 const filteredMentions = computed(() => {
   if (!isGroup.value || !mentionOpen.value) return []
@@ -2803,6 +2860,26 @@ watch(mobileMenu, (newVal) => {
   mobileMenu.value = { ...newVal, x, y, adjusted: true }
 }, { flush: 'post' })
 
+// ─── Smart repositioning of sidebar context menu ─────────────────
+// Runs after Vue renders the menu element so we can read its actual size
+// and clamp it to the viewport — critical on narrow mobile screens (≤390px)
+// where the sidebar is only 280px wide and an unclamped right-edge position
+// would push the menu off-screen.
+watch(sidebarItemMenu, (newVal) => {
+  if (!newVal || newVal.adjusted) return
+  if (!sidebarCtxMenuEl.value) return
+  const el = sidebarCtxMenuEl.value
+  const menuW = el.offsetWidth || 130
+  const menuH = el.offsetHeight || 50
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const EDGE = 8
+  const SAFE_BOTTOM = 20
+  let x = Math.max(EDGE, Math.min(newVal.x, vw - menuW - EDGE))
+  let y = Math.max(EDGE, Math.min(newVal.y, vh - menuH - EDGE - SAFE_BOTTOM))
+  sidebarItemMenu.value = { ...newVal, x, y, adjusted: true }
+}, { flush: 'post' })
+
 watch(input, (val) => {
   if (!editingId.value && !isAiChat.value) saveDraft(chatId.value, val)
 })
@@ -3129,6 +3206,7 @@ function onGlobalKeydown(e) {
   }
   // Escape — close modals
   if (e.key === 'Escape') {
+    if (sidebarItemMenu.value) { closeSidebarMenu(); return }
     if (showKeyboardShortcutsModal.value) { showKeyboardShortcutsModal.value = false; return }
   }
 }
