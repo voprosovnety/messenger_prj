@@ -442,4 +442,11 @@ export const api = {
         if (!res.ok) throw new Error(json.error || 'Failed to toggle pin')
         return json
     },
+
+    getMessageReadBy: async (chatId, messageId) => {
+        const res = await request(`/api/chats/${chatId}/messages/${messageId}/read-by`)
+        const json = await res.json().catch(() => ([]))
+        if (!res.ok) throw new Error(json.error || 'Failed to load read receipts')
+        return json
+    },
 }

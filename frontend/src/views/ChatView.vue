@@ -427,7 +427,12 @@
                     <div class="message-meta">
                       <span class="message-time">{{ formatTime(m.created_at) }}</span>
                       <span v-if="m.edited_at && !m.deleted_at" class="message-edited">edited</span>
-                      <span v-if="isMine(m) && !m.deleted_at" class="message-ticks" :class="{ read: peerReadId && idLE(m.id, peerReadId) }">
+                      <span
+                        v-if="isMine(m) && !m.deleted_at"
+                        class="message-ticks"
+                        :class="{ read: peerReadId && idLE(m.id, peerReadId), 'ticks-clickable': isGroup }"
+                        @click.stop="isGroup && openReadBy(m.id)"
+                      >
                         <template v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</template>
                         <template v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</template>
                       </span>
@@ -1019,6 +1024,28 @@
       <div v-if="toastMsg" class="toast">{{ toastMsg }}</div>
     </Transition>
 
+    <!-- Read receipt details modal -->
+    <Teleport to="body">
+      <div v-if="readByMsgId" class="modal-overlay" @click.self="readByMsgId = null">
+        <div class="modal read-by-modal">
+          <div class="modal-header">
+            <span class="modal-title">Read by</span>
+            <button class="btn-icon" @click="readByMsgId = null">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="read-by-body">
+            <div v-if="readByLoading" class="read-by-empty">Loading…</div>
+            <div v-else-if="!readByList.length" class="read-by-empty">No one has read this message yet.</div>
+            <div v-for="u in readByList" :key="u.username" class="read-by-item">
+              <UserAvatar :username="u.username" :avatarUrl="u.avatar_url" size="sm" />
+              <span class="read-by-username">{{ u.username }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Keyboard shortcuts modal -->
     <div v-if="showKeyboardShortcutsModal" class="modal-overlay" @click.self="showKeyboardShortcutsModal = false">
       <div class="modal kbd-shortcuts-modal">
@@ -1276,6 +1303,11 @@ function playNotifSound() {
 
 // ─── Keyboard shortcuts modal ─────────────────────────────────────
 const showKeyboardShortcutsModal = ref(false)
+
+// ─── Read receipt details ─────────────────────────────────────────
+const readByMsgId = ref(null)
+const readByList = ref([])
+const readByLoading = ref(false)
 
 // ─── Voice waveform ───────────────────────────────────────────────
 const waveformBars = ref([])
@@ -2750,6 +2782,19 @@ async function removeMessage(m) {
   finally { busy.value = false }
 }
 
+async function openReadBy(msgId) {
+  readByMsgId.value = msgId
+  readByList.value = []
+  readByLoading.value = true
+  try {
+    readByList.value = await api.getMessageReadBy(chatId.value, msgId)
+  } catch {
+    readByList.value = []
+  } finally {
+    readByLoading.value = false
+  }
+}
+
 async function doPin(messageId) {
   try {
     const currentId = currentPinned.value?.id
@@ -3034,6 +3079,7 @@ watch(chatId, async (newId, oldId) => {
   showForwardModal.value = false
   forwardingMsg.value = null
   exitSelectionMode()
+  readByMsgId.value = null
   mobileMenu.value = null
   swipeMsgId.value = null
   msgSwipeX.value = 0
@@ -3313,6 +3359,7 @@ function onGlobalKeydown(e) {
   }
   // Escape — close modals
   if (e.key === 'Escape') {
+    if (readByMsgId.value) { readByMsgId.value = null; return }
     if (selectionMode.value) { exitSelectionMode(); return }
     if (sidebarItemMenu.value) { closeSidebarMenu(); return }
     if (showKeyboardShortcutsModal.value) { showKeyboardShortcutsModal.value = false; return }
