@@ -50,4 +50,6 @@ docker-compose.override.yml
 DESIGN.md
 CLAUDE.md
 AGENTS.md
-.claude/commands/
+UX_IMPROVEMENTS.md
+.claude/
+.playwright-mcp
