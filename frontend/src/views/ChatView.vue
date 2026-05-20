@@ -458,7 +458,7 @@
           </div>
 
           <button
-            v-if="!isAiChat"
+            v-if="!isAiChat && !selectionMode"
             class="scroll-to-bottom"
             :class="{ hidden: !showScrollBtn }"
             @click="scrollToBottomFab"
