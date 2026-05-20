@@ -34,6 +34,9 @@ class ChatMember
     #[ORM\Column(type: 'uuid', nullable: true)]
     private ?Uuid $lastDeliveredMessageId = null;
 
+    #[ORM\Column(options: ['default' => false])]
+    private bool $isPinned = false;
+
     public function __construct()
     {
         $this->id = Uuid::v7();
@@ -105,6 +108,17 @@ class ChatMember
     public function setLastDeliveredMessageId(?Uuid $lastDeliveredMessageId): static
     {
         $this->lastDeliveredMessageId = $lastDeliveredMessageId;
+        return $this;
+    }
+
+    public function getIsPinned(): bool
+    {
+        return $this->isPinned;
+    }
+
+    public function setIsPinned(bool $isPinned): static
+    {
+        $this->isPinned = $isPinned;
         return $this;
     }
 }
