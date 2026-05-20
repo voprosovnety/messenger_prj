@@ -48,7 +48,7 @@
             </div>
             <div class="global-search-item-bottom">
               <span class="global-search-item-text">
-                <span v-if="r.sender" class="global-search-item-sender">{{ r.sender }}: </span>{{ r.content }}
+                <span v-if="r.sender" class="global-search-item-sender">{{ r.sender }}: </span><span v-html="highlightText(r.content || '', query.trim())"></span>
               </span>
             </div>
           </div>
@@ -62,6 +62,24 @@
 import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { api } from '../api'
 import UserAvatar from './UserAvatar.vue'
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function highlightText(text, query) {
+  if (!query || !text) return escapeHtml(text || '')
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return escapeHtml(text).replace(
+    new RegExp(escaped, 'gi'),
+    m => `<mark>${m}</mark>`
+  )
+}
 
 defineEmits(['close', 'select'])
 

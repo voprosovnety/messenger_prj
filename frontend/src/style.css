@@ -27,6 +27,7 @@
   --transition-fast: 120ms ease;
   --transition-slow: 280ms cubic-bezier(0.4, 0, 0.2, 1);
   --font:         'Inter', system-ui, sans-serif;
+  --warning:      #f59e0b;
 }
 
 /* ─── Reset & base ───────────────────────────────────────────── */
@@ -990,6 +991,7 @@ textarea.input {
   flex-shrink: 0;
   padding: 10px 14px;
   transition: border-color var(--transition);
+  position: relative;
 }
 .composer:focus-within {
   border-color: var(--accent);
@@ -2771,6 +2773,14 @@ textarea.input {
     font-size: 16px;
   }
 
+  /* Character counter: shift further right on mobile to clear the emoji button
+     (36px) + action-wrap (44px) stack. right:96px sits just inside the emoji btn
+     gap without overlapping the action-wrap on 320px-wide viewports. */
+  .char-counter {
+    right: 96px;
+    bottom: 10px;
+  }
+
   /* Scroll-to-bottom FAB: raise above the taller mobile composer stack
      (reply bar ~36px + editing bar ~36px + files row ~68px + composer ~52px +
      margin 8px = up to ~200px) and clear the device safe-area.
@@ -2963,3 +2973,158 @@ textarea.input {
 @media (pointer: fine) {
   .message-actions { display: none !important; }
 }
+
+/* ─── TASK 4: Audio speed button ─────────────────────────────────── */
+.audio-speed-btn {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  border: none;
+  cursor: pointer;
+  line-height: 1.6;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: color var(--transition), background var(--transition);
+  /* Minimum touch target: 32×28px as specified */
+  min-width: 32px;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.audio-speed-btn:hover { color: var(--text); background: var(--surface-2); }
+@media (hover: none) {
+  .audio-speed-btn:hover { color: var(--text-2); background: var(--surface-3); }
+  .audio-speed-btn:active { color: var(--text); background: var(--surface-2); }
+}
+
+/* ─── TASK 5: Highlight search terms ─────────────────────────────── */
+mark {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 2px;
+  padding: 0 2px;
+  font-style: normal;
+}
+
+/* ─── TASK 6: Emoji search input ─────────────────────────────────── */
+.emoji-picker-search-wrap {
+  padding: 6px 8px 0;
+}
+.emoji-search-input {
+  width: 100%;
+  padding: 5px 8px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+  margin-bottom: 6px;
+  font-family: var(--font);
+  transition: border-color var(--transition);
+}
+.emoji-search-input::placeholder { color: var(--text-3); }
+.emoji-search-input:focus { border-color: var(--accent); }
+
+/* ─── TASK 8: Unread divider ──────────────────────────────────────── */
+.unread-divider {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 6px 0;
+  position: relative;
+  margin: 4px 0;
+}
+.unread-divider::before,
+.unread-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.3;
+  width: 35%;
+}
+.unread-divider::before { left: 5%; }
+.unread-divider::after  { right: 5%; }
+
+/* ─── TASK 10: Mic→Send animation wrapper ─────────────────────────── */
+.composer-action-wrap {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+.composer-action-btn {
+  position: absolute;
+  /* Center visually-smaller button inside the 44×44 tap-area container */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.15s, transform 0.15s;
+}
+.composer-action-btn.btn-hidden {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.8);
+  pointer-events: none;
+}
+
+/* ─── TASK 14: Sidebar chat filter ───────────────────────────────── */
+.sidebar-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 8px;
+}
+.sidebar-chat-filter-input {
+  flex: 1;
+  padding: 6px 10px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  font-family: var(--font);
+  transition: border-color var(--transition);
+}
+.sidebar-chat-filter-input::placeholder { color: var(--text-3); }
+.sidebar-chat-filter-input:focus { border-color: var(--accent); }
+.sidebar-search-close {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition);
+}
+.sidebar-search-close:hover { color: var(--text); }
+
+/* ─── TASK 20: Character counter ─────────────────────────────────── */
+.char-counter {
+  font-size: 11px;
+  position: absolute;
+  bottom: 8px;
+  right: 54px;
+  pointer-events: none;
+  opacity: 0.9;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+.char-counter--danger  { color: var(--danger); }
+.char-counter--warning { color: var(--warning); }
+.char-counter--ok      { color: var(--text-3); }

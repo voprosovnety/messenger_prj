@@ -24,86 +24,23 @@
 - **Mobile swipe-to-reply** — `ChatView.vue:2331`, 60px порог, translateX bubble, иконка reply
 - **Modal enter/exit transition** — `style.css:80` + modal-in keyframes применены везде
 - **Mobile long-press context menu** — `ChatView.vue:2331`, 500ms timeout, bottom sheet
+- **Desktop right-click context menu** — Telegram-style, commit `04e4707`
+- **Scroll-to-bottom FAB** ✓ — floating button 36px, badge с новыми сообщениями, commit `19b9164`
+- **Reaction toggle animation** ✓ — `reaction-pop` keyframes, 0.25s cubic-bezier(0.34,1.5,0.64,1), commit `19b9164`
+- **Skeleton screens** ✓ — shimmer gradient, 3–5 пузыри разной ширины, commit `19b9164`
+- **Pinned bar accent left border** ✓ — `border-left: 3px solid var(--accent)`, commit `ee44f16`
+- **Date separator: sticky pill** ✓ — `position: sticky; top: 8px`, border-radius pill, commits `ee44f16`, `1e278fe`, `0a76836`
+- **Online dot pulse animation** ✓ — `online-pulse` keyframes, только в header/profile, commit `ee44f16`
+- **Sidebar unread bold** ✓ — `font-weight: 600` для title, `500` для preview при `unread_count > 0`, commit `ee44f16`
+- **Poll stagger animation** ✓ — `transition-delay: idx * 60ms` на option bars, commit `ee44f16`
+- **Reaction picker pop animation** ✓ — `picker-pop` keyframes `scale(0.7)→scale(1.05)→scale(1)`, commit `ee44f16`
+- **Haptic feedback** ✓ — `navigator.vibrate(10)` при отправке, commit `ee44f16`
 
 ---
 
-## Критические слабые места (приоритет HIGH)
+## Не реализовано — HIGH priority
 
-### 1. Нет кнопки «Scroll to bottom»
-**Проблема:** При загрузке истории пользователь теряет текущую позицию. Нет способа быстро вернуться вниз.
-
-**Решение:** Floating button (36px circle, `--accent`) появляется когда `scrollTop < scrollHeight - clientHeight - 200`. При клике — smooth scroll to bottom. Опционально — badge с количеством новых сообщений.
-
-```css
-.scroll-to-bottom {
-  position: absolute;
-  bottom: 80px;
-  right: 20px;
-  width: 36px; height: 36px;
-  background: var(--accent);
-  border-radius: 50%;
-  box-shadow: var(--shadow-sm);
-  transition: opacity 0.2s, transform 0.2s;
-}
-.scroll-to-bottom.hidden { opacity: 0; transform: scale(0.8); pointer-events: none; }
-```
-
----
-
-### 2. Реакции: нет toggle-анимации
-**Проблема:** Клик на реакцию — мгновенное изменение. Ощущение плоское.
-
-**Решение:**
-```css
-@keyframes reaction-pop {
-  0%   { transform: scale(1); }
-  50%  { transform: scale(1.35); }
-  100% { transform: scale(1); }
-}
-.reaction-pill.toggling { animation: reaction-pop 0.25s cubic-bezier(0.34,1.5,0.64,1); }
-```
-Ставить класс `toggling` на 300ms при клике.
-
----
-
-### 3. Skeleton screens вместо "Loading..."
-**Проблема:** При загрузке чата — просто пустота или текст. Хочется perceived performance.
-
-**Решение:**
-```css
-@keyframes shimmer {
-  from { background-position: -400px 0; }
-  to   { background-position:  400px 0; }
-}
-.skeleton {
-  background: linear-gradient(90deg,
-    var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
-  background-size: 800px 100%;
-  animation: shimmer 1.4s infinite;
-  border-radius: var(--radius-sm);
-}
-```
-3–5 skeleton-пузырей (разной ширины) пока грузятся реальные сообщения.
-
----
-
-## Средний приоритет (HIGH impact, less urgent)
-
-### 4. Emoji picker — нет search
-**Проблема:** 8 категорий + скролл — неэффективно. Нет поиска по названию emoji.
-
-**Решение:** Input поверх категорий (placeholder "Search emoji...") + фильтрация по `emoji.name`. Уже есть данные в компоненте.
-
----
-
-### 5. Highlight search terms в результатах
-**Проблема:** Search находит сообщения, но не выделяет совпадающий текст. Сложно понять релевантность.
-
-**Решение:** Утилита `highlightText(text, query)` → оборачивает совпадения в `<mark>` со стилем `background: var(--accent-dim); color: var(--accent)`. Применить в `.msg-search-item-text` и `.global-search-item-text`.
-
----
-
-### 6. Аудиоплеер: playback speed
+### 4. Аудиоплеер: playback speed
 **Проблема:** Голосовые сообщения нельзя ускорить. В Telegram — базовая фича.
 
 **Решение:** В `AudioPlayer.vue` добавить кнопку `1×` → `1.5×` → `2×` → `0.5×` с `audio.playbackRate = speed`. Сохранять preference в localStorage.
@@ -118,17 +55,21 @@
 
 ---
 
-### 7. Pinned bar: accent left border + transition между пинами
-**Проблема:** Pinned bar выглядит как обычная строка, нет визуального акцента слева.
+### 5. Highlight search terms в результатах
+**Проблема:** Search находит сообщения, но не выделяет совпадающий текст. Сложно понять релевантность.
 
-**Решение:**
-```css
-.pinned-bar { border-left: 3px solid var(--accent); }
-.pinned-bar-content { transition: opacity 0.15s; }
-```
-При смене пина — fade через `opacity: 0` → контент меняется → `opacity: 1`.
+**Решение:** Утилита `highlightText(text, query)` → оборачивает совпадения в `<mark>` со стилем `background: var(--accent-dim); color: var(--accent)`. Применить в `.msg-search-item-text` и `.global-search-item-text`.
 
 ---
+
+### 6. Emoji picker — поиск
+**Проблема:** 8 категорий + скролл — неэффективно. Нет поиска по названию emoji.
+
+**Решение:** Input поверх категорий (placeholder "Search emoji...") + фильтрация по `emoji.name`. Уже есть данные в компоненте.
+
+---
+
+## Не реализовано — MEDIUM priority
 
 ### 8. Unread divider в ленте сообщений
 **Проблема:** При открытии чата с непрочитанными сообщениями — нет разделителя «Непрочитанные сообщения».
@@ -155,46 +96,12 @@
 
 ---
 
-### 9. Date separator: sticky + pill
-**Проблема:** Date separator с линиями — стандартно, но не фиксируется при скролле.
-
-**Решение:**
-```css
-.date-separator-text {
-  background: var(--surface-3);
-  padding: 3px 10px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-}
-.date-separator { position: sticky; top: 8px; z-index: 2; }
-```
-
----
-
 ### 10. Composer: плавная анимация mic→send кнопки
 **Проблема:** Mic и Send кнопки переключаются мгновенно при вводе.
 
 **Решение:** Обе кнопки в одном контейнере, `transition: opacity 0.15s, transform 0.15s`. Mic уходит `scale(0.8) opacity(0)`, Send появляется `scale(1) opacity(1)`.
 
 ---
-
-### 11. Online dot: pulse animation
-**Проблема:** `.online-indicator-dot` — статичная точка. У Telegram точка пульсирует.
-
-**Решение:**
-```css
-@keyframes online-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
-  50%       { box-shadow: 0 0 0 4px rgba(34,197,94,0); }
-}
-.online-indicator-dot { animation: online-pulse 2s infinite; }
-/* Только в header и profile — не везде, иначе шумно */
-.chat-header-online-dot { animation: online-pulse 2s infinite; }
-```
-
----
-
-## Средний приоритет (UX polish)
 
 ### 12. Empty states с иллюстрацией
 **Проблема:** `.chat-area-empty` — emoji 48px + текст серый. Не приглашает.
@@ -217,29 +124,10 @@
 
 ---
 
-### 15. Sidebar chat items: unread bold + sender preview
-**Проблема:** Непрочитанные чаты визуально не отличаются от прочитанных (нет bold текста превью).
-
-**Решение:**
-```css
-.chat-item.unread .chat-item-text { color: var(--text); font-weight: 500; }
-.chat-item.unread .chat-item-title { font-weight: 600; }
-```
-В template уже есть `unread_count` — просто добавить класс.
-
----
-
 ### 16. Voice recording: live waveform bars
 **Проблема:** При записи — пульсирующий кружок-индикатор. Нет визуализации громкости.
 
 **Решение:** `AnalyserNode` из Web Audio API → 16 баров, обновляемых в `requestAnimationFrame`. Минимальная реализация — 8–16 `<span>` с `height` = уровень сигнала.
-
----
-
-### 17. Poll: stagger анимации при загрузке
-**Проблема:** Ширина bar анимируется (уже!), но не stagger-ится при загрузке.
-
-**Решение:** Добавить `transition-delay` для каждой опции: `:style="{ transitionDelay: \`${idx * 60}ms\`" }` на `.poll-option-bar`.
 
 ---
 
@@ -266,7 +154,7 @@
 
 ---
 
-## Низкий приоритет (nice-to-have)
+## Не реализовано — LOW priority
 
 ### 21. Toast: progress bar + slide animation
 `.toast` появляется без анимации. Добавить slide-from-top + `@keyframes toast-progress` полоска убывает за время показа.
@@ -276,9 +164,6 @@
 
 ### 23. Group profile: member count в заголовке чата
 `.chat-header-sub` → "42 members" вместо просто типа группы.
-
-### 24. Reaction picker: появление с animation
-`.reaction-quick-pick` появляется мгновенно. `@keyframes picker-pop: scale(0.7) → scale(1.05) → scale(1)`.
 
 ### 25. Attach menu: entrance animation
 ```css
@@ -292,31 +177,28 @@
 ### 26. Sidebar: pinned chats at top
 Чаты, закреплённые пользователем, всегда показываются первыми с иконкой pin. Требует backend + UI.
 
-### 27. Haptic feedback на мобильном
-`navigator.vibrate(10)` при отправке, `navigator.vibrate([5,5,5])` при получении реакции. Только если `'vibrate' in navigator`.
-
 ---
 
 ## Файлы, которые нужно изменить
 
 | Файл | Изменения |
 |---|---|
-| `frontend/src/style.css` | Анимации: shimmer, reaction-pop, online-pulse, tick-appear, menu-in, picker-pop |
-| `frontend/src/views/ChatView.vue` | scroll-to-bottom FAB, skeleton loader, unread divider, paste listener, smooth mic↔send toggle |
+| `frontend/src/style.css` | Анимации: tick-appear, menu-in, unread-divider styles |
+| `frontend/src/views/ChatView.vue` | unread divider, paste listener, smooth mic↔send toggle, char limit hint |
 | `frontend/src/components/AudioPlayer.vue` | Playback speed button (1×/1.5×/2×/0.5×) |
-| `frontend/src/components/PollMessage.vue` | transition-delay stagger на option bars |
 | `frontend/src/components/ImageLightbox.vue` | Swipe navigation на mobile |
 | `frontend/src/components/EmojiPicker.vue` | Search input |
-| `DESIGN.md` | Документировать новые animation keyframes как часть design system |
+| `DESIGN.md` | Документировать новые animation keyframes |
 
 ---
 
 ## Порядок реализации (by impact)
 
-1. **Scroll-to-bottom FAB** — 1h, critical UX
-2. **Reaction toggle animation** — 20 min, quick win
-3. **Skeleton screens** — 1h, perceived performance
-4. **Audio playback speed** — 1h
-5. **Search highlighting** — 1h
-6. **Emoji search** — 1.5h
-7. Остальные — по одному
+1. **Audio playback speed** — 1h, Telegram-like базовая фича
+2. **Search highlighting** — 1h, резко улучшает поиск
+3. **Emoji search** — 1.5h
+4. **Paste image** — 30 min, quick win
+5. **Sidebar chat search** — 1h
+6. **Unread divider** — 1h
+7. **Mic→send animation** — 30 min, polish
+8. Остальные — по одному

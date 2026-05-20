@@ -52,12 +52,23 @@
 
         <div v-if="sidebarChats.length" class="chats-section-header">
           <span class="chats-section-label">Conversations</span>
-          <button class="btn-icon chats-section-search-btn" title="Search all messages" @click="globalSearchOpen = true">
+          <button class="btn-icon chats-section-search-btn" title="Filter chats" @click.stop="sidebarSearchOpen = !sidebarSearchOpen">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </button>
         </div>
+        <div v-if="sidebarSearchOpen" class="sidebar-search-bar">
+          <input
+            v-model="sidebarSearch"
+            class="sidebar-chat-filter-input"
+            placeholder="Filter chats…"
+            autocomplete="off"
+            ref="sidebarFilterInputRef"
+            @keydown.escape="sidebarSearch = ''; sidebarSearchOpen = false"
+          />
+          <button class="sidebar-search-close" @click="sidebarSearch = ''; sidebarSearchOpen = false">×</button>
+        </div>
         <button
-          v-for="c in sidebarChats"
+          v-for="c in filteredSidebarChats"
           :key="c.id"
           class="chat-item"
           :class="{ active: c.id === chatId.value, unread: (c.unread_count || 0) > 0 }"
@@ -192,7 +203,7 @@
                 <span class="msg-search-item-sender">{{ r.sender }}</span>
                 <span class="msg-search-item-time">{{ formatTimeShort(r.created_at) }}</span>
               </div>
-              <div class="msg-search-item-text">{{ r.content }}</div>
+              <div class="msg-search-item-text"><span v-html="highlightText(r.content || '', searchQuery.trim())"></span></div>
             </div>
           </button>
         </template>
@@ -239,6 +250,9 @@
               </div>
 
               <template v-for="(m, idx) in g.items" :key="m.id">
+                <div v-if="unreadDividerBeforeId && m.id === unreadDividerBeforeId" class="unread-divider">
+                  {{ unreadDividerCount }} new message{{ unreadDividerCount !== 1 ? 's' : '' }}
+                </div>
                 <div v-if="m.type === 'system'" class="system-notification">{{ m.content }}</div>
                 <div
                   v-else
@@ -675,6 +689,15 @@
                 @keydown="onKeydown"
                 @input="onTyping"
               />
+              <span
+                v-if="input.length > 3500"
+                class="char-counter"
+                :class="{
+                  'char-counter--danger': input.length > 4000,
+                  'char-counter--warning': input.length > 3800 && input.length <= 4000,
+                  'char-counter--ok': input.length <= 3800
+                }"
+              >{{ 4000 - input.length }}</span>
               <button
                 ref="emojiButtonEl"
                 class="btn-icon composer-emoji"
@@ -698,13 +721,20 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 <span class="composer-clock-badge">{{ scheduledMessages.length }}</span>
               </button>
-              <button v-if="!isAiChat" class="btn-icon composer-mic" title="Record voice message" :disabled="uploading" @click="startRecording">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
-              </button>
-              <div v-if="!isAiChat" class="send-menu-wrap">
+              <div v-if="!isAiChat" class="composer-action-wrap send-menu-wrap">
+                <button
+                  class="composer-mic composer-action-btn btn-icon"
+                  :class="{ 'btn-hidden': input.trim() || pendingFiles.length }"
+                  title="Record voice message"
+                  :disabled="uploading"
+                  @click="startRecording"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+                </button>
                 <button
                   ref="sendBtnEl"
-                  class="composer-send"
+                  class="composer-send composer-action-btn"
+                  :class="{ 'btn-hidden': !input.trim() && !pendingFiles.length }"
                   :disabled="!input.trim() && !pendingFiles.length"
                   @click="send"
                   @contextmenu.prevent="openSendMenu()"
@@ -1020,6 +1050,75 @@ const searchResults = ref([])
 const searchLoading = ref(false)
 const searchInputEl = ref(null)
 let searchDebounce = null
+
+// ─── Sidebar chat filter ──────────────────────────────────────────
+const sidebarSearch = ref('')
+const sidebarSearchOpen = ref(false)
+const sidebarFilterInputRef = ref(null)
+
+const filteredSidebarChats = computed(() => {
+  if (!sidebarSearch.value.trim()) return sidebarChats.value
+  const q = sidebarSearch.value.toLowerCase()
+  return sidebarChats.value.filter(c => (c.title || c.display_name || '').toLowerCase().includes(q))
+})
+
+// ─── Unread divider ───────────────────────────────────────────────
+const unreadDividerBeforeId = ref(null)
+const unreadDividerCount = ref(0)
+
+function computeUnreadDivider() {
+  if (!me.value) return
+  const unread = messages.value.filter(m =>
+    m.sender !== me.value.username &&
+    m.deleted_at == null
+  )
+  const chatData = sidebarChats.value.find(c => c.id == chatId.value) || chat.value
+  const count = chatData?.unread_count || 0
+  if (count > 0 && unread.length > 0) {
+    const startIdx = unread.length - count
+    const firstUnread = unread[Math.max(0, startIdx)]
+    unreadDividerBeforeId.value = firstUnread?.id || null
+    unreadDividerCount.value = count
+  } else {
+    unreadDividerBeforeId.value = null
+    unreadDividerCount.value = 0
+  }
+}
+
+// ─── Text highlight helpers ───────────────────────────────────────
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function highlightText(text, query) {
+  if (!query || !text) return escapeHtml(text || '')
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return escapeHtml(text).replace(
+    new RegExp(escaped, 'gi'),
+    m => `<mark>${m}</mark>`
+  )
+}
+
+// ─── Paste image handler ──────────────────────────────────────────
+function onPaste(e) {
+  if (isAiChat.value) return
+  const active = document.activeElement
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && !active.closest('.composer')) return
+  const items = e.clipboardData?.items
+  if (!items) return
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile()
+      if (file) processFile(file)
+      break
+    }
+  }
+}
 const reactionPickerMsgId = ref(null)
 const reactionPickerPos = ref({ x: 0, y: 0 })
 
@@ -1273,6 +1372,7 @@ async function load() {
     return
   }
   chatLoading.value = false
+  computeUnreadDivider()
   const last = messages.value[messages.value.length - 1]
   if (last) await api.markDelivered(chatId.value, last.id).catch(() => {})
   await scrollToBottom()
@@ -2368,6 +2468,10 @@ async function createChat() {
 
 watch(showOnlinePanel, (val) => { if (val) loadOnlineUsers() })
 
+watch(sidebarSearchOpen, (val) => {
+  if (val) nextTick(() => sidebarFilterInputRef.value?.focus())
+})
+
 // ─── Smart repositioning of mobile long-press menu ────────────────
 // Runs after Vue updates the DOM so we can measure actual menu dimensions.
 watch(mobileMenu, (newVal) => {
@@ -2417,6 +2521,8 @@ watch(chatId, async (newId, oldId) => {
   peerDeliveredId.value = null
   peerReadId.value = null
   typingUser.value = ''
+  unreadDividerBeforeId.value = null
+  unreadDividerCount.value = 0
   cancelEdit()
   cancelReply()
   cancelFile()
@@ -2718,6 +2824,7 @@ onMounted(async () => {
   const _metaVP = document.querySelector('meta[name="viewport"]')
   if (_metaVP) _metaVP.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
   document.addEventListener('visibilitychange', markReadIfPossible)
+  document.addEventListener('paste', onPaste)
   window.addEventListener('resize', onWindowResize)
   window.visualViewport?.addEventListener('resize', updateVVH)
   window.visualViewport?.addEventListener('scroll', updateVVH)
@@ -2737,6 +2844,7 @@ onBeforeUnmount(() => {
   clearTimeout(typingTimeout)
   clearTimeout(typingDebounce)
   document.removeEventListener('visibilitychange', markReadIfPossible)
+  document.removeEventListener('paste', onPaste)
   window.removeEventListener('resize', onWindowResize)
   window.visualViewport?.removeEventListener('resize', updateVVH)
   window.visualViewport?.removeEventListener('scroll', updateVVH)
