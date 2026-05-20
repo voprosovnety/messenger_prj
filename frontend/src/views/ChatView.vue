@@ -201,10 +201,21 @@
           placeholder="Search messages…"
           @input="onSearchInput"
           @keydown.escape="closeSearch"
+          @keydown.up.prevent="navigateSearchResult(-1)"
+          @keydown.down.prevent="navigateSearchResult(1)"
         />
         <button v-if="searchQuery" class="btn-icon" style="padding:4px" title="Clear" @click="searchQuery = ''; searchResults = []; searchLoading = false">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
+        <div v-if="searchResults.length > 0" class="msg-search-nav">
+          <span class="msg-search-counter">{{ searchIdx < 0 ? '0' : searchIdx + 1 }} / {{ searchResults.length }}</span>
+          <button class="btn-icon" style="padding:3px" title="Previous result" @click="navigateSearchResult(-1)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+          <button class="btn-icon" style="padding:3px" title="Next result" @click="navigateSearchResult(1)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
       </div>
 
       <!-- Search results panel -->
@@ -213,9 +224,10 @@
         <template v-else>
           <div v-if="!searchResults.length" class="msg-search-status">No messages found for "{{ searchQuery.trim() }}"</div>
           <button
-            v-for="r in searchResults"
+            v-for="(r, i) in searchResults"
             :key="r.id"
             class="msg-search-item"
+            :class="{ 'msg-search-item--active': i === searchIdx }"
             @click="jumpToSearchResult(r.id)"
           >
             <UserAvatar :username="r.sender" :avatarUrl="r.sender_avatar_url" size="sm" />
@@ -690,6 +702,19 @@
             </Teleport>
 
           <div class="composer">
+            <!-- @mention popup -->
+            <div v-if="mentionOpen && filteredMentions.length" class="mention-popup">
+              <button
+                v-for="(p, i) in filteredMentions"
+                :key="p.id"
+                class="mention-item"
+                :class="{ 'mention-item--active': i === mentionIdx }"
+                @mousedown.prevent="selectMention(p.username)"
+              >
+                <UserAvatar :username="p.username" :avatarUrl="p.avatar_url" size="sm" />
+                <span class="mention-item-name">@{{ p.username }}</span>
+              </button>
+            </div>
             <!-- Normal mode -->
             <template v-if="!recording">
               <input ref="fileInputEl" type="file" multiple style="display:none" @change="onFileSelect" />
@@ -1069,6 +1094,10 @@ let typingDebounce = null
 const listEl = ref(null)
 const composerEl = ref(null)
 const fileInputEl = ref(null)
+const mentionOpen = ref(false)
+const mentionQuery = ref('')
+const mentionIdx = ref(0)
+const mentionCursorStart = ref(0)
 const emojiButtonEl = ref(null)
 const emojiPickerPos = ref({ bottom: 70, left: '50%', transform: 'translateX(-50%)' })
 const pendingFiles = ref([]) // [{ url, type, name, previewUrl }]
@@ -1112,6 +1141,7 @@ const searchQuery = ref('')
 const searchResults = ref([])
 const searchLoading = ref(false)
 const searchInputEl = ref(null)
+const searchIdx = ref(-1)
 let searchDebounce = null
 
 // ─── Sidebar chat filter ──────────────────────────────────────────
@@ -1180,13 +1210,43 @@ function renderContent(text) {
   safe = safe.replace(/(?<![a-zA-Z0-9])_(.+?)_(?![a-zA-Z0-9])/g, '<em>$1</em>')
   // Inline code: `text`
   safe = safe.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+  // @mention highlight
+  safe = safe.replace(/@([a-zA-Z0-9_]+)/g, '<span class="mention-highlight">@$1</span>')
   return safe
+}
+
+function closeMentionPopup() {
+  mentionOpen.value = false
+  mentionQuery.value = ''
+  mentionIdx.value = 0
+}
+
+function selectMention(username) {
+  const el = composerEl.value
+  if (!el) return
+  const before = input.value.slice(0, mentionCursorStart.value)
+  const after = input.value.slice(el.selectionStart)
+  input.value = before + '@' + username + ' ' + after
+  closeMentionPopup()
+  nextTick(() => {
+    const pos = (before + '@' + username + ' ').length
+    el.setSelectionRange(pos, pos)
+    el.focus()
+  })
 }
 
 const filteredSidebarChats = computed(() => {
   if (!sidebarSearch.value.trim()) return sidebarChats.value
   const q = sidebarSearch.value.toLowerCase()
   return sidebarChats.value.filter(c => (c.title || c.display_name || '').toLowerCase().includes(q))
+})
+
+const filteredMentions = computed(() => {
+  if (!isGroup.value || !mentionOpen.value) return []
+  const q = mentionQuery.value.toLowerCase()
+  return participants.value
+    .filter(p => !p.is_me && p.username.toLowerCase().startsWith(q))
+    .slice(0, 6)
 })
 
 // ─── Unread divider ───────────────────────────────────────────────
@@ -1639,6 +1699,21 @@ async function markReadIfPossible() {
 
 // ─── typing ───────────────────────────────────────────────────────
 function onTyping() {
+  // @mention detection
+  if (isGroup.value && composerEl.value) {
+    const el = composerEl.value
+    const pos = el.selectionStart
+    const textBefore = input.value.slice(0, pos)
+    const mentionMatch = textBefore.match(/@(\w*)$/)
+    if (mentionMatch) {
+      mentionCursorStart.value = textBefore.lastIndexOf('@')
+      mentionQuery.value = mentionMatch[1]
+      mentionOpen.value = true
+      mentionIdx.value = 0
+    } else {
+      closeMentionPopup()
+    }
+  }
   // Auto-resize textarea — must run after Vue's v-model reconcile pass
   nextTick(() => {
     const el = composerEl.value
@@ -1998,6 +2073,7 @@ function closeSearch() {
   searchQuery.value = ''
   searchResults.value = []
   searchLoading.value = false
+  searchIdx.value = -1
   clearTimeout(createSearchDebounce)
 }
 
@@ -2025,9 +2101,18 @@ async function doSearch(q) {
   }
 }
 
+watch(searchResults, () => { searchIdx.value = -1 })
+
 async function jumpToSearchResult(id) {
   closeSearch()
   await jumpToMessage(id)
+}
+
+function navigateSearchResult(dir) {
+  const n = searchResults.value.length
+  if (!n) return
+  searchIdx.value = (searchIdx.value + dir + n) % n
+  jumpToMessage(searchResults.value[searchIdx.value].id)
 }
 
 // ─── polls ───────────────────────────────────────────────────────
@@ -2336,6 +2421,12 @@ async function sendRecording() {
 }
 
 function onKeydown(e) {
+  if (mentionOpen.value && filteredMentions.value.length) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); mentionIdx.value = (mentionIdx.value + 1) % filteredMentions.value.length; return }
+    if (e.key === 'ArrowUp') { e.preventDefault(); mentionIdx.value = (mentionIdx.value - 1 + filteredMentions.value.length) % filteredMentions.value.length; return }
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); selectMention(filteredMentions.value[mentionIdx.value].username); return }
+    if (e.key === 'Escape') { closeMentionPopup(); return }
+  }
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
     send()
@@ -2409,6 +2500,7 @@ async function maybeJumpFromQuery() {
 
 function cancelReply() {
   replyingTo.value = null
+  closeMentionPopup()
 }
 
 function startForward(m) {
@@ -2452,6 +2544,7 @@ function cancelEdit() {
   editingId.value = null
   editingText.value = ''
   input.value = loadDraft(chatId.value)
+  closeMentionPopup()
   nextTick(() => {
     const el = composerEl.value
     if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px' }

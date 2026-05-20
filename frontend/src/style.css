@@ -30,6 +30,28 @@
   --warning:      #f59e0b;
 }
 
+/* ─── Light theme ────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  --bg:           #f0f2f5;
+  --surface:      #ffffff;
+  --surface-2:    #f7f8fa;
+  --surface-3:    #eef0f3;
+  --border:       #dde1e7;
+  --text:         #1a1d23;
+  --text-2:       #5a6272;
+  --text-3:       #9aa3b0;
+  --accent:       #4a7cdd;
+  --accent-hover: #3a6bcc;
+  --accent-dim:   rgba(74, 124, 221, 0.12);
+  --sent-bg:      #d8e9ff;
+  --recv-bg:      #ffffff;
+  --danger:       #e53935;
+  --danger-dim:   rgba(229, 57, 53, 0.12);
+  --online:       #22c55e;
+  --shadow:       0 4px 24px rgba(0, 0, 0, 0.12);
+  --shadow-sm:    0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
 /* ─── Reset & base ───────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -130,6 +152,13 @@ a:hover { text-decoration: underline; }
   border: 1px solid var(--border);
 }
 .btn-ghost:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+
+.btn-secondary {
+  background: var(--surface-3);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--surface-2); }
 
 .btn-icon {
   background: transparent;
@@ -3266,3 +3295,82 @@ kbd {
 
 /* ─── Notif sound toggle button ───────────────────────────────────── */
 .notif-sound-btn-off { color: var(--text-3); }
+
+/* ─── In-chat search navigation ──────────────────────────────────── */
+.msg-search-item--active {
+  background: var(--accent-dim);
+  border-left: 2px solid var(--accent);
+}
+.msg-search-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+}
+.msg-search-counter {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  min-width: 36px;
+  text-align: center;
+}
+
+/* ─── @mention autocomplete popup ────────────────────────────────── */
+.mention-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  z-index: 50;
+  overflow: hidden;
+  animation: picker-pop 0.12s cubic-bezier(0.34,1.5,0.64,1) both;
+}
+.mention-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font-size: 13px;
+  transition: background var(--transition);
+  min-height: 44px;
+}
+.mention-item:hover,
+.mention-item--active {
+  background: var(--surface-3);
+}
+.mention-item-name {
+  font-weight: 500;
+}
+.mention-highlight {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* ─── Profile theme toggle ────────────────────────────────────────── */
+.profile-theme-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.profile-theme-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.profile-theme-btn {
+  padding: 6px 14px;
+  font-size: 12px;
+}
