@@ -13,6 +13,9 @@
         <button class="online-indicator" :class="{ active: showOnlinePanel }" :title="showOnlinePanel ? 'Close' : 'Online users'" @click="showOnlinePanel = !showOnlinePanel">
           <span class="online-indicator-dot"></span>{{ onlineUsers.length }} online
         </button>
+        <button class="btn-icon" :class="{ active: globalSearchOpen }" title="Search all messages" @click="showOnlinePanel = false; globalSearchOpen = !globalSearchOpen">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
         <button class="btn-icon" title="New chat" @click="openCreate">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
