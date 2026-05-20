@@ -374,7 +374,7 @@
                               @vote="doVotePoll(m.id, $event)"
                             />
                             <template v-else>
-                            <span v-if="m.content" class="message-content" style="white-space:pre-wrap;word-break:break-word" v-html="renderContent(m.content)"></span>
+                            <span v-if="m.content" class="message-content" style="white-space:pre-wrap;word-break:break-word" v-html="renderContent(m.content)" @click.stop="onMessageContentClick($event)"></span>
 
                             <!-- Image grid -->
                             <template v-if="getAttachments(m).filter(a => a.type === 'image').length">
@@ -1699,11 +1699,11 @@ async function markReadIfPossible() {
 
 // ─── typing ───────────────────────────────────────────────────────
 function onTyping() {
-  // @mention detection
+  // @mention detection — use DOM el.value to avoid reactive/cursor timing issues
   if (isGroup.value && composerEl.value) {
     const el = composerEl.value
     const pos = el.selectionStart
-    const textBefore = input.value.slice(0, pos)
+    const textBefore = el.value.slice(0, pos)
     const mentionMatch = textBefore.match(/@(\w*)$/)
     if (mentionMatch) {
       mentionCursorStart.value = textBefore.lastIndexOf('@')
@@ -2456,6 +2456,13 @@ function onGroupMembersChanged(newParticipants) {
 function openUserProfile(username) {
   if (!username || username === me.value?.username) return
   profileUsername.value = username
+}
+
+function onMessageContentClick(e) {
+  if (e.target.classList.contains('mention-highlight')) {
+    const username = e.target.textContent.replace(/^@/, '')
+    openUserProfile(username)
+  }
 }
 
 function onGlobalSearchSelect({ chatId: targetChatId, messageId }) {

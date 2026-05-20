@@ -2074,7 +2074,6 @@ textarea.input {
   position: relative;
   width: 100%;
   max-width: 100%;
-  overflow: hidden; /* prevent any child (emoji picker portal anchor etc.) from overflowing */
 }
 
 /* ─── Emoji picker (portal, fixed to viewport) ───────────────── */
@@ -3354,6 +3353,13 @@ kbd {
 .mention-highlight {
   color: var(--accent);
   font-weight: 500;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 1px;
+  transition: background var(--transition-fast);
+}
+.mention-highlight:hover {
+  background: var(--accent-dim);
 }
 
 /* ─── Profile theme toggle ────────────────────────────────────────── */
