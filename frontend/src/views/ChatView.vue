@@ -113,7 +113,7 @@
       @dragover.prevent
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
-      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false; closeMobileMenu()"
+      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false; closeMobileMenu(); closeDesktopMenu()"
     >
       <!-- Drag-and-drop overlay -->
       <div v-if="dragging && !isAiChat" class="drop-overlay">
@@ -276,7 +276,7 @@
                       @touchstart.passive="onMsgTouchStart($event, m)"
                       @touchend.passive="onMsgTouchEnd($event, m)"
                       @touchcancel.passive="onMsgTouchCancel()"
-                      @contextmenu.prevent
+                      @contextmenu.prevent="openDesktopMenu($event, m)"
                     >
                       <!-- Swipe-to-reply icon (mobile only, revealed as bubble slides) -->
                       <div
@@ -582,6 +582,66 @@
                     <button v-if="isMine(mobileMenu.msg)" class="mobile-ctx-item mobile-ctx-danger" @click="removeMessage(mobileMenu.msg); closeMobileMenu()">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                       Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Teleport>
+
+            <!-- Desktop right-click context menu -->
+            <Teleport to="body">
+              <div
+                v-if="desktopMenu"
+                class="dctx-overlay"
+                @click="closeDesktopMenu()"
+                @contextmenu.prevent="closeDesktopMenu()"
+              >
+                <div
+                  ref="desktopMenuEl"
+                  class="dctx-menu"
+                  :style="desktopMenuStyle"
+                  @click.stop
+                >
+                  <!-- Quick reactions strip -->
+                  <div class="dctx-reactions">
+                    <button
+                      v-for="e in QUICK_REACTIONS"
+                      :key="e"
+                      class="dctx-reaction-btn"
+                      :class="{ active: isMyReaction(desktopMenu.msg, e) }"
+                      @click="doToggleReaction(desktopMenu.msg.id, e); closeDesktopMenu()"
+                    >{{ e }}</button>
+                  </div>
+                  <!-- Action items -->
+                  <div class="dctx-items">
+                    <button class="dctx-item" @click="startReply(desktopMenu.msg); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+                      Reply
+                    </button>
+                    <button v-if="desktopMenu.msg.content" class="dctx-item" @click="copyMessageText(desktopMenu.msg); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      Copy text
+                    </button>
+                    <button v-if="!isAiChat && isMine(desktopMenu.msg)" class="dctx-item" @click="startEdit(desktopMenu.msg); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      Edit
+                    </button>
+                    <button v-if="!isAiChat" class="dctx-item" @click="startForward(desktopMenu.msg); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+                      Forward
+                    </button>
+                    <button v-if="canPin && !isAiChat" class="dctx-item" @click="doPin(desktopMenu.msg.id); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
+                      {{ pinnedMessages.some(p => p.id === desktopMenu.msg.id) ? 'Unpin' : 'Pin' }}
+                    </button>
+                    <button v-if="!isAiChat && !desktopMenu.msg.deleted_at" class="dctx-item" @click="openReactionPicker(desktopMenu.msg.id, desktopMenu.anchorEvent); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                      Add reaction
+                    </button>
+                    <div v-if="isMine(desktopMenu.msg)" class="dctx-divider"></div>
+                    <button v-if="isMine(desktopMenu.msg) && !isAiChat" class="dctx-item dctx-danger" @click="removeMessage(desktopMenu.msg); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                      Delete message
                     </button>
                   </div>
                 </div>
@@ -962,6 +1022,11 @@ const searchInputEl = ref(null)
 let searchDebounce = null
 const reactionPickerMsgId = ref(null)
 const reactionPickerPos = ref({ x: 0, y: 0 })
+
+// ─── Desktop right-click context menu ─────────────────────────────
+const desktopMenu = ref(null)   // { msg, x, y, anchorEvent } or null
+const desktopMenuEl = ref(null)
+const desktopMenuStyle = ref({})
 const showFullReactionPicker = ref(false)
 
 const forwardingMsg = ref(null)
@@ -1980,6 +2045,7 @@ function onKeydown(e) {
     send()
   }
   if (e.key === 'Escape') {
+    if (desktopMenu.value) { closeDesktopMenu(); return }
     if (editingId.value) cancelEdit()
     else cancelReply()
   }
@@ -2485,6 +2551,36 @@ function _msgAreaTouchMove(e) {
 
 function closeMobileMenu() {
   mobileMenu.value = null
+}
+
+function openDesktopMenu(e, m) {
+  if (m.deleted_at || m.type === 'system') return
+  desktopMenu.value = { msg: m, x: e.clientX, y: e.clientY, anchorEvent: e }
+  nextTick(() => {
+    const el = desktopMenuEl.value
+    if (!el) return
+    const menuW = el.offsetWidth || 220
+    const menuH = el.offsetHeight || 300
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const MARGIN = 8
+    let x = e.clientX
+    let y = e.clientY
+    if (x + menuW > vw - MARGIN) x = vw - menuW - MARGIN
+    if (x < MARGIN) x = MARGIN
+    if (y + menuH > vh - MARGIN) y = vh - menuH - MARGIN
+    if (y < MARGIN) y = MARGIN
+    desktopMenuStyle.value = {
+      left: x + 'px',
+      top: y + 'px',
+      transformOrigin: e.clientX - x < menuW / 2 ? 'top left' : 'top right',
+    }
+  })
+}
+
+function closeDesktopMenu() {
+  desktopMenu.value = null
+  desktopMenuStyle.value = {}
 }
 
 function copyMessageText(m) {

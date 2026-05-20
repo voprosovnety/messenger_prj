@@ -2863,3 +2863,103 @@ textarea.input {
 .mobile-ctx-item svg { color: var(--text-2); flex-shrink: 0; }
 .mobile-ctx-danger { color: var(--danger); }
 .mobile-ctx-danger svg { color: var(--danger); }
+
+/* ─── Desktop right-click context menu ───────────────────────────── */
+.dctx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: transparent;
+}
+
+.dctx-menu {
+  position: fixed;
+  min-width: 220px;
+  max-width: 280px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 301;
+  display: flex;
+  flex-direction: column;
+  animation: dctx-in 0.18s cubic-bezier(0.34, 1.15, 0.64, 1) both;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+@keyframes dctx-in {
+  from { opacity: 0; transform: scale(0.82); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.dctx-reactions {
+  display: flex;
+  gap: 2px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  justify-content: space-between;
+}
+
+.dctx-reaction-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s cubic-bezier(0.34, 1.4, 0.64, 1), background 0.1s;
+  flex-shrink: 0;
+}
+.dctx-reaction-btn:hover {
+  background: var(--surface-3);
+  transform: scale(1.25);
+}
+.dctx-reaction-btn.active {
+  background: var(--accent-subtle, rgba(99,102,241,0.18));
+}
+
+.dctx-items {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+}
+
+.dctx-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 9px 14px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  margin: 0 4px;
+  width: calc(100% - 8px);
+  transition: background 0.1s;
+}
+.dctx-item:hover { background: var(--surface-3); }
+.dctx-item svg { color: var(--text-2); flex-shrink: 0; }
+
+.dctx-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 10px;
+}
+
+.dctx-danger { color: var(--danger); }
+.dctx-danger svg { color: var(--danger); }
+
+/* Hide desktop hover actions on desktop since we use right-click menu */
+@media (pointer: fine) {
+  .message-actions { display: none !important; }
+}
