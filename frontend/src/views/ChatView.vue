@@ -1639,12 +1639,14 @@ async function markReadIfPossible() {
 
 // ─── typing ───────────────────────────────────────────────────────
 function onTyping() {
-  // Auto-resize textarea
-  const el = composerEl.value
-  if (el) {
-    el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px'
-  }
+  // Auto-resize textarea — must run after Vue's v-model reconcile pass
+  nextTick(() => {
+    const el = composerEl.value
+    if (el) {
+      el.style.height = 'auto'
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+    }
+  })
   clearTimeout(typingDebounce)
   typingDebounce = setTimeout(() => {
     api.sendTyping(chatId.value).catch(() => {})
@@ -2896,9 +2898,8 @@ function closeDesktopMenu() {
 
 function copyMessageText(m) {
   if (m.content) {
-    navigator.clipboard?.writeText(m.content).then(() => {
-      showToast('Copied!')
-    }).catch(() => { showToast('Copied!') })
+    showToast('Copied!')
+    navigator.clipboard?.writeText(m.content).catch(() => {})
   }
   closeMobileMenu()
 }
