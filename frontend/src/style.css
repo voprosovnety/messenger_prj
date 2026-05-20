@@ -3149,3 +3149,120 @@ mark {
 .char-counter--danger  { color: var(--danger); }
 .char-counter--warning { color: var(--warning); }
 .char-counter--ok      { color: var(--text-3); }
+
+/* ─── Toast progress bar ──────────────────────────────────────────── */
+.toast {
+  overflow: hidden; /* clip the ::after progress bar */
+}
+@keyframes toast-progress { from { width: 100%; } to { width: 0; } }
+.toast::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--accent);
+  animation: toast-progress 2.2s linear forwards;
+}
+
+/* Toast Vue Transition */
+.toast-fade-enter-active { animation: toast-in 0.2s ease; }
+.toast-fade-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
+.toast-fade-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
+
+/* ─── SSE status bar ──────────────────────────────────────────────── */
+.sse-status-bar {
+  background: rgba(255, 200, 0, 0.12);
+  border-bottom: 1px solid rgba(255, 200, 0, 0.25);
+  color: rgba(255, 200, 0, 0.9);
+  font-size: 12px;
+  padding: 5px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: sse-slide-down 0.2s ease;
+  flex-shrink: 0;
+}
+@keyframes sse-slide-down {
+  from { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; }
+  to   { max-height: 28px; opacity: 1; }
+}
+.sse-spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid rgba(255, 200, 0, 0.4);
+  border-top-color: rgba(255, 200, 0, 0.9);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ─── Upload progress bar ─────────────────────────────────────────── */
+.upload-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--accent);
+  border-radius: 0 0 4px 4px;
+  transition: width 0.1s linear;
+}
+
+/* ─── Voice waveform ──────────────────────────────────────────────── */
+.voice-waveform {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 4px;
+}
+.waveform-bar {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: height 0.08s ease;
+  min-height: 4px;
+}
+
+/* ─── Inline code & linkify styles ───────────────────────────────── */
+.inline-code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.88em;
+}
+.message-content a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ─── Keyboard shortcuts modal ────────────────────────────────────── */
+kbd {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: monospace;
+  font-size: 0.85em;
+  color: var(--text);
+}
+.kbd-shortcuts-modal { max-width: 420px; }
+.kbd-shortcuts-modal table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 8px;
+}
+.kbd-shortcuts-modal td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-2);
+}
+.kbd-shortcuts-modal td:first-child { white-space: nowrap; }
+.kbd-shortcuts-modal tr:last-child td { border-bottom: none; }
+
+/* ─── Notif sound toggle button ───────────────────────────────────── */
+.notif-sound-btn-off { color: var(--text-3); }

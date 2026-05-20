@@ -167,10 +167,28 @@
             <svg v-if="isMuted(chatId)" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           </button>
+          <button
+            class="btn-icon"
+            :class="{ 'notif-sound-btn-off': !notifSoundEnabled }"
+            :title="notifSoundEnabled ? 'Mute sounds' : 'Enable sounds'"
+            @click="toggleNotifSound"
+          >
+            <svg v-if="notifSoundEnabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+          <button class="btn-icon" title="Keyboard shortcuts (?)" @click="showKeyboardShortcutsModal = true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+          </button>
           <button v-if="!isGroup" class="btn-icon" title="Delete chat" style="color:var(--danger)" @click="deleteChat">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
           </button>
         </div>
+      </div>
+
+      <!-- SSE reconnecting status bar -->
+      <div v-if="sseStatus !== 'connected'" class="sse-status-bar">
+        <span class="sse-spinner"></span>
+        {{ sseStatus === 'reconnecting' ? 'Reconnecting…' : 'Connection error' }}
       </div>
 
       <!-- Search bar -->
@@ -344,7 +362,7 @@
                               @vote="doVotePoll(m.id, $event)"
                             />
                             <template v-else>
-                            <span v-if="m.content" style="white-space:pre-wrap;word-break:break-word">{{ m.content }}</span>
+                            <span v-if="m.content" class="message-content" style="white-space:pre-wrap;word-break:break-word" v-html="renderContent(m.content)"></span>
 
                             <!-- Image grid -->
                             <template v-if="getAttachments(m).filter(a => a.type === 'image').length">
@@ -458,6 +476,12 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 {{ f.name }}
               </div>
+              <!-- Upload progress bar -->
+              <div
+                v-if="f.progress !== undefined && f.progress < 100"
+                class="upload-progress-bar"
+                :style="{ width: f.progress + '%' }"
+              ></div>
               <button
                 class="btn-icon"
                 style="position:absolute;top:-6px;right:-6px;background:var(--surface-2);border-radius:50%;width:18px;height:18px;padding:0;display:flex;align-items:center;justify-content:center"
@@ -757,7 +781,15 @@
             <template v-else>
               <span class="recording-dot"></span>
               <span class="recording-time">{{ fmtRecTime(recordingTime) }}</span>
-              <span style="flex:1" />
+              <div v-if="waveformBars.length" class="voice-waveform">
+                <span
+                  v-for="(h, i) in waveformBars"
+                  :key="i"
+                  class="waveform-bar"
+                  :style="{ height: h + 'px' }"
+                ></span>
+              </div>
+              <span v-else style="flex:1" />
               <button class="btn-icon" style="color:var(--danger);padding:6px 8px" title="Cancel" @click="cancelRecording">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
@@ -916,6 +948,34 @@
       @close="showSchedulePicker = false"
       @submit="onSchedulePicked"
     />
+
+    <!-- Toast notification -->
+    <Transition name="toast-fade">
+      <div v-if="toastMsg" class="toast">{{ toastMsg }}</div>
+    </Transition>
+
+    <!-- Keyboard shortcuts modal -->
+    <div v-if="showKeyboardShortcutsModal" class="modal-overlay" @click.self="showKeyboardShortcutsModal = false">
+      <div class="modal kbd-shortcuts-modal">
+        <div class="modal-header">
+          <span class="modal-title">Keyboard Shortcuts</span>
+          <button class="btn-icon" @click="showKeyboardShortcutsModal = false">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <table>
+          <tr><td><kbd>Ctrl+K</kbd></td><td>Search chats</td></tr>
+          <tr><td><kbd>Alt+↑ / ↓</kbd></td><td>Navigate between chats</td></tr>
+          <tr><td><kbd>Ctrl+F</kbd></td><td>Search in chat</td></tr>
+          <tr><td><kbd>Ctrl+Shift+M</kbd></td><td>Mute / unmute current chat</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Close modals / cancel reply or edit</td></tr>
+          <tr><td><kbd>?</kbd></td><td>Show this shortcuts panel</td></tr>
+        </table>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" @click="showKeyboardShortcutsModal = false">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1058,6 +1118,70 @@ let searchDebounce = null
 const sidebarSearch = ref('')
 const sidebarSearchOpen = ref(false)
 const sidebarFilterInputRef = ref(null)
+
+// ─── Toast notifications ──────────────────────────────────────────
+const toastMsg = ref(null)
+let toastTimer = null
+
+function showToast(text, duration = 2200) {
+  clearTimeout(toastTimer)
+  toastMsg.value = text
+  toastTimer = setTimeout(() => { toastMsg.value = null }, duration)
+}
+
+// ─── SSE status ───────────────────────────────────────────────────
+const sseStatus = ref('connected')
+
+// ─── Notification sound ───────────────────────────────────────────
+const notifSoundEnabled = ref(localStorage.getItem('notifSound') !== 'false')
+
+function toggleNotifSound() {
+  notifSoundEnabled.value = !notifSoundEnabled.value
+  localStorage.setItem('notifSound', String(notifSoundEnabled.value))
+}
+
+function playNotifSound() {
+  if (!notifSoundEnabled.value) return
+  try {
+    const ctx = new AudioContext()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.value = 880
+    osc.type = 'sine'
+    gain.gain.setValueAtTime(0.12, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.3)
+  } catch (e) { /* AudioContext may be blocked */ }
+}
+
+// ─── Keyboard shortcuts modal ─────────────────────────────────────
+const showKeyboardShortcutsModal = ref(false)
+
+// ─── Voice waveform ───────────────────────────────────────────────
+const waveformBars = ref([])
+let waveformRafId = null
+let waveformAudioCtx = null
+
+// ─── renderContent (linkify + markdown-lite) ──────────────────────
+function renderContent(text) {
+  if (!text) return ''
+  // Sanitize via DOM textContent→innerHTML to get HTML-escaped string
+  const div = document.createElement('div')
+  div.textContent = text
+  let safe = div.innerHTML
+  // Linkify URLs
+  safe = safe.replace(/https?:\/\/[^\s<>"&]+/g, url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`)
+  // Bold: **text**
+  safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  // Italic: _text_ (not preceded or followed by word char)
+  safe = safe.replace(/(?<![a-zA-Z0-9])_(.+?)_(?![a-zA-Z0-9])/g, '<em>$1</em>')
+  // Inline code: `text`
+  safe = safe.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+  return safe
+}
 
 const filteredSidebarChats = computed(() => {
   if (!sidebarSearch.value.trim()) return sidebarChats.value
@@ -1515,6 +1639,12 @@ async function markReadIfPossible() {
 
 // ─── typing ───────────────────────────────────────────────────────
 function onTyping() {
+  // Auto-resize textarea
+  const el = composerEl.value
+  if (el) {
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+  }
   clearTimeout(typingDebounce)
   typingDebounce = setTimeout(() => {
     api.sendTyping(chatId.value).catch(() => {})
@@ -1544,7 +1674,7 @@ async function connectSse() {
       const source = new EventSource(`/.well-known/mercure?${params.toString()}`, { withCredentials: true })
       es = source
 
-      source.onopen = () => { chatSseDelay = 1000 }
+      source.onopen = () => { chatSseDelay = 1000; sseStatus.value = 'connected' }
       source.onmessage = async (evt) => {
         const payload = JSON.parse(evt.data)
         const d = payload.data
@@ -1656,6 +1786,12 @@ async function connectSse() {
           if (showScrollBtn.value && d.sender !== myId()) {
             unreadWhileScrolled.value++
           }
+          // Play notification sound for messages from others, in background or different chat
+          if (d.sender !== myId() && !isMuted(d.chat_id)) {
+            if (document.hidden || d.chat_id !== chatId.value) {
+              playNotifSound()
+            }
+          }
           await api.markDelivered(chatId.value, d.id).catch(() => {})
           await markReadIfPossible()
           if (shouldStick) await scrollToBottom()
@@ -1709,11 +1845,13 @@ async function connectSse() {
       source.onerror = () => {
         source.close()
         if (chatSseStopped || chatSseGen !== gen) return
+        sseStatus.value = 'reconnecting'
         chatSseTimer = setTimeout(attempt, chatSseDelay)
         chatSseDelay = Math.min(chatSseDelay * 2, 30000)
       }
     } catch {
       if (chatSseStopped || chatSseGen !== gen) return
+      sseStatus.value = 'reconnecting'
       chatSseTimer = setTimeout(attempt, chatSseDelay)
       chatSseDelay = Math.min(chatSseDelay * 2, 30000)
     }
@@ -1950,6 +2088,7 @@ async function send() {
     const text = input.value.trim()
     if (!text || aiLoading.value) return
     input.value = ''
+    if (composerEl.value) composerEl.value.style.height = 'auto'
     composerEl.value?.focus()
     await sendToAi(text)
     return
@@ -1965,6 +2104,8 @@ async function send() {
   input.value = ''
   replyingTo.value = null
   pendingFiles.value = []
+  // Reset textarea height after clear
+  if (composerEl.value) { composerEl.value.style.height = 'auto' }
   composerEl.value?.focus()
   navigator.vibrate?.(10)
   await api.sendMessage(chatId.value, text, replyId, atts).catch(() => {})
@@ -2012,15 +2153,31 @@ async function sendToAi(text) {
 async function processFile(file) {
   if (!file) return
   uploading.value = true
+  // Add placeholder with progress=0 immediately
+  const placeholder = {
+    url: null,
+    type: null,
+    name: file.name,
+    previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+    progress: 0,
+  }
+  const idx = pendingFiles.value.push(placeholder) - 1
   try {
-    const result = await api.uploadFile(file)
-    pendingFiles.value.push({
-      url: result.url,
-      type: result.type,
-      name: result.name || file.name,
-      previewUrl: result.type === 'image' ? result.url : null,
+    const result = await api.uploadFile(file, (pct) => {
+      if (pendingFiles.value[idx]) pendingFiles.value[idx].progress = pct
     })
+    if (pendingFiles.value[idx]) {
+      pendingFiles.value[idx] = {
+        url: result.url,
+        type: result.type,
+        name: result.name || file.name,
+        previewUrl: result.type === 'image' ? result.url : null,
+        progress: 100,
+      }
+    }
   } catch (err) {
+    // Remove failed upload placeholder
+    pendingFiles.value.splice(idx, 1)
     error.value = err.message
   } finally {
     uploading.value = false
@@ -2102,10 +2259,29 @@ async function startRecording() {
   recording.value = true
   recordingTime.value = 0
   recordingTimer = setInterval(() => recordingTime.value++, 1000)
+
+  // Start waveform analyser
+  try {
+    waveformAudioCtx = new AudioContext()
+    const source = waveformAudioCtx.createMediaStreamSource(stream)
+    const analyser = waveformAudioCtx.createAnalyser()
+    analyser.fftSize = 64
+    source.connect(analyser)
+    const dataArray = new Uint8Array(analyser.frequencyBinCount)
+    const drawBars = () => {
+      waveformRafId = requestAnimationFrame(drawBars)
+      analyser.getByteFrequencyData(dataArray)
+      waveformBars.value = Array.from(dataArray.slice(0, 16)).map(v => Math.max(4, v / 255 * 24))
+    }
+    drawBars()
+  } catch (e) { /* Web Audio API may be unavailable */ }
 }
 
 function cancelRecording() {
   clearInterval(recordingTimer)
+  if (waveformRafId) { cancelAnimationFrame(waveformRafId); waveformRafId = null }
+  if (waveformAudioCtx) { waveformAudioCtx.close().catch(() => {}); waveformAudioCtx = null }
+  waveformBars.value = []
   recording.value = false
   recordingTime.value = 0
   if (mediaRecorder) {
@@ -2118,6 +2294,9 @@ function cancelRecording() {
 
 async function sendRecording() {
   clearInterval(recordingTimer)
+  if (waveformRafId) { cancelAnimationFrame(waveformRafId); waveformRafId = null }
+  if (waveformAudioCtx) { waveformAudioCtx.close().catch(() => {}); waveformAudioCtx = null }
+  waveformBars.value = []
   recording.value = false
 
   if (!mediaRecorder) return
@@ -2242,6 +2421,7 @@ async function doForward(targetChatId) {
   forwardingMsg.value = null
   try {
     await api.sendForwardedMessage(targetChatId, m.id)
+    showToast('Message forwarded')
     if (targetChatId !== chatId.value) {
       router.push(`/chats/${targetChatId}`)
     }
@@ -2258,7 +2438,11 @@ function startEdit(m) {
   nextTick(() => {
     composerEl.value?.focus()
     const el = composerEl.value
-    if (el) el.setSelectionRange(el.value.length, el.value.length)
+    if (el) {
+      el.setSelectionRange(el.value.length, el.value.length)
+      el.style.height = 'auto'
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+    }
   })
 }
 
@@ -2266,6 +2450,10 @@ function cancelEdit() {
   editingId.value = null
   editingText.value = ''
   input.value = loadDraft(chatId.value)
+  nextTick(() => {
+    const el = composerEl.value
+    if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px' }
+  })
 }
 
 async function saveEdit() {
@@ -2278,6 +2466,7 @@ async function saveEdit() {
     const i = messages.value.findIndex(x => x.id === id)
     if (i !== -1) Object.assign(messages.value[i], updated)
     cancelEdit()
+    if (composerEl.value) composerEl.value.style.height = 'auto'
   } catch (e) {
     error.value = e.message
   } finally { busy.value = false }
@@ -2291,6 +2480,7 @@ async function removeMessage(m) {
     const i = messages.value.findIndex(x => x.id === m.id)
     if (i !== -1) messages.value[i].deleted_at = new Date().toISOString()
     if (editingId.value === m.id) cancelEdit()
+    showToast('Message deleted')
   } catch (e) { error.value = e.message }
   finally { busy.value = false }
 }
@@ -2705,7 +2895,11 @@ function closeDesktopMenu() {
 }
 
 function copyMessageText(m) {
-  if (m.content) navigator.clipboard?.writeText(m.content).catch(() => {})
+  if (m.content) {
+    navigator.clipboard?.writeText(m.content).then(() => {
+      showToast('Copied!')
+    }).catch(() => { showToast('Copied!') })
+  }
   closeMobileMenu()
 }
 
@@ -2781,6 +2975,63 @@ function onSwipeTouchEnd(e) {
 
 function onSwipeTouchCancel() { swipeDecided = null }
 
+// ─── Keyboard shortcuts ───────────────────────────────────────────
+function navigateChat(direction) {
+  const chats = filteredSidebarChats.value
+  if (!chats.length) return
+  const idx = chats.findIndex(c => c.id === chatId.value)
+  const next = chats[idx + direction]
+  if (next) router.push(`/chats/${next.id}`)
+}
+
+function onGlobalKeydown(e) {
+  // Don't trigger when user is typing in any input/textarea outside composer
+  const active = document.activeElement
+  const isExternalInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && !active.closest('.composer') && !active.closest('.composer-wrap')
+
+  // Ctrl+K / Cmd+K — focus sidebar search
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault()
+    if (!sidebarSearchOpen.value) sidebarSearchOpen.value = true
+    nextTick(() => sidebarFilterInputRef.value?.focus())
+    return
+  }
+  // ? — show keyboard shortcuts (only when no input is focused)
+  if (e.key === '?' && !isExternalInput && !active?.closest('.composer')) {
+    showKeyboardShortcutsModal.value = true
+    return
+  }
+  if (isExternalInput) return
+  // Alt+↑ — previous chat
+  if (e.altKey && e.key === 'ArrowUp') {
+    e.preventDefault()
+    navigateChat(-1)
+    return
+  }
+  // Alt+↓ — next chat
+  if (e.altKey && e.key === 'ArrowDown') {
+    e.preventDefault()
+    navigateChat(1)
+    return
+  }
+  // Ctrl+F — toggle in-chat search
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f' && !isAiChat.value) {
+    e.preventDefault()
+    toggleSearch()
+    return
+  }
+  // Ctrl+Shift+M — mute/unmute current chat
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'M') {
+    e.preventDefault()
+    if (chatId.value && !isAiChat.value) toggleMute(chatId.value)
+    return
+  }
+  // Escape — close modals
+  if (e.key === 'Escape') {
+    if (showKeyboardShortcutsModal.value) { showKeyboardShortcutsModal.value = false; return }
+  }
+}
+
 // ─── lifecycle ────────────────────────────────────────────────────
 function onWindowResize() {
   if (window.innerWidth < 640 && !sidebarHidden.value) sidebarHidden.value = true
@@ -2840,6 +3091,7 @@ onMounted(async () => {
   if (_metaVP) _metaVP.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
   document.addEventListener('visibilitychange', markReadIfPossible)
   document.addEventListener('paste', onPaste)
+  document.addEventListener('keydown', onGlobalKeydown)
   window.addEventListener('resize', onWindowResize)
   window.visualViewport?.addEventListener('resize', updateVVH)
   window.visualViewport?.addEventListener('scroll', updateVVH)
@@ -2860,6 +3112,7 @@ onBeforeUnmount(() => {
   clearTimeout(typingDebounce)
   document.removeEventListener('visibilitychange', markReadIfPossible)
   document.removeEventListener('paste', onPaste)
+  document.removeEventListener('keydown', onGlobalKeydown)
   window.removeEventListener('resize', onWindowResize)
   window.visualViewport?.removeEventListener('resize', updateVVH)
   window.visualViewport?.removeEventListener('scroll', updateVVH)
