@@ -567,11 +567,19 @@ textarea.input {
   gap: 12px;
 }
 .chat-area-empty-icon {
-  font-size: 48px;
-  opacity: 0.3;
+  width: 80px;
+  height: 80px;
+  opacity: 0.22;
+  color: var(--text-2);
+}
+.chat-area-empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 2px;
 }
 .chat-area-empty-text {
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text-3);
 }
 
@@ -873,7 +881,11 @@ textarea.input {
   color: var(--text-3);
   line-height: 1;
 }
-.message-ticks.read { color: var(--accent); }
+.message-ticks.read { color: var(--accent); animation: tick-appear 0.2s ease-out; }
+@keyframes tick-appear {
+  from { opacity: 0; transform: scale(0.5); }
+  to   { opacity: 1; transform: scale(1); }
+}
 
 .message-bubble-outer {
   position: relative;

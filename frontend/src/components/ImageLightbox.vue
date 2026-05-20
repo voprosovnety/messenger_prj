@@ -7,6 +7,8 @@
       @mousemove="onMouseMove"
       @mouseup="onMouseUp"
       @mouseleave="onMouseUp"
+      @touchstart.passive="onTouchStart"
+      @touchend.passive="onTouchEnd"
     >
       <button class="lightbox-close" @click="$emit('close')">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -119,6 +121,21 @@ function onOverlayClick() {
 
 function prev() { emit('navigate', (props.index - 1 + props.images.length) % props.images.length) }
 function next() { emit('navigate', (props.index + 1) % props.images.length) }
+
+let touchStartX = 0
+let touchStartY = 0
+function onTouchStart(e) {
+  touchStartX = e.touches[0].clientX
+  touchStartY = e.touches[0].clientY
+}
+function onTouchEnd(e) {
+  if (zoom.value !== 1) return
+  const dx = e.changedTouches[0].clientX - touchStartX
+  const dy = e.changedTouches[0].clientY - touchStartY
+  if (Math.abs(dx) < Math.abs(dy) * 1.5) return  // mostly vertical — ignore
+  if (dx > 60 && props.images.length > 1)  prev()
+  if (dx < -60 && props.images.length > 1) next()
+}
 
 function onKey(e) {
   if (e.key === 'Escape')                emit('close')
