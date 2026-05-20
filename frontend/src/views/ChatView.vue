@@ -300,8 +300,20 @@
                     'same-sender': idx > 0 && g.items[idx-1].sender === m.sender && !g.items[idx-1].deleted_at,
                     'msg-highlighted': highlightedId === m.id,
                     'msg-new': newMessageIds.has(m.id),
+                    'msg-selected': selectionMode && selectedMsgIds.has(m.id),
                   }"
+                  @click.shift.stop="onMsgShiftClick(m.id)"
+                  @click.exact="onMsgClick($event, m.id)"
                 >
+                  <!-- Selection checkbox -->
+                  <div
+                    v-if="selectionMode"
+                    class="msg-select-checkbox"
+                    :class="{ checked: selectedMsgIds.has(m.id) }"
+                    @click.stop="toggleMsgSelection(m.id)"
+                  >
+                    <svg v-if="selectedMsgIds.has(m.id)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
                   <!-- Avatar slot (others only) -->
                   <div class="message-avatar-slot">
                     <UserAvatar
@@ -511,6 +523,22 @@
             </button>
           </div>
 
+          <!-- Selection action bar -->
+          <div v-if="selectionMode" class="selection-bar">
+            <span class="selection-count">{{ selectedMsgIds.size }} selected</span>
+            <div class="selection-actions">
+              <button class="btn btn-secondary" @click="bulkForward">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+                Forward
+              </button>
+              <button class="btn btn-danger" :disabled="!canDeleteSelected" @click="bulkDelete">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                Delete
+              </button>
+              <button class="btn btn-secondary" @click="exitSelectionMode">Cancel</button>
+            </div>
+          </div>
+
           <!-- Composer -->
           <div class="composer-wrap">
             <!-- Attach menu portal -->
@@ -616,6 +644,10 @@
                   </div>
                   <!-- Action items in a scrollable block so they never overflow off-screen -->
                   <div class="mobile-ctx-items">
+                    <button class="mobile-ctx-item" @click="enterSelectionMode(mobileMenu.msg.id); closeMobileMenu()">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                      Select
+                    </button>
                     <button class="mobile-ctx-item" @click="startReply(mobileMenu.msg); closeMobileMenu()">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
                       Reply
@@ -671,6 +703,10 @@
                   </div>
                   <!-- Action items -->
                   <div class="dctx-items">
+                    <button class="dctx-item" @click="enterSelectionMode(desktopMenu.msg.id); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                      Select
+                    </button>
                     <button class="dctx-item" @click="startReply(desktopMenu.msg); closeDesktopMenu()">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
                       Reply
@@ -1374,6 +1410,72 @@ const showFullReactionPicker = ref(false)
 
 const forwardingMsg = ref(null)
 const showForwardModal = ref(false)
+
+// ─── Bulk selection ───────────────────────────────────────────────
+const selectionMode = ref(false)
+const selectedMsgIds = ref(new Set())
+
+function enterSelectionMode(msgId) {
+  selectionMode.value = true
+  selectedMsgIds.value = new Set([msgId])
+}
+
+function exitSelectionMode() {
+  selectionMode.value = false
+  selectedMsgIds.value = new Set()
+}
+
+function toggleMsgSelection(msgId) {
+  if (!selectionMode.value) return
+  const s = new Set(selectedMsgIds.value)
+  if (s.has(msgId)) s.delete(msgId)
+  else s.add(msgId)
+  selectedMsgIds.value = s
+  if (s.size === 0) exitSelectionMode()
+}
+
+function onMsgShiftClick(msgId) {
+  if (!selectionMode.value) enterSelectionMode(msgId)
+  else toggleMsgSelection(msgId)
+}
+
+function onMsgClick(e, msgId) {
+  if (!selectionMode.value) return
+  e.stopPropagation()
+  toggleMsgSelection(msgId)
+}
+
+const canDeleteSelected = computed(() =>
+  selectedMsgIds.value.size > 0 &&
+  [...selectedMsgIds.value].every(id => {
+    const m = messages.value.find(x => x.id === id)
+    return m && isMine(m) && !m.deleted_at
+  })
+)
+
+async function bulkDelete() {
+  const ids = [...selectedMsgIds.value]
+  const deletable = ids.filter(id => {
+    const m = messages.value.find(x => x.id === id)
+    return m && isMine(m) && !m.deleted_at
+  })
+  if (!deletable.length) return
+  for (const id of deletable) {
+    try { await api.deleteMessage(chatId.value, id) } catch {}
+  }
+  showToast(`${deletable.length} message${deletable.length > 1 ? 's' : ''} deleted`)
+  exitSelectionMode()
+}
+
+function bulkForward() {
+  if (!selectedMsgIds.value.size) return
+  const id = [...selectedMsgIds.value][0]
+  const m = messages.value.find(x => x.id === id)
+  if (!m) return
+  forwardingMsg.value = m
+  showForwardModal.value = true
+  exitSelectionMode()
+}
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🔥', '👎']
 
@@ -2478,6 +2580,10 @@ async function sendRecording() {
 }
 
 function onKeydown(e) {
+  if (e.key === 'Escape' && selectionMode.value) {
+    exitSelectionMode()
+    return
+  }
   if (mentionOpen.value && filteredMentions.value.length) {
     if (e.key === 'ArrowDown') { e.preventDefault(); mentionIdx.value = (mentionIdx.value + 1) % filteredMentions.value.length; return }
     if (e.key === 'ArrowUp') { e.preventDefault(); mentionIdx.value = (mentionIdx.value - 1 + filteredMentions.value.length) % filteredMentions.value.length; return }
@@ -2927,6 +3033,7 @@ watch(chatId, async (newId, oldId) => {
   globalSearchOpen.value = false
   showForwardModal.value = false
   forwardingMsg.value = null
+  exitSelectionMode()
   mobileMenu.value = null
   swipeMsgId.value = null
   msgSwipeX.value = 0
@@ -3206,6 +3313,7 @@ function onGlobalKeydown(e) {
   }
   // Escape — close modals
   if (e.key === 'Escape') {
+    if (selectionMode.value) { exitSelectionMode(); return }
     if (sidebarItemMenu.value) { closeSidebarMenu(); return }
     if (showKeyboardShortcutsModal.value) { showKeyboardShortcutsModal.value = false; return }
   }

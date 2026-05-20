@@ -3440,3 +3440,69 @@ kbd {
   padding: 6px 14px;
   font-size: 12px;
 }
+
+/* ─── Bulk message selection ──────────────────────────────────────── */
+.msg-select-checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+  margin-right: 8px;
+  align-self: center;
+  min-width: 22px;
+}
+.msg-select-checkbox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.msg-selected .message-bubble {
+  background: var(--accent-dim) !important;
+}
+
+.selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  gap: 10px;
+  flex-shrink: 0;
+  animation: slide-up 0.15s ease;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.selection-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.selection-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .selection-bar {
+    padding: 8px 12px;
+  }
+  .selection-actions .btn {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+}
