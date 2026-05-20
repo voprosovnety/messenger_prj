@@ -2893,8 +2893,8 @@ textarea.input {
 
 .dctx-menu {
   position: fixed;
-  min-width: 220px;
-  max-width: 280px;
+  min-width: 240px;
+  max-width: 312px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 12px;

@@ -1773,12 +1773,20 @@ function openReactionPicker(msgId, event) {
     closeReactionPicker()
     return
   }
-  const rect = event.currentTarget.getBoundingClientRect()
-  // Clamp x so the picker (which uses translate(-50%)) never overflows the
-  // viewport on narrow mobile screens. Half the quick-picker width ≈ 144px.
+  // event.currentTarget is nulled after dispatch (e.g. when event is stored as anchorEvent).
+  // Fall back to clientX/Y which remain valid on the event object.
+  let srcX, srcY
+  if (event.currentTarget) {
+    const rect = event.currentTarget.getBoundingClientRect()
+    srcX = rect.left
+    srcY = rect.top
+  } else {
+    srcX = event.clientX
+    srcY = event.clientY
+  }
   const halfW = 144
-  const clampedX = Math.max(halfW + 8, Math.min(rect.left, window.innerWidth - halfW - 8))
-  reactionPickerPos.value = { x: clampedX, y: rect.top }
+  const clampedX = Math.max(halfW + 8, Math.min(srcX, window.innerWidth - halfW - 8))
+  reactionPickerPos.value = { x: clampedX, y: srcY }
   reactionPickerMsgId.value = msgId
   showFullReactionPicker.value = false
 }
