@@ -52,4 +52,13 @@ CLAUDE.md
 AGENTS.md
 UX_IMPROVEMENTS.md
 .claude/
-.playwright-mcp
+
+# Playwright MCP output dir (screenshots, console logs, traces, .png/.jpeg/.log).
+# All Playwright MCP screenshots MUST be saved here — see CLAUDE.md
+# (MCP servers / Post-push browser verification gate sections).
+# Never commit screenshots; they are dev artefacts only.
+.playwright-mcp/
+*.png
+!frontend/**/*.png
+!backend/**/*.png
+!docs/**/*.png
