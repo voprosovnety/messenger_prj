@@ -941,36 +941,6 @@ textarea.input {
   align-items: center;
 }
 
-/* #18: bubble hover actions — desktop only, smooth fade-in */
-.message-actions {
-  position: absolute;
-  right: calc(100% + 6px);
-  bottom: 0;
-  display: none;
-  flex-direction: row;
-  gap: 2px;
-  background: var(--surface-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 2px 4px;
-  box-shadow: var(--shadow-sm);
-  white-space: nowrap;
-  z-index: 1;
-}
-@media (pointer: fine) {
-  .message-actions {
-    display: flex;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(3px);
-    transition: opacity 0.13s ease, visibility 0.13s ease, transform 0.13s ease;
-  }
-  .message-row:hover .message-actions {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-  }
-}
 
 /* Swipe-to-reply icon — hidden on desktop, styled on mobile via media query */
 .msg-swipe-icon {
@@ -1609,11 +1579,6 @@ textarea.input {
   text-overflow: ellipsis;
 }
 
-/* ─── Non-own message actions position ──────────────────────── */
-.message-row:not(.own) .message-actions {
-  right: auto;
-  left: calc(100% + 6px);
-}
 
 /* ─── AI chat sidebar icon ───────────────────────────────────── */
 .ai-chat-icon {
@@ -2864,12 +2829,6 @@ textarea.input {
 
   .message-bubble-wrap { max-width: 85%; }
   .emoji-picker-portal { bottom: 80px; }
-
-  /* Disable hover-based desktop action buttons on touch */
-  .message-row .message-actions,
-  .message-row:hover .message-actions {
-    display: none;
-  }
 
   /* Swipe-to-reply icon */
   .msg-swipe-icon {
