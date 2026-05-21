@@ -75,6 +75,13 @@
           </button>
         </form>
 
+        <div class="profile-theme-row">
+          <span class="profile-theme-label">Appearance</span>
+          <button class="btn btn-secondary profile-theme-btn" @click="toggleTheme">
+            {{ isDark ? '☀️ Light mode' : '🌙 Dark mode' }}
+          </button>
+        </div>
+
         <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
           <button class="btn btn-danger" style="width:100%" @click="logout">Sign out</button>
         </div>
@@ -104,6 +111,20 @@ import UserAvatar from '../components/UserAvatar.vue'
 import ImageLightbox from '../components/ImageLightbox.vue'
 
 const router = useRouter()
+
+const isDark = ref(document.documentElement.getAttribute('data-theme') !== 'light')
+
+function toggleTheme() {
+  isDark.value = !isDark.value
+  const theme = isDark.value ? 'dark' : 'light'
+  if (theme === 'dark') {
+    document.documentElement.removeAttribute('data-theme')
+    localStorage.removeItem('theme')
+  } else {
+    document.documentElement.setAttribute('data-theme', 'light')
+    localStorage.setItem('theme', 'light')
+  }
+}
 
 const username = ref('')
 const email = ref('')

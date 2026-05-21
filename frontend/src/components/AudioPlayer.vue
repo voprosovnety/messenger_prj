@@ -40,6 +40,7 @@
       </svg>
       <input type="range" class="ap-volume" v-model="vol" min="0" max="1" step="0.05" @input="applyVol" />
     </div>
+    <button class="audio-speed-btn" @click="cycleSpeed">{{ speed }}×</button>
   </div>
 </template>
 
@@ -47,6 +48,10 @@
 import { ref, onBeforeUnmount } from 'vue'
 
 const props = defineProps({ src: { type: String, required: true } })
+
+const SPEEDS = [1, 1.5, 2, 0.5]
+const _storedSpeed = parseFloat(localStorage.getItem('audioSpeed') || '1')
+const speed = ref(SPEEDS.includes(_storedSpeed) ? _storedSpeed : 1)
 
 const audioEl = ref(null)
 const playing = ref(false)
@@ -66,12 +71,21 @@ function onMeta() {
   const a = audioEl.value
   if (!a) return
   a.volume = vol.value
+  a.playbackRate = speed.value
   if (!isFinite(a.duration)) {
     // MediaRecorder blobs lack duration metadata — seek to end to force browser to compute it
     a.currentTime = 1e10
   } else {
     duration.value = a.duration
   }
+}
+
+function cycleSpeed() {
+  const idx = SPEEDS.indexOf(speed.value)
+  const next = SPEEDS[(idx + 1) % SPEEDS.length]
+  speed.value = next
+  if (audioEl.value) audioEl.value.playbackRate = next
+  localStorage.setItem('audioSpeed', String(next))
 }
 
 function onDurationChange() {

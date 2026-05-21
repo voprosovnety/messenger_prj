@@ -78,9 +78,14 @@
     <!-- Chat area: show placeholder when no chat is selected -->
     <div class="chat-area">
       <div class="chat-area-empty">
-        <div class="chat-area-empty-icon">💬</div>
+        <svg class="chat-area-empty-icon" viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 18a6 6 0 0 1 6-6h40a6 6 0 0 1 6 6v28a6 6 0 0 1-6 6H48l-8 10-8-10H20a6 6 0 0 1-6-6V18z"/>
+          <line x1="26" y1="30" x2="54" y2="30"/>
+          <line x1="26" y1="40" x2="46" y2="40"/>
+        </svg>
+        <div class="chat-area-empty-title">Your messages</div>
         <div class="chat-area-empty-text">Select a conversation or start a new one</div>
-        <button class="btn btn-primary" style="margin-top:4px" @click="openCreate">New chat</button>
+        <button class="btn btn-primary" style="margin-top:8px" @click="openCreate">New chat</button>
       </div>
     </div>
 

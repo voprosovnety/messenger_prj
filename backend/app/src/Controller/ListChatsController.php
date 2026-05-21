@@ -29,6 +29,7 @@ SELECT
   c.created_at                               AS chat_created_at,
   cm.role                                    AS my_role,
   cm.joined_at                               AS joined_at,
+  cm.is_pinned                               AS is_pinned,
 
   peer.username                              AS peer_username,
   peer.avatar_url                            AS peer_avatar_url,
@@ -126,6 +127,7 @@ SQL;
                 'my_role' => $isGroup ? $r['my_role'] : null,
                 'joined_at' => (new \DateTimeImmutable($r['joined_at']))->format(DATE_ATOM),
 
+                'is_pinned' => (bool) $r['is_pinned'],
                 'last_message' => $lastMessage,
                 'unread_count' => (int) $r['unread_count'],
             ];

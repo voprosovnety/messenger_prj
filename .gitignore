@@ -50,4 +50,15 @@ docker-compose.override.yml
 DESIGN.md
 CLAUDE.md
 AGENTS.md
-.claude/commands/
+UX_IMPROVEMENTS.md
+.claude/
+
+# Playwright MCP output dir (screenshots, console logs, traces, .png/.jpeg/.log).
+# All Playwright MCP screenshots MUST be saved here — see CLAUDE.md
+# (MCP servers / Post-push browser verification gate sections).
+# Never commit screenshots; they are dev artefacts only.
+.playwright-mcp/
+*.png
+!frontend/**/*.png
+!backend/**/*.png
+!docs/**/*.png

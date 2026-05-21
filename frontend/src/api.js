@@ -209,13 +209,30 @@ export const api = {
         return json
     },
 
-    uploadFile: async (file) => {
-        const form = new FormData()
-        form.append('file', file)
-        const res = await request('/api/upload', { method: 'POST', body: form })
-        const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json.error || 'Upload failed')
-        return json
+    uploadFile: (file, onProgress) => {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest()
+            const fd = new FormData()
+            fd.append('file', file)
+            xhr.upload.onprogress = e => {
+                if (e.lengthComputable && onProgress) onProgress(Math.round(e.loaded / e.total * 100))
+            }
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try { resolve(JSON.parse(xhr.responseText)) }
+                    catch { reject(new Error('Invalid server response')) }
+                } else {
+                    let msg = 'Upload failed'
+                    try { msg = JSON.parse(xhr.responseText).error || msg } catch {}
+                    reject(new Error(msg))
+                }
+            }
+            xhr.onerror = () => reject(new Error('Network error'))
+            xhr.open('POST', '/api/upload')
+            const token = localStorage.getItem('access_token')
+            if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+            xhr.send(fd)
+        })
     },
 
     sendMessage: async (chatId, content, replyToId = null, attachments = []) => {
@@ -416,6 +433,20 @@ export const api = {
         const res = await request(`/api/scheduled-messages/${id}`, { method: 'DELETE' })
         const json = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(json.error || 'Failed to delete scheduled message')
+        return json
+    },
+
+    toggleSidebarPin: async (chatId) => {
+        const res = await request(`/api/chats/${chatId}/pin-sidebar`, { method: 'POST' })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to toggle pin')
+        return json
+    },
+
+    getMessageReadBy: async (chatId, messageId) => {
+        const res = await request(`/api/chats/${chatId}/messages/${messageId}/read-by`)
+        const json = await res.json().catch(() => ([]))
+        if (!res.ok) throw new Error(json.error || 'Failed to load read receipts')
         return json
     },
 }

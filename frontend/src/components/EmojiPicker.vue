@@ -1,33 +1,66 @@
 <template>
   <div class="emoji-picker" @click.stop @mousedown.stop>
-    <div class="emoji-cat-tabs">
-      <button
-        v-for="cat in allCats"
-        :key="cat.id"
-        class="emoji-cat-tab"
-        :class="{ active: activeCat === cat.id }"
-        :title="cat.label"
-        @click="activeCat = cat.id"
-      >{{ cat.icon }}</button>
+    <div class="emoji-picker-search-wrap">
+      <input
+        v-model="searchQuery"
+        class="emoji-search-input"
+        placeholder="Search…"
+        inputmode="search"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        @click.stop
+        @mousedown.stop
+        @keydown.escape.stop="searchQuery = ''"
+      />
     </div>
-    <div class="emoji-cat-label">{{ currentCat.label }}</div>
-    <div class="emoji-grid-wrap">
-      <div v-if="currentEmojis.length" class="emoji-grid">
+    <template v-if="!searchQuery.trim()">
+      <div class="emoji-cat-tabs">
         <button
-          v-for="e in currentEmojis"
-          :key="e"
-          class="emoji-btn"
-          :title="e"
-          @click="select(e)"
-        >{{ e }}</button>
+          v-for="cat in allCats"
+          :key="cat.id"
+          class="emoji-cat-tab"
+          :class="{ active: activeCat === cat.id }"
+          :title="cat.label"
+          @click="activeCat = cat.id"
+        >{{ cat.icon }}</button>
       </div>
-      <div v-else class="emoji-empty">No recent emojis yet</div>
-    </div>
+      <div class="emoji-cat-label">{{ currentCat.label }}</div>
+      <div class="emoji-grid-wrap">
+        <div v-if="currentEmojis.length" class="emoji-grid">
+          <button
+            v-for="e in currentEmojis"
+            :key="e"
+            class="emoji-btn"
+            :title="e"
+            @click="select(e)"
+          >{{ e }}</button>
+        </div>
+        <div v-else class="emoji-empty">No recent emojis yet</div>
+      </div>
+    </template>
+    <template v-else>
+      <div class="emoji-grid-wrap">
+        <div v-if="filteredEmojis.length" class="emoji-grid">
+          <button
+            v-for="e in filteredEmojis"
+            :key="e"
+            class="emoji-btn"
+            :title="e"
+            @click="select(e)"
+          >{{ e }}</button>
+        </div>
+        <div v-else class="emoji-empty">No results</div>
+      </div>
+    </template>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
+
+const searchQuery = ref('')
 
 const emit = defineEmits(['select'])
 
@@ -68,6 +101,25 @@ const allCats = computed(() => [
   { id: 'recent', label: 'Recently used', icon: '🕒', emojis: recent.value },
   ...CATEGORIES,
 ])
+
+const allEmojis = computed(() => {
+  const seen = new Set()
+  const result = []
+  for (const cat of CATEGORIES) {
+    for (const e of cat.emojis) {
+      if (!seen.has(e)) { seen.add(e); result.push(e) }
+    }
+  }
+  return result
+})
+
+const filteredEmojis = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return allEmojis.value
+  // Simple filter: check if the query matches the emoji itself or any substring
+  // (emoji have no text names here, so show all if no match by character)
+  return allEmojis.value.filter(e => e.includes(q))
+})
 
 const activeCat = ref('smileys')
 const currentCat = computed(() => allCats.value.find(c => c.id === activeCat.value) || allCats.value[0])

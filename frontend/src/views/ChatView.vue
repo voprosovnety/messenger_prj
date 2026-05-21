@@ -13,6 +13,9 @@
         <button class="online-indicator" :class="{ active: showOnlinePanel }" :title="showOnlinePanel ? 'Close' : 'Online users'" @click="showOnlinePanel = !showOnlinePanel">
           <span class="online-indicator-dot"></span>{{ onlineUsers.length }} online
         </button>
+        <button class="btn-icon" :class="{ active: globalSearchOpen }" title="Search all messages" @click="showOnlinePanel = false; globalSearchOpen = !globalSearchOpen">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
         <button class="btn-icon" title="New chat" @click="openCreate">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
@@ -52,23 +55,37 @@
 
         <div v-if="sidebarChats.length" class="chats-section-header">
           <span class="chats-section-label">Conversations</span>
-          <button class="btn-icon chats-section-search-btn" title="Search all messages" @click="globalSearchOpen = true">
+          <button class="btn-icon chats-section-search-btn" title="Filter chats" @click.stop="sidebarSearchOpen = !sidebarSearchOpen">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </button>
         </div>
-        <button
-          v-for="c in sidebarChats"
-          :key="c.id"
-          class="chat-item"
-          :class="{ active: c.id === chatId.value, unread: (c.unread_count || 0) > 0 }"
-          type="button"
-          @click="router.push(`/chats/${c.id}`)"
-        >
+        <div v-if="sidebarSearchOpen" class="sidebar-search-bar">
+          <input
+            v-model="sidebarSearch"
+            class="sidebar-chat-filter-input"
+            placeholder="Filter chats…"
+            autocomplete="off"
+            ref="sidebarFilterInputRef"
+            @keydown.escape="sidebarSearch = ''; sidebarSearchOpen = false"
+          />
+          <button class="sidebar-search-close" @click="sidebarSearch = ''; sidebarSearchOpen = false">×</button>
+        </div>
+        <template v-for="(c, idx) in filteredSidebarChats" :key="c.id">
+          <div v-if="c.is_pinned && (idx === 0 || !filteredSidebarChats[idx - 1]?.is_pinned)" class="sidebar-section-label">Pinned</div>
+          <div v-if="!c.is_pinned && hasPinnedChats && (idx === 0 || filteredSidebarChats[idx - 1]?.is_pinned)" class="sidebar-section-label">Chats</div>
+          <button
+            class="chat-item"
+            :class="{ active: c.id === chatId.value, unread: (c.unread_count || 0) > 0 }"
+            type="button"
+            @click="router.push(`/chats/${c.id}`)"
+            @contextmenu.prevent="openSidebarMenu($event, c)"
+          >
           <UserAvatar :username="c.display_name || c.id" :avatarUrl="c.avatar_url || null" size="md" />
           <div class="chat-item-info">
             <div class="chat-item-top">
               <span class="chat-item-name">{{ c.display_name || c.id }}</span>
               <svg v-if="isMuted(c.id)" class="muted-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              <svg v-if="c.is_pinned" class="sidebar-pin-icon" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M16 1l-1.5 1.5 1 1-5.5 5.5-2-1L6.5 9.5 9 12H5l-1 1 4 4 1-1v-4l2.5 2.5 1.5-1.5-1-2 5.5-5.5 1 1L19 5.5z"/></svg>
               <span class="chat-item-time">{{ formatTimeShort(c.last_message?.created_at) }}</span>
             </div>
             <div class="chat-item-top" style="margin-top:1px">
@@ -84,7 +101,8 @@
               <span v-if="(c.unread_count || 0) > 0" class="unread-badge" :class="{ 'unread-badge--muted': isMuted(c.id) }">{{ c.unread_count }}</span>
             </div>
           </div>
-        </button>
+          </button>
+        </template>
       </div>
 
       <div class="sidebar-footer">
@@ -113,7 +131,7 @@
       @dragover.prevent
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
-      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false; closeMobileMenu()"
+      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false; closeMobileMenu(); closeDesktopMenu()"
     >
       <!-- Drag-and-drop overlay -->
       <div v-if="dragging && !isAiChat" class="drop-overlay">
@@ -153,10 +171,28 @@
             <svg v-if="isMuted(chatId)" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           </button>
+          <button
+            class="btn-icon"
+            :class="{ 'notif-sound-btn-off': !notifSoundEnabled }"
+            :title="notifSoundEnabled ? 'Mute sounds' : 'Enable sounds'"
+            @click="toggleNotifSound"
+          >
+            <svg v-if="notifSoundEnabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+          <button class="btn-icon" title="Keyboard shortcuts (?)" @click="showKeyboardShortcutsModal = true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+          </button>
           <button v-if="!isGroup" class="btn-icon" title="Delete chat" style="color:var(--danger)" @click="deleteChat">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
           </button>
         </div>
+      </div>
+
+      <!-- SSE reconnecting status bar -->
+      <div v-if="sseStatus !== 'connected'" class="sse-status-bar">
+        <span class="sse-spinner"></span>
+        {{ sseStatus === 'reconnecting' ? 'Reconnecting…' : 'Connection error' }}
       </div>
 
       <!-- Search bar -->
@@ -169,10 +205,21 @@
           placeholder="Search messages…"
           @input="onSearchInput"
           @keydown.escape="closeSearch"
+          @keydown.up.prevent="navigateSearchResult(-1)"
+          @keydown.down.prevent="navigateSearchResult(1)"
         />
         <button v-if="searchQuery" class="btn-icon" style="padding:4px" title="Clear" @click="searchQuery = ''; searchResults = []; searchLoading = false">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
+        <div v-if="searchResults.length > 0" class="msg-search-nav">
+          <span class="msg-search-counter">{{ searchIdx < 0 ? '0' : searchIdx + 1 }} / {{ searchResults.length }}</span>
+          <button class="btn-icon" style="padding:3px" title="Previous result" @click="navigateSearchResult(-1)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+          <button class="btn-icon" style="padding:3px" title="Next result" @click="navigateSearchResult(1)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
       </div>
 
       <!-- Search results panel -->
@@ -181,9 +228,10 @@
         <template v-else>
           <div v-if="!searchResults.length" class="msg-search-status">No messages found for "{{ searchQuery.trim() }}"</div>
           <button
-            v-for="r in searchResults"
+            v-for="(r, i) in searchResults"
             :key="r.id"
             class="msg-search-item"
+            :class="{ 'msg-search-item--active': i === searchIdx }"
             @click="jumpToSearchResult(r.id)"
           >
             <UserAvatar :username="r.sender" :avatarUrl="r.sender_avatar_url" size="sm" />
@@ -192,7 +240,7 @@
                 <span class="msg-search-item-sender">{{ r.sender }}</span>
                 <span class="msg-search-item-time">{{ formatTimeShort(r.created_at) }}</span>
               </div>
-              <div class="msg-search-item-text">{{ r.content }}</div>
+              <div class="msg-search-item-text"><span v-html="highlightText(r.content || '', searchQuery.trim())"></span></div>
             </div>
           </button>
         </template>
@@ -239,6 +287,9 @@
               </div>
 
               <template v-for="(m, idx) in g.items" :key="m.id">
+                <div v-if="unreadDividerBeforeId && m.id === unreadDividerBeforeId" class="unread-divider">
+                  {{ unreadDividerCount }} new message{{ unreadDividerCount !== 1 ? 's' : '' }}
+                </div>
                 <div v-if="m.type === 'system'" class="system-notification">{{ m.content }}</div>
                 <div
                   v-else
@@ -249,8 +300,20 @@
                     'same-sender': idx > 0 && g.items[idx-1].sender === m.sender && !g.items[idx-1].deleted_at,
                     'msg-highlighted': highlightedId === m.id,
                     'msg-new': newMessageIds.has(m.id),
+                    'msg-selected': selectionMode && selectedMsgIds.has(m.id),
                   }"
+                  @click.shift.stop="onMsgShiftClick(m.id)"
+                  @click.exact="onMsgClick($event, m.id)"
                 >
+                  <!-- Selection checkbox -->
+                  <div
+                    v-if="selectionMode"
+                    class="msg-select-checkbox"
+                    :class="{ checked: selectedMsgIds.has(m.id) }"
+                    @click.stop="toggleMsgSelection(m.id)"
+                  >
+                    <svg v-if="selectedMsgIds.has(m.id)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
                   <!-- Avatar slot (others only) -->
                   <div class="message-avatar-slot">
                     <UserAvatar
@@ -276,7 +339,7 @@
                       @touchstart.passive="onMsgTouchStart($event, m)"
                       @touchend.passive="onMsgTouchEnd($event, m)"
                       @touchcancel.passive="onMsgTouchCancel()"
-                      @contextmenu.prevent
+                      @contextmenu.prevent="openDesktopMenu($event, m)"
                     >
                       <!-- Swipe-to-reply icon (mobile only, revealed as bubble slides) -->
                       <div
@@ -327,7 +390,7 @@
                               @vote="doVotePoll(m.id, $event)"
                             />
                             <template v-else>
-                            <span v-if="m.content" style="white-space:pre-wrap;word-break:break-word">{{ m.content }}</span>
+                            <span v-if="m.content" class="message-content" style="white-space:pre-wrap;word-break:break-word" v-html="renderContent(m.content)" @click.stop="onMessageContentClick($event)"></span>
 
                             <!-- Image grid -->
                             <template v-if="getAttachments(m).filter(a => a.type === 'image').length">
@@ -364,7 +427,12 @@
                     <div class="message-meta">
                       <span class="message-time">{{ formatTime(m.created_at) }}</span>
                       <span v-if="m.edited_at && !m.deleted_at" class="message-edited">edited</span>
-                      <span v-if="isMine(m) && !m.deleted_at" class="message-ticks" :class="{ read: peerReadId && idLE(m.id, peerReadId) }">
+                      <span
+                        v-if="isMine(m) && !m.deleted_at"
+                        class="message-ticks"
+                        :class="{ read: peerReadId && idLE(m.id, peerReadId), 'ticks-clickable': isGroup }"
+                        @click.stop="isGroup && openReadBy(m.id)"
+                      >
                         <template v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</template>
                         <template v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</template>
                       </span>
@@ -390,7 +458,7 @@
           </div>
 
           <button
-            v-if="!isAiChat"
+            v-if="!isAiChat && !selectionMode"
             class="scroll-to-bottom"
             :class="{ hidden: !showScrollBtn }"
             @click="scrollToBottomFab"
@@ -441,6 +509,12 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 {{ f.name }}
               </div>
+              <!-- Upload progress bar -->
+              <div
+                v-if="f.progress !== undefined && f.progress < 100"
+                class="upload-progress-bar"
+                :style="{ width: f.progress + '%' }"
+              ></div>
               <button
                 class="btn-icon"
                 style="position:absolute;top:-6px;right:-6px;background:var(--surface-2);border-radius:50%;width:18px;height:18px;padding:0;display:flex;align-items:center;justify-content:center"
@@ -452,6 +526,22 @@
             <button class="btn-icon" style="padding:4px;align-self:center" title="Clear all" @click="cancelFile()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
+          </div>
+
+          <!-- Selection action bar -->
+          <div v-if="selectionMode" class="selection-bar">
+            <span class="selection-count">{{ selectedMsgIds.size }} selected</span>
+            <div class="selection-actions">
+              <button class="btn btn-secondary" @click="bulkForward">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+                Forward
+              </button>
+              <button class="btn btn-danger" :disabled="!canDeleteSelected" @click="bulkDelete">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                Delete
+              </button>
+              <button class="btn btn-secondary" @click="exitSelectionMode">Cancel</button>
+            </div>
           </div>
 
           <!-- Composer -->
@@ -559,6 +649,10 @@
                   </div>
                   <!-- Action items in a scrollable block so they never overflow off-screen -->
                   <div class="mobile-ctx-items">
+                    <button class="mobile-ctx-item" @click="enterSelectionMode(mobileMenu.msg.id); closeMobileMenu()">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                      Select
+                    </button>
                     <button class="mobile-ctx-item" @click="startReply(mobileMenu.msg); closeMobileMenu()">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
                       Reply
@@ -588,7 +682,84 @@
               </div>
             </Teleport>
 
+            <!-- Desktop right-click context menu -->
+            <Teleport to="body">
+              <div
+                v-if="desktopMenu"
+                class="dctx-overlay"
+                @click="closeDesktopMenu()"
+                @contextmenu.prevent="closeDesktopMenu()"
+              >
+                <div
+                  ref="desktopMenuEl"
+                  class="dctx-menu"
+                  :style="desktopMenuStyle"
+                  @click.stop
+                >
+                  <!-- Quick reactions strip -->
+                  <div class="dctx-reactions">
+                    <button
+                      v-for="e in QUICK_REACTIONS"
+                      :key="e"
+                      class="dctx-reaction-btn"
+                      :class="{ active: isMyReaction(desktopMenu.msg, e) }"
+                      @click="doToggleReaction(desktopMenu.msg.id, e); closeDesktopMenu()"
+                    >{{ e }}</button>
+                  </div>
+                  <!-- Action items -->
+                  <div class="dctx-items">
+                    <button class="dctx-item" @click="enterSelectionMode(desktopMenu.msg.id); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                      Select
+                    </button>
+                    <button class="dctx-item" @click="startReply(desktopMenu.msg); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+                      Reply
+                    </button>
+                    <button v-if="desktopMenu.msg.content" class="dctx-item" @click="copyMessageText(desktopMenu.msg); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      Copy text
+                    </button>
+                    <button v-if="!isAiChat && isMine(desktopMenu.msg)" class="dctx-item" @click="startEdit(desktopMenu.msg); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      Edit
+                    </button>
+                    <button v-if="!isAiChat" class="dctx-item" @click="startForward(desktopMenu.msg); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+                      Forward
+                    </button>
+                    <button v-if="canPin && !isAiChat" class="dctx-item" @click="doPin(desktopMenu.msg.id); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
+                      {{ pinnedMessages.some(p => p.id === desktopMenu.msg.id) ? 'Unpin' : 'Pin' }}
+                    </button>
+                    <button v-if="!isAiChat && !desktopMenu.msg.deleted_at" class="dctx-item" @click="openReactionPicker(desktopMenu.msg.id, desktopMenu.anchorEvent); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                      Add reaction
+                    </button>
+                    <div v-if="isMine(desktopMenu.msg)" class="dctx-divider"></div>
+                    <button v-if="isMine(desktopMenu.msg) && !isAiChat" class="dctx-item dctx-danger" @click="removeMessage(desktopMenu.msg); closeDesktopMenu()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                      Delete message
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Teleport>
+
           <div class="composer">
+            <!-- @mention popup -->
+            <div v-if="mentionOpen && filteredMentions.length" class="mention-popup">
+              <button
+                v-for="(p, i) in filteredMentions"
+                :key="p.id"
+                class="mention-item"
+                :class="{ 'mention-item--active': i === mentionIdx }"
+                @mousedown.prevent="selectMention(p.username)"
+              >
+                <UserAvatar :username="p.username" :avatarUrl="p.avatar_url" size="sm" />
+                <span class="mention-item-name">@{{ p.username }}</span>
+              </button>
+            </div>
             <!-- Normal mode -->
             <template v-if="!recording">
               <input ref="fileInputEl" type="file" multiple style="display:none" @change="onFileSelect" />
@@ -615,6 +786,15 @@
                 @keydown="onKeydown"
                 @input="onTyping"
               />
+              <span
+                v-if="input.length > 3500"
+                class="char-counter"
+                :class="{
+                  'char-counter--danger': input.length > 4000,
+                  'char-counter--warning': input.length > 3800 && input.length <= 4000,
+                  'char-counter--ok': input.length <= 3800
+                }"
+              >{{ 4000 - input.length }}</span>
               <button
                 ref="emojiButtonEl"
                 class="btn-icon composer-emoji"
@@ -638,13 +818,20 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 <span class="composer-clock-badge">{{ scheduledMessages.length }}</span>
               </button>
-              <button v-if="!isAiChat" class="btn-icon composer-mic" title="Record voice message" :disabled="uploading" @click="startRecording">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
-              </button>
-              <div v-if="!isAiChat" class="send-menu-wrap">
+              <div v-if="!isAiChat" class="composer-action-wrap send-menu-wrap">
+                <button
+                  class="composer-mic composer-action-btn btn-icon"
+                  :class="{ 'btn-hidden': input.trim() || pendingFiles.length }"
+                  title="Record voice message"
+                  :disabled="uploading"
+                  @click="startRecording"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+                </button>
                 <button
                   ref="sendBtnEl"
-                  class="composer-send"
+                  class="composer-send composer-action-btn"
+                  :class="{ 'btn-hidden': !input.trim() && !pendingFiles.length }"
                   :disabled="!input.trim() && !pendingFiles.length"
                   @click="send"
                   @contextmenu.prevent="openSendMenu()"
@@ -664,7 +851,15 @@
             <template v-else>
               <span class="recording-dot"></span>
               <span class="recording-time">{{ fmtRecTime(recordingTime) }}</span>
-              <span style="flex:1" />
+              <div v-if="waveformBars.length" class="voice-waveform">
+                <span
+                  v-for="(h, i) in waveformBars"
+                  :key="i"
+                  class="waveform-bar"
+                  :style="{ height: h + 'px' }"
+                ></span>
+              </div>
+              <span v-else style="flex:1" />
               <button class="btn-icon" style="color:var(--danger);padding:6px 8px" title="Cancel" @click="cancelRecording">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
@@ -823,7 +1018,76 @@
       @close="showSchedulePicker = false"
       @submit="onSchedulePicked"
     />
+
+    <!-- Toast notification -->
+    <Transition name="toast-fade">
+      <div v-if="toastMsg" class="toast">{{ toastMsg }}</div>
+    </Transition>
+
+    <!-- Read receipt details modal -->
+    <Teleport to="body">
+      <div v-if="readByMsgId" class="modal-overlay" @click.self="readByMsgId = null">
+        <div class="modal read-by-modal">
+          <div class="modal-header">
+            <span class="modal-title">Read by</span>
+            <button class="btn-icon" @click="readByMsgId = null">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="read-by-body">
+            <div v-if="readByLoading" class="read-by-empty">Loading…</div>
+            <div v-else-if="!readByList.length" class="read-by-empty">No one has read this message yet.</div>
+            <div v-for="u in readByList" :key="u.username" class="read-by-item">
+              <UserAvatar :username="u.username" :avatarUrl="u.avatar_url" size="sm" />
+              <span class="read-by-username">{{ u.username }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Keyboard shortcuts modal -->
+    <div v-if="showKeyboardShortcutsModal" class="modal-overlay" @click.self="showKeyboardShortcutsModal = false">
+      <div class="modal kbd-shortcuts-modal">
+        <div class="modal-header">
+          <span class="modal-title">Keyboard Shortcuts</span>
+          <button class="btn-icon" @click="showKeyboardShortcutsModal = false">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <table>
+          <tr><td><kbd>Ctrl+K</kbd></td><td>Search chats</td></tr>
+          <tr><td><kbd>Alt+↑ / ↓</kbd></td><td>Navigate between chats</td></tr>
+          <tr><td><kbd>Ctrl+F</kbd></td><td>Search in chat</td></tr>
+          <tr><td><kbd>Ctrl+Shift+M</kbd></td><td>Mute / unmute current chat</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Close modals / cancel reply or edit</td></tr>
+          <tr><td><kbd>?</kbd></td><td>Show this shortcuts panel</td></tr>
+        </table>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" @click="showKeyboardShortcutsModal = false">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
+
+  <!-- Sidebar chat context menu (pin/unpin) -->
+  <Teleport to="body">
+    <template v-if="sidebarItemMenu">
+      <div class="sidebar-ctx-backdrop" @click="closeSidebarMenu" @contextmenu.prevent="closeSidebarMenu"></div>
+      <div
+        ref="sidebarCtxMenuEl"
+        class="sidebar-ctx-menu"
+        :style="{ left: sidebarItemMenu.x + 'px', top: sidebarItemMenu.y + 'px' }"
+      >
+        <button class="sidebar-ctx-item" @click="togglePin(sidebarItemMenu.chat)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <path d="M16 1l-1.5 1.5 1 1-5.5 5.5-2-1L6.5 9.5 9 12H5l-1 1 4 4 1-1v-4l2.5 2.5 1.5-1.5-1-2 5.5-5.5 1 1L19 5.5z"/>
+          </svg>
+          {{ sidebarItemMenu.chat.is_pinned ? 'Unpin' : 'Pin' }}
+        </button>
+      </div>
+    </template>
+  </Teleport>
 </template>
 
 <script setup>
@@ -863,6 +1127,30 @@ function toggleMute(id) {
   else s.add(id)
   mutedChats.value = s
   localStorage.setItem('mutedChats', JSON.stringify([...s]))
+}
+
+// ─── Sidebar pin ──────────────────────────────────────────────────
+function openSidebarMenu(e, chat) {
+  e.preventDefault()
+  sidebarItemMenu.value = { chat, x: e.clientX, y: e.clientY }
+}
+
+function closeSidebarMenu() {
+  sidebarItemMenu.value = null
+}
+
+async function togglePin(c) {
+  try {
+    const result = await api.toggleSidebarPin(c.id)
+    const idx = sidebarChats.value.findIndex(sc => sc.id === c.id)
+    if (idx !== -1) {
+      sidebarChats.value[idx] = { ...sidebarChats.value[idx], is_pinned: result.is_pinned }
+    }
+  } catch (e) {
+    console.error('togglePin error', e)
+  } finally {
+    closeSidebarMenu()
+  }
 }
 
 // ── Tab title ─────────────────────────────────────────────────────────────────
@@ -916,6 +1204,10 @@ let typingDebounce = null
 const listEl = ref(null)
 const composerEl = ref(null)
 const fileInputEl = ref(null)
+const mentionOpen = ref(false)
+const mentionQuery = ref('')
+const mentionIdx = ref(0)
+const mentionCursorStart = ref(0)
 const emojiButtonEl = ref(null)
 const emojiPickerPos = ref({ bottom: 70, left: '50%', transform: 'translateX(-50%)' })
 const pendingFiles = ref([]) // [{ url, type, name, previewUrl }]
@@ -959,13 +1251,263 @@ const searchQuery = ref('')
 const searchResults = ref([])
 const searchLoading = ref(false)
 const searchInputEl = ref(null)
+const searchIdx = ref(-1)
 let searchDebounce = null
+
+// ─── Sidebar chat filter ──────────────────────────────────────────
+const sidebarSearch = ref('')
+const sidebarSearchOpen = ref(false)
+const sidebarFilterInputRef = ref(null)
+
+// ─── Sidebar item context menu (pin/unpin) ────────────────────────
+const sidebarItemMenu = ref(null) // { chat, x, y }
+const sidebarCtxMenuEl = ref(null)
+
+// ─── Toast notifications ──────────────────────────────────────────
+const toastMsg = ref(null)
+let toastTimer = null
+
+function showToast(text, duration = 2200) {
+  clearTimeout(toastTimer)
+  toastMsg.value = text
+  toastTimer = setTimeout(() => { toastMsg.value = null }, duration)
+}
+
+// ─── SSE status ───────────────────────────────────────────────────
+const sseStatus = ref('connected')
+
+// ─── Notification sound ───────────────────────────────────────────
+const notifSoundEnabled = ref(localStorage.getItem('notifSound') !== 'false')
+
+function toggleNotifSound() {
+  notifSoundEnabled.value = !notifSoundEnabled.value
+  localStorage.setItem('notifSound', String(notifSoundEnabled.value))
+}
+
+function playNotifSound() {
+  if (!notifSoundEnabled.value) return
+  try {
+    const ctx = new AudioContext()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.value = 880
+    osc.type = 'sine'
+    gain.gain.setValueAtTime(0.12, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.3)
+  } catch (e) { /* AudioContext may be blocked */ }
+}
+
+// ─── Keyboard shortcuts modal ─────────────────────────────────────
+const showKeyboardShortcutsModal = ref(false)
+
+// ─── Read receipt details ─────────────────────────────────────────
+const readByMsgId = ref(null)
+const readByList = ref([])
+const readByLoading = ref(false)
+
+// ─── Voice waveform ───────────────────────────────────────────────
+const waveformBars = ref([])
+let waveformRafId = null
+let waveformAudioCtx = null
+
+// ─── renderContent (linkify + markdown-lite) ──────────────────────
+function renderContent(text) {
+  if (!text) return ''
+  // Sanitize via DOM textContent→innerHTML to get HTML-escaped string
+  const div = document.createElement('div')
+  div.textContent = text
+  let safe = div.innerHTML
+  // Linkify URLs
+  safe = safe.replace(/https?:\/\/[^\s<>"&]+/g, url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`)
+  // Bold: **text**
+  safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  // Italic: _text_ (not preceded or followed by word char)
+  safe = safe.replace(/(?<![a-zA-Z0-9])_(.+?)_(?![a-zA-Z0-9])/g, '<em>$1</em>')
+  // Inline code: `text`
+  safe = safe.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+  // @mention highlight
+  safe = safe.replace(/@([a-zA-Z0-9_]+)/g, '<span class="mention-highlight">@$1</span>')
+  return safe
+}
+
+function closeMentionPopup() {
+  mentionOpen.value = false
+  mentionQuery.value = ''
+  mentionIdx.value = 0
+}
+
+function selectMention(username) {
+  const el = composerEl.value
+  if (!el) return
+  const before = input.value.slice(0, mentionCursorStart.value)
+  const after = input.value.slice(el.selectionStart)
+  input.value = before + '@' + username + ' ' + after
+  closeMentionPopup()
+  nextTick(() => {
+    const pos = (before + '@' + username + ' ').length
+    el.setSelectionRange(pos, pos)
+    el.focus()
+  })
+}
+
+const filteredSidebarChats = computed(() => {
+  const sorted = [...sidebarChats.value].sort((a, b) => {
+    if (a.is_pinned === b.is_pinned) return 0
+    return a.is_pinned ? -1 : 1
+  })
+  if (!sidebarSearch.value.trim()) return sorted
+  const q = sidebarSearch.value.toLowerCase()
+  return sorted.filter(c => (c.title || c.display_name || '').toLowerCase().includes(q))
+})
+
+const hasPinnedChats = computed(() => filteredSidebarChats.value.some(c => c.is_pinned))
+
+const filteredMentions = computed(() => {
+  if (!isGroup.value || !mentionOpen.value) return []
+  const q = mentionQuery.value.toLowerCase()
+  return participants.value
+    .filter(p => !p.is_me && p.username.toLowerCase().startsWith(q))
+    .slice(0, 6)
+})
+
+// ─── Unread divider ───────────────────────────────────────────────
+const unreadDividerBeforeId = ref(null)
+const unreadDividerCount = ref(0)
+
+function computeUnreadDivider() {
+  if (!me.value) return
+  const unread = messages.value.filter(m =>
+    m.sender !== me.value.username &&
+    m.deleted_at == null
+  )
+  const chatData = sidebarChats.value.find(c => c.id == chatId.value) || chat.value
+  const count = chatData?.unread_count || 0
+  if (count > 0 && unread.length > 0) {
+    const startIdx = unread.length - count
+    const firstUnread = unread[Math.max(0, startIdx)]
+    unreadDividerBeforeId.value = firstUnread?.id || null
+    unreadDividerCount.value = count
+  } else {
+    unreadDividerBeforeId.value = null
+    unreadDividerCount.value = 0
+  }
+}
+
+// ─── Text highlight helpers ───────────────────────────────────────
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function highlightText(text, query) {
+  if (!query || !text) return escapeHtml(text || '')
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return escapeHtml(text).replace(
+    new RegExp(escaped, 'gi'),
+    m => `<mark>${m}</mark>`
+  )
+}
+
+// ─── Paste image handler ──────────────────────────────────────────
+function onPaste(e) {
+  if (isAiChat.value) return
+  const active = document.activeElement
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && !active.closest('.composer')) return
+  const items = e.clipboardData?.items
+  if (!items) return
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile()
+      if (file) processFile(file)
+      break
+    }
+  }
+}
 const reactionPickerMsgId = ref(null)
 const reactionPickerPos = ref({ x: 0, y: 0 })
+
+// ─── Desktop right-click context menu ─────────────────────────────
+const desktopMenu = ref(null)   // { msg, x, y, anchorEvent } or null
+const desktopMenuEl = ref(null)
+const desktopMenuStyle = ref({})
 const showFullReactionPicker = ref(false)
 
 const forwardingMsg = ref(null)
 const showForwardModal = ref(false)
+
+// ─── Bulk selection ───────────────────────────────────────────────
+const selectionMode = ref(false)
+const selectedMsgIds = ref(new Set())
+
+function enterSelectionMode(msgId) {
+  selectionMode.value = true
+  selectedMsgIds.value = new Set([msgId])
+}
+
+function exitSelectionMode() {
+  selectionMode.value = false
+  selectedMsgIds.value = new Set()
+}
+
+function toggleMsgSelection(msgId) {
+  if (!selectionMode.value) return
+  const s = new Set(selectedMsgIds.value)
+  if (s.has(msgId)) s.delete(msgId)
+  else s.add(msgId)
+  selectedMsgIds.value = s
+  if (s.size === 0) exitSelectionMode()
+}
+
+function onMsgShiftClick(msgId) {
+  if (!selectionMode.value) enterSelectionMode(msgId)
+  else toggleMsgSelection(msgId)
+}
+
+function onMsgClick(e, msgId) {
+  if (!selectionMode.value) return
+  e.stopPropagation()
+  toggleMsgSelection(msgId)
+}
+
+const canDeleteSelected = computed(() =>
+  selectedMsgIds.value.size > 0 &&
+  [...selectedMsgIds.value].every(id => {
+    const m = messages.value.find(x => x.id === id)
+    return m && isMine(m) && !m.deleted_at
+  })
+)
+
+async function bulkDelete() {
+  const ids = [...selectedMsgIds.value]
+  const deletable = ids.filter(id => {
+    const m = messages.value.find(x => x.id === id)
+    return m && isMine(m) && !m.deleted_at
+  })
+  if (!deletable.length) return
+  for (const id of deletable) {
+    try { await api.deleteMessage(chatId.value, id) } catch {}
+  }
+  showToast(`${deletable.length} message${deletable.length > 1 ? 's' : ''} deleted`)
+  exitSelectionMode()
+}
+
+function bulkForward() {
+  if (!selectedMsgIds.value.size) return
+  const id = [...selectedMsgIds.value][0]
+  const m = messages.value.find(x => x.id === id)
+  if (!m) return
+  forwardingMsg.value = m
+  showForwardModal.value = true
+  exitSelectionMode()
+}
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '😡', '🔥', '👎']
 
@@ -1104,11 +1646,15 @@ function formatDateHeader(iso) {
 
 function formatRelative(iso) {
   if (!iso) return 'a while ago'
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  const date = new Date(iso)
+  const now   = new Date()
+  const diff  = Math.floor((now - date) / 1000)
   if (diff < 60) return 'just now'
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  return `${Math.floor(diff / 86400)}d ago`
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (date.toDateString() === now.toDateString()) return `today at ${time}`
+  if (date.toDateString() === new Date(now - 86400000).toDateString()) return `yesterday at ${time}`
+  if (diff < 7 * 86400) return `${Math.floor(diff / 86400)} days ago`
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
 function saveDraft(id, text) {
@@ -1208,6 +1754,7 @@ async function load() {
     return
   }
   chatLoading.value = false
+  computeUnreadDivider()
   const last = messages.value[messages.value.length - 1]
   if (last) await api.markDelivered(chatId.value, last.id).catch(() => {})
   await scrollToBottom()
@@ -1343,6 +1890,29 @@ async function markReadIfPossible() {
 
 // ─── typing ───────────────────────────────────────────────────────
 function onTyping() {
+  // @mention detection — use DOM el.value to avoid reactive/cursor timing issues
+  if (isGroup.value && composerEl.value) {
+    const el = composerEl.value
+    const pos = el.selectionStart
+    const textBefore = el.value.slice(0, pos)
+    const mentionMatch = textBefore.match(/@(\w*)$/)
+    if (mentionMatch) {
+      mentionCursorStart.value = textBefore.lastIndexOf('@')
+      mentionQuery.value = mentionMatch[1]
+      mentionOpen.value = true
+      mentionIdx.value = 0
+    } else {
+      closeMentionPopup()
+    }
+  }
+  // Auto-resize textarea — must run after Vue's v-model reconcile pass
+  nextTick(() => {
+    const el = composerEl.value
+    if (el) {
+      el.style.height = 'auto'
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+    }
+  })
   clearTimeout(typingDebounce)
   typingDebounce = setTimeout(() => {
     api.sendTyping(chatId.value).catch(() => {})
@@ -1372,7 +1942,7 @@ async function connectSse() {
       const source = new EventSource(`/.well-known/mercure?${params.toString()}`, { withCredentials: true })
       es = source
 
-      source.onopen = () => { chatSseDelay = 1000 }
+      source.onopen = () => { chatSseDelay = 1000; sseStatus.value = 'connected' }
       source.onmessage = async (evt) => {
         const payload = JSON.parse(evt.data)
         const d = payload.data
@@ -1484,6 +2054,12 @@ async function connectSse() {
           if (showScrollBtn.value && d.sender !== myId()) {
             unreadWhileScrolled.value++
           }
+          // Play notification sound for messages from others, in background or different chat
+          if (d.sender !== myId() && !isMuted(d.chat_id)) {
+            if (document.hidden || d.chat_id !== chatId.value) {
+              playNotifSound()
+            }
+          }
           await api.markDelivered(chatId.value, d.id).catch(() => {})
           await markReadIfPossible()
           if (shouldStick) await scrollToBottom()
@@ -1537,11 +2113,13 @@ async function connectSse() {
       source.onerror = () => {
         source.close()
         if (chatSseStopped || chatSseGen !== gen) return
+        sseStatus.value = 'reconnecting'
         chatSseTimer = setTimeout(attempt, chatSseDelay)
         chatSseDelay = Math.min(chatSseDelay * 2, 30000)
       }
     } catch {
       if (chatSseStopped || chatSseGen !== gen) return
+      sseStatus.value = 'reconnecting'
       chatSseTimer = setTimeout(attempt, chatSseDelay)
       chatSseDelay = Math.min(chatSseDelay * 2, 30000)
     }
@@ -1605,12 +2183,20 @@ function openReactionPicker(msgId, event) {
     closeReactionPicker()
     return
   }
-  const rect = event.currentTarget.getBoundingClientRect()
-  // Clamp x so the picker (which uses translate(-50%)) never overflows the
-  // viewport on narrow mobile screens. Half the quick-picker width ≈ 144px.
+  // event.currentTarget is nulled after dispatch (e.g. when event is stored as anchorEvent).
+  // Fall back to clientX/Y which remain valid on the event object.
+  let srcX, srcY
+  if (event.currentTarget) {
+    const rect = event.currentTarget.getBoundingClientRect()
+    srcX = rect.left
+    srcY = rect.top
+  } else {
+    srcX = event.clientX
+    srcY = event.clientY
+  }
   const halfW = 144
-  const clampedX = Math.max(halfW + 8, Math.min(rect.left, window.innerWidth - halfW - 8))
-  reactionPickerPos.value = { x: clampedX, y: rect.top }
+  const clampedX = Math.max(halfW + 8, Math.min(srcX, window.innerWidth - halfW - 8))
+  reactionPickerPos.value = { x: clampedX, y: srcY }
   reactionPickerMsgId.value = msgId
   showFullReactionPicker.value = false
 }
@@ -1678,6 +2264,7 @@ function closeSearch() {
   searchQuery.value = ''
   searchResults.value = []
   searchLoading.value = false
+  searchIdx.value = -1
   clearTimeout(createSearchDebounce)
 }
 
@@ -1705,9 +2292,18 @@ async function doSearch(q) {
   }
 }
 
+watch(searchResults, () => { searchIdx.value = -1 })
+
 async function jumpToSearchResult(id) {
   closeSearch()
   await jumpToMessage(id)
+}
+
+function navigateSearchResult(dir) {
+  const n = searchResults.value.length
+  if (!n) return
+  searchIdx.value = (searchIdx.value + dir + n) % n
+  jumpToMessage(searchResults.value[searchIdx.value].id)
 }
 
 // ─── polls ───────────────────────────────────────────────────────
@@ -1770,6 +2366,7 @@ async function send() {
     const text = input.value.trim()
     if (!text || aiLoading.value) return
     input.value = ''
+    if (composerEl.value) composerEl.value.style.height = 'auto'
     composerEl.value?.focus()
     await sendToAi(text)
     return
@@ -1785,6 +2382,8 @@ async function send() {
   input.value = ''
   replyingTo.value = null
   pendingFiles.value = []
+  // Reset textarea height after clear
+  if (composerEl.value) { composerEl.value.style.height = 'auto' }
   composerEl.value?.focus()
   navigator.vibrate?.(10)
   await api.sendMessage(chatId.value, text, replyId, atts).catch(() => {})
@@ -1832,15 +2431,31 @@ async function sendToAi(text) {
 async function processFile(file) {
   if (!file) return
   uploading.value = true
+  // Add placeholder with progress=0 immediately
+  const placeholder = {
+    url: null,
+    type: null,
+    name: file.name,
+    previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+    progress: 0,
+  }
+  const idx = pendingFiles.value.push(placeholder) - 1
   try {
-    const result = await api.uploadFile(file)
-    pendingFiles.value.push({
-      url: result.url,
-      type: result.type,
-      name: result.name || file.name,
-      previewUrl: result.type === 'image' ? result.url : null,
+    const result = await api.uploadFile(file, (pct) => {
+      if (pendingFiles.value[idx]) pendingFiles.value[idx].progress = pct
     })
+    if (pendingFiles.value[idx]) {
+      pendingFiles.value[idx] = {
+        url: result.url,
+        type: result.type,
+        name: result.name || file.name,
+        previewUrl: result.type === 'image' ? result.url : null,
+        progress: 100,
+      }
+    }
   } catch (err) {
+    // Remove failed upload placeholder
+    pendingFiles.value.splice(idx, 1)
     error.value = err.message
   } finally {
     uploading.value = false
@@ -1922,10 +2537,29 @@ async function startRecording() {
   recording.value = true
   recordingTime.value = 0
   recordingTimer = setInterval(() => recordingTime.value++, 1000)
+
+  // Start waveform analyser
+  try {
+    waveformAudioCtx = new AudioContext()
+    const source = waveformAudioCtx.createMediaStreamSource(stream)
+    const analyser = waveformAudioCtx.createAnalyser()
+    analyser.fftSize = 64
+    source.connect(analyser)
+    const dataArray = new Uint8Array(analyser.frequencyBinCount)
+    const drawBars = () => {
+      waveformRafId = requestAnimationFrame(drawBars)
+      analyser.getByteFrequencyData(dataArray)
+      waveformBars.value = Array.from(dataArray.slice(0, 16)).map(v => Math.max(4, v / 255 * 24))
+    }
+    drawBars()
+  } catch (e) { /* Web Audio API may be unavailable */ }
 }
 
 function cancelRecording() {
   clearInterval(recordingTimer)
+  if (waveformRafId) { cancelAnimationFrame(waveformRafId); waveformRafId = null }
+  if (waveformAudioCtx) { waveformAudioCtx.close().catch(() => {}); waveformAudioCtx = null }
+  waveformBars.value = []
   recording.value = false
   recordingTime.value = 0
   if (mediaRecorder) {
@@ -1938,6 +2572,9 @@ function cancelRecording() {
 
 async function sendRecording() {
   clearInterval(recordingTimer)
+  if (waveformRafId) { cancelAnimationFrame(waveformRafId); waveformRafId = null }
+  if (waveformAudioCtx) { waveformAudioCtx.close().catch(() => {}); waveformAudioCtx = null }
+  waveformBars.value = []
   recording.value = false
 
   if (!mediaRecorder) return
@@ -1975,11 +2612,22 @@ async function sendRecording() {
 }
 
 function onKeydown(e) {
+  if (e.key === 'Escape' && selectionMode.value) {
+    exitSelectionMode()
+    return
+  }
+  if (mentionOpen.value && filteredMentions.value.length) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); mentionIdx.value = (mentionIdx.value + 1) % filteredMentions.value.length; return }
+    if (e.key === 'ArrowUp') { e.preventDefault(); mentionIdx.value = (mentionIdx.value - 1 + filteredMentions.value.length) % filteredMentions.value.length; return }
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); selectMention(filteredMentions.value[mentionIdx.value].username); return }
+    if (e.key === 'Escape') { closeMentionPopup(); return }
+  }
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
     send()
   }
   if (e.key === 'Escape') {
+    if (desktopMenu.value) { closeDesktopMenu(); return }
     if (editingId.value) cancelEdit()
     else cancelReply()
   }
@@ -2003,6 +2651,13 @@ function onGroupMembersChanged(newParticipants) {
 function openUserProfile(username) {
   if (!username || username === me.value?.username) return
   profileUsername.value = username
+}
+
+function onMessageContentClick(e) {
+  if (e.target.classList.contains('mention-highlight')) {
+    const username = e.target.textContent.replace(/^@/, '')
+    openUserProfile(username)
+  }
 }
 
 function onGlobalSearchSelect({ chatId: targetChatId, messageId }) {
@@ -2047,6 +2702,7 @@ async function maybeJumpFromQuery() {
 
 function cancelReply() {
   replyingTo.value = null
+  closeMentionPopup()
 }
 
 function startForward(m) {
@@ -2061,6 +2717,7 @@ async function doForward(targetChatId) {
   forwardingMsg.value = null
   try {
     await api.sendForwardedMessage(targetChatId, m.id)
+    showToast('Message forwarded')
     if (targetChatId !== chatId.value) {
       router.push(`/chats/${targetChatId}`)
     }
@@ -2077,7 +2734,11 @@ function startEdit(m) {
   nextTick(() => {
     composerEl.value?.focus()
     const el = composerEl.value
-    if (el) el.setSelectionRange(el.value.length, el.value.length)
+    if (el) {
+      el.setSelectionRange(el.value.length, el.value.length)
+      el.style.height = 'auto'
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+    }
   })
 }
 
@@ -2085,6 +2746,11 @@ function cancelEdit() {
   editingId.value = null
   editingText.value = ''
   input.value = loadDraft(chatId.value)
+  closeMentionPopup()
+  nextTick(() => {
+    const el = composerEl.value
+    if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px' }
+  })
 }
 
 async function saveEdit() {
@@ -2097,6 +2763,7 @@ async function saveEdit() {
     const i = messages.value.findIndex(x => x.id === id)
     if (i !== -1) Object.assign(messages.value[i], updated)
     cancelEdit()
+    if (composerEl.value) composerEl.value.style.height = 'auto'
   } catch (e) {
     error.value = e.message
   } finally { busy.value = false }
@@ -2110,8 +2777,22 @@ async function removeMessage(m) {
     const i = messages.value.findIndex(x => x.id === m.id)
     if (i !== -1) messages.value[i].deleted_at = new Date().toISOString()
     if (editingId.value === m.id) cancelEdit()
+    showToast('Message deleted')
   } catch (e) { error.value = e.message }
   finally { busy.value = false }
+}
+
+async function openReadBy(msgId) {
+  readByMsgId.value = msgId
+  readByList.value = []
+  readByLoading.value = true
+  try {
+    readByList.value = await api.getMessageReadBy(chatId.value, msgId)
+  } catch {
+    readByList.value = []
+  } finally {
+    readByLoading.value = false
+  }
 }
 
 async function doPin(messageId) {
@@ -2302,6 +2983,10 @@ async function createChat() {
 
 watch(showOnlinePanel, (val) => { if (val) loadOnlineUsers() })
 
+watch(sidebarSearchOpen, (val) => {
+  if (val) nextTick(() => sidebarFilterInputRef.value?.focus())
+})
+
 // ─── Smart repositioning of mobile long-press menu ────────────────
 // Runs after Vue updates the DOM so we can measure actual menu dimensions.
 watch(mobileMenu, (newVal) => {
@@ -2324,6 +3009,26 @@ watch(mobileMenu, (newVal) => {
   let x = tx - menuW / 2
   x = Math.max(EDGE, Math.min(x, vw - menuW - EDGE))
   mobileMenu.value = { ...newVal, x, y, adjusted: true }
+}, { flush: 'post' })
+
+// ─── Smart repositioning of sidebar context menu ─────────────────
+// Runs after Vue renders the menu element so we can read its actual size
+// and clamp it to the viewport — critical on narrow mobile screens (≤390px)
+// where the sidebar is only 280px wide and an unclamped right-edge position
+// would push the menu off-screen.
+watch(sidebarItemMenu, (newVal) => {
+  if (!newVal || newVal.adjusted) return
+  if (!sidebarCtxMenuEl.value) return
+  const el = sidebarCtxMenuEl.value
+  const menuW = el.offsetWidth || 130
+  const menuH = el.offsetHeight || 50
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const EDGE = 8
+  const SAFE_BOTTOM = 20
+  let x = Math.max(EDGE, Math.min(newVal.x, vw - menuW - EDGE))
+  let y = Math.max(EDGE, Math.min(newVal.y, vh - menuH - EDGE - SAFE_BOTTOM))
+  sidebarItemMenu.value = { ...newVal, x, y, adjusted: true }
 }, { flush: 'post' })
 
 watch(input, (val) => {
@@ -2351,6 +3056,8 @@ watch(chatId, async (newId, oldId) => {
   peerDeliveredId.value = null
   peerReadId.value = null
   typingUser.value = ''
+  unreadDividerBeforeId.value = null
+  unreadDividerCount.value = 0
   cancelEdit()
   cancelReply()
   cancelFile()
@@ -2371,6 +3078,8 @@ watch(chatId, async (newId, oldId) => {
   globalSearchOpen.value = false
   showForwardModal.value = false
   forwardingMsg.value = null
+  exitSelectionMode()
+  readByMsgId.value = null
   mobileMenu.value = null
   swipeMsgId.value = null
   msgSwipeX.value = 0
@@ -2487,8 +3196,41 @@ function closeMobileMenu() {
   mobileMenu.value = null
 }
 
+function openDesktopMenu(e, m) {
+  if (m.deleted_at || m.type === 'system') return
+  desktopMenu.value = { msg: m, x: e.clientX, y: e.clientY, anchorEvent: e }
+  nextTick(() => {
+    const el = desktopMenuEl.value
+    if (!el) return
+    const menuW = el.offsetWidth || 220
+    const menuH = el.offsetHeight || 300
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const MARGIN = 8
+    let x = e.clientX
+    let y = e.clientY
+    if (x + menuW > vw - MARGIN) x = vw - menuW - MARGIN
+    if (x < MARGIN) x = MARGIN
+    if (y + menuH > vh - MARGIN) y = vh - menuH - MARGIN
+    if (y < MARGIN) y = MARGIN
+    desktopMenuStyle.value = {
+      left: x + 'px',
+      top: y + 'px',
+      transformOrigin: e.clientX - x < menuW / 2 ? 'top left' : 'top right',
+    }
+  })
+}
+
+function closeDesktopMenu() {
+  desktopMenu.value = null
+  desktopMenuStyle.value = {}
+}
+
 function copyMessageText(m) {
-  if (m.content) navigator.clipboard?.writeText(m.content).catch(() => {})
+  if (m.content) {
+    showToast('Copied!')
+    navigator.clipboard?.writeText(m.content).catch(() => {})
+  }
   closeMobileMenu()
 }
 
@@ -2564,6 +3306,66 @@ function onSwipeTouchEnd(e) {
 
 function onSwipeTouchCancel() { swipeDecided = null }
 
+// ─── Keyboard shortcuts ───────────────────────────────────────────
+function navigateChat(direction) {
+  const chats = filteredSidebarChats.value
+  if (!chats.length) return
+  const idx = chats.findIndex(c => c.id === chatId.value)
+  const next = chats[idx + direction]
+  if (next) router.push(`/chats/${next.id}`)
+}
+
+function onGlobalKeydown(e) {
+  // Don't trigger when user is typing in any input/textarea outside composer
+  const active = document.activeElement
+  const isExternalInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && !active.closest('.composer') && !active.closest('.composer-wrap')
+
+  // Ctrl+K / Cmd+K — focus sidebar search
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault()
+    if (!sidebarSearchOpen.value) sidebarSearchOpen.value = true
+    nextTick(() => sidebarFilterInputRef.value?.focus())
+    return
+  }
+  // ? — show keyboard shortcuts (only when no input is focused)
+  if (e.key === '?' && !isExternalInput && !active?.closest('.composer')) {
+    showKeyboardShortcutsModal.value = true
+    return
+  }
+  if (isExternalInput) return
+  // Alt+↑ — previous chat
+  if (e.altKey && e.key === 'ArrowUp') {
+    e.preventDefault()
+    navigateChat(-1)
+    return
+  }
+  // Alt+↓ — next chat
+  if (e.altKey && e.key === 'ArrowDown') {
+    e.preventDefault()
+    navigateChat(1)
+    return
+  }
+  // Ctrl+F — toggle in-chat search
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f' && !isAiChat.value) {
+    e.preventDefault()
+    toggleSearch()
+    return
+  }
+  // Ctrl+Shift+M — mute/unmute current chat
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'M') {
+    e.preventDefault()
+    if (chatId.value && !isAiChat.value) toggleMute(chatId.value)
+    return
+  }
+  // Escape — close modals
+  if (e.key === 'Escape') {
+    if (readByMsgId.value) { readByMsgId.value = null; return }
+    if (selectionMode.value) { exitSelectionMode(); return }
+    if (sidebarItemMenu.value) { closeSidebarMenu(); return }
+    if (showKeyboardShortcutsModal.value) { showKeyboardShortcutsModal.value = false; return }
+  }
+}
+
 // ─── lifecycle ────────────────────────────────────────────────────
 function onWindowResize() {
   if (window.innerWidth < 640 && !sidebarHidden.value) sidebarHidden.value = true
@@ -2622,6 +3424,8 @@ onMounted(async () => {
   const _metaVP = document.querySelector('meta[name="viewport"]')
   if (_metaVP) _metaVP.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
   document.addEventListener('visibilitychange', markReadIfPossible)
+  document.addEventListener('paste', onPaste)
+  document.addEventListener('keydown', onGlobalKeydown)
   window.addEventListener('resize', onWindowResize)
   window.visualViewport?.addEventListener('resize', updateVVH)
   window.visualViewport?.addEventListener('scroll', updateVVH)
@@ -2641,6 +3445,8 @@ onBeforeUnmount(() => {
   clearTimeout(typingTimeout)
   clearTimeout(typingDebounce)
   document.removeEventListener('visibilitychange', markReadIfPossible)
+  document.removeEventListener('paste', onPaste)
+  document.removeEventListener('keydown', onGlobalKeydown)
   window.removeEventListener('resize', onWindowResize)
   window.visualViewport?.removeEventListener('resize', updateVVH)
   window.visualViewport?.removeEventListener('scroll', updateVVH)
