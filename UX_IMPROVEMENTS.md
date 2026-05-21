@@ -126,8 +126,8 @@ Living backlog of UX/UI ideas for the messenger. This file is maintained automat
 
 ### P3 — Nice-to-have
 
-- [ ] **P3-1 · README: API-таблица неполная**  
-  _Что не так:_ Отсутствуют: `GET /api/chats/{id}` (детали чата), `POST /api/chats/{id}/messages` с пересылкой (`forwarded_from_id`), `GET /api/chats/{id}/media`, `GET /api/chats/{id}/messages/{mid}/read-by`, `POST /api/me/ping`.  
+- [x] **P3-1 · README: API-таблица неполная** — shipped in v1.1.2  
+  _Что не так:_ Отсутствовали: `GET /api/chats/{id}`, `GET /api/chats/{id}/media`, `GET /api/chats/{id}/messages/{mid}/read-by`, `POST /api/me/ping`.  
   _Файлы:_ `README.md`
 
 - [x] **P3-2 · Нет Vue error boundary** — shipped in v1.1.2  
@@ -135,9 +135,9 @@ Living backlog of UX/UI ideas for the messenger. This file is maintained automat
   _Что делать:_ В `App.vue` добавить `onErrorCaptured` и глобальный `app.config.errorHandler` с fallback-сообщением.  
   _Файлы:_ `frontend/src/App.vue`, `frontend/src/main.js`
 
-- [ ] **P3-3 · `POSTGRES_PASSWORD` не документирован как переменная среды**  
-  _Что не так:_ README рассказывает про `MERCURE_JWT_SECRET` и `ANTHROPIC_API_KEY`, но не про `POSTGRES_PASSWORD`. Новый разработчик не знает, что пароль нужно менять перед деплоем.  
-  _Файлы:_ `README.md`, `.env.example`
+- [x] **P3-3 · `POSTGRES_PASSWORD` не документирован как переменная среды** — shipped in v1.1.2  
+  _Что не так:_ README не упоминал `POSTGRES_PASSWORD`. Новый разработчик не знал, что пароль нужно менять перед деплоем.  
+  _Файлы:_ `README.md`
 
 ---
 
