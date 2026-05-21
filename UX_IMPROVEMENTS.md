@@ -46,17 +46,16 @@ Living backlog of UX/UI ideas for the messenger. This file is maintained automat
   _Что делать:_ Добавить Symfony `Assert\Email` и `Assert\Length(min: 8)` на поля, или ручную валидацию. На фронте — добавить `minlength="8"` и подсказку «Minimum 8 characters» под полем пароля в `RegisterView.vue`.  
   _Файлы:_ `backend/app/src/Controller/AuthController.php:22-27`, `frontend/src/views/RegisterView.vue:44-56`
 
-- [ ] **P1-3 · Нет rate limiting на `/api/auth/login` — возможен брутфорс**  
+- [x] **P1-3 · Нет rate limiting на `/api/auth/login` — возможен брутфорс** — shipped in v1.1.2  
   _Что не так:_ Эндпоинт логина не ограничивает количество попыток. Атакующий может перебирать пароли неограниченно.  
   _Что делать:_ Symfony RateLimiter (`framework.rate_limiter`) на `AuthController` или через nginx `limit_req_zone`.  
   _Файлы:_ `backend/app/src/Controller/`, `backend/app/config/packages/framework.yaml`, `docker/nginx/`
 
-- [ ] **P1-4 · Пароль базы данных захардкожен в docker-compose.yml**  
+- [x] **P1-4 · Пароль базы данных захардкожен в docker-compose.yml** — already fixed (uses `${POSTGRES_PASSWORD:-messenger}`)  
   _Что не так:_ `POSTGRES_PASSWORD: messenger` лежит в открытом тексте в файле репозитория. Если кто-то получит доступ к коду, получит и пароль БД.  
-  _Что делать:_ Заменить на `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-messenger}` с документацией в README.  
   _Файлы:_ `docker-compose.yml:34`
 
-- [ ] **P1-5 · Mercure `cors_origins *` — слишком широкий доступ**  
+- [x] **P1-5 · Mercure `cors_origins *` — слишком широкий доступ** — shipped in v1.1.2  
   _Что не так:_ Любой origin может делать запросы к Mercure hub. В продакшн-среде это нужно ограничить.  
   _Что делать:_ Для `dev`-среды оставить `*`, для прода использовать `${CORS_ORIGINS:-*}` и документировать.  
   _Файлы:_ `docker-compose.yml` (секция mercure)
@@ -85,8 +84,7 @@ Living backlog of UX/UI ideas for the messenger. This file is maintained automat
   _Что делать:_ Удалить все 4 файла.  
   _Файлы:_ `frontend/src/components/HelloWorld.vue`, `frontend/src/assets/{vite.svg,vue.svg,hero.png}`
 
-- [ ] **P2-3 · `ChatsView.vue` использует emoji 💬 вместо SVG логотипа**  
-  _Что не так:_ Если `ChatsView.vue` не удаляется (P2-1), его сайдбар использует `<div class="sidebar-logo">💬</div>` — это противоречит SVG-логотипу в `ChatView.vue`.  
+- [x] **P2-3 · `ChatsView.vue` использует emoji 💬 вместо SVG логотипа** — N/A: ChatsView.vue удалён в P2-1  
   _Файлы:_ `frontend/src/views/ChatsView.vue:7`
 
 - [x] **P2-4 · `App.vue` содержит пустой `<script setup>`** — shipped in v1.1.1  
@@ -94,12 +92,12 @@ Living backlog of UX/UI ideas for the messenger. This file is maintained automat
   _Что делать:_ Убрать пустой script-блок.  
   _Файлы:_ `frontend/src/App.vue:1-2`
 
-- [ ] **P2-5 · Нет фокус-трапа в модальных окнах**  
+- [x] **P2-5 · Нет фокус-трапа в модальных окнах** — shipped in v1.1.2  
   _Что не так:_ При открытии любого модала (создание чата, редактирование, scheduled messages) фокус не переносится внутрь модала и не ограничивается им. Пользователь на клавиатуре может Tab'ом попасть на элементы за оверлеем — нарушение WCAG.  
   _Что делать:_ При `v-if` открытии модала вызывать `nextTick(() => modal.querySelector('input,button')?.focus())`. Перехватывать Tab/Shift+Tab на последнем/первом фокусируемом элементе.  
   _Файлы:_ `frontend/src/views/ChatView.vue` (все модалы)
 
-- [ ] **P2-6 · Нет подтверждения для массового удаления сообщений**  
+- [x] **P2-6 · Нет подтверждения для массового удаления сообщений** — shipped in v1.1.2  
   _Что не так:_ В режиме bulk selection одно случайное нажатие на Delete удаляет несколько сообщений без подтверждения. Отмены нет.  
   _Что делать:_ Добавить `confirm('Delete N messages?')` или маленький инлайн-тост с отменой.  
   _Файлы:_ `frontend/src/views/ChatView.vue` (bulk delete handler)
@@ -109,7 +107,7 @@ Living backlog of UX/UI ideas for the messenger. This file is maintained automat
   _Что делать:_ При `total_votes === 0` показывать плейсхолдер «No votes yet» вместо пустых барів.  
   _Файлы:_ `frontend/src/components/PollMessage.vue`
 
-- [ ] **P2-8 · Link preview: нет skeleton/индикатора загрузки**  
+- [x] **P2-8 · Link preview: нет skeleton/индикатора загрузки** — shipped in v1.1.2  
   _Что не так:_ Пока OG-метаданные загружаются, под сообщением нет никакого плейсхолдера. Превью появляется рывком.  
   _Что делать:_ Добавить skeleton-полосу (`shimmer` класс уже есть) пока `isLoading` = true в `LinkPreview.vue`.  
   _Файлы:_ `frontend/src/components/LinkPreview.vue`
@@ -132,7 +130,7 @@ Living backlog of UX/UI ideas for the messenger. This file is maintained automat
   _Что не так:_ Отсутствуют: `GET /api/chats/{id}` (детали чата), `POST /api/chats/{id}/messages` с пересылкой (`forwarded_from_id`), `GET /api/chats/{id}/media`, `GET /api/chats/{id}/messages/{mid}/read-by`, `POST /api/me/ping`.  
   _Файлы:_ `README.md`
 
-- [ ] **P3-2 · Нет Vue error boundary**  
+- [x] **P3-2 · Нет Vue error boundary** — shipped in v1.1.2  
   _Что не так:_ Если любой компонент бросит необработанное исключение в рендере, всё приложение падает. Нет глобального `onErrorCaptured` или компонента-обёртки.  
   _Что делать:_ В `App.vue` добавить `onErrorCaptured` и глобальный `app.config.errorHandler` с fallback-сообщением.  
   _Файлы:_ `frontend/src/App.vue`, `frontend/src/main.js`

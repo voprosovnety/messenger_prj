@@ -7,4 +7,11 @@ import router from './router'
 const savedTheme = localStorage.getItem('theme')
 if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme)
 
-createApp(App).use(router).mount('#app')
+const app = createApp(App)
+app.use(router)
+
+app.config.errorHandler = (err, instance, info) => {
+  console.error('[Vue error]', info, err)
+}
+
+app.mount('#app')

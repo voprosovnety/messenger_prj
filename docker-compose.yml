@@ -42,7 +42,7 @@ services:
       MERCURE_PUBLISHER_JWT_KEY: $MERCURE_JWT_SECRET
       MERCURE_SUBSCRIBER_JWT_KEY: $MERCURE_JWT_SECRET
       MERCURE_EXTRA_DIRECTIVES: |
-        cors_origins *
+        cors_origins ${CORS_ORIGINS:-*}
 
   scheduler:
     build:
