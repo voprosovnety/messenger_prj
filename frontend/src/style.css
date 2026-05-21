@@ -124,6 +124,7 @@ a:hover { text-decoration: underline; }
   justify-content: center;
   gap: 6px;
   padding: 8px 16px;
+  min-height: 44px;
   border-radius: var(--radius-sm);
   font-family: var(--font);
   font-size: 14px;
@@ -472,6 +473,17 @@ textarea.input {
 .sidebar-footer-status {
   font-size: 12px;
   color: var(--text-3);
+}
+
+/* Version label in the sidebar bottom-left — intentionally tiny and muted. */
+.sidebar-version {
+  padding: 4px 16px 8px;
+  font-size: 11px;
+  color: var(--text-3);
+  opacity: 0.6;
+  user-select: none;
+  pointer-events: none;
+  letter-spacing: 0.02em;
 }
 
 /* ─── Online indicator button ───────────────────────────────── */

@@ -119,6 +119,7 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         </button>
       </div>
+      <div class="sidebar-version" :title="`RealtimeChat v${appVersion}`">v{{ appVersion }}</div>
     </aside>
 
     <!-- Mobile: tap-outside backdrop behind the open sidebar -->
@@ -169,6 +170,14 @@
           </div>
         </div>
         <div class="chat-header-actions">
+          <button v-if="!isAiChat" class="btn-icon" :title="showMediaGallery ? 'Close gallery' : 'Media gallery'" :class="{ active: showMediaGallery }" @click="showMediaGallery = !showMediaGallery">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+          </button>
           <button v-if="!isAiChat" class="btn-icon" :title="searchOpen ? 'Close search' : 'Search messages'" :style="searchOpen ? 'color:var(--accent)' : ''" @click="toggleSearch">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </button>
@@ -890,6 +899,7 @@
       @left="sidebarChats = sidebarChats.filter(c => c.id !== chatId); router.push('/')"
       @deleted="sidebarChats = sidebarChats.filter(c => c.id !== chatId); router.push('/')"
       @open-user="openUserProfile($event)"
+      @open-media="showGroupProfile = false; showMediaGallery = true"
     />
 
     <!-- User profile modal -->
@@ -897,9 +907,11 @@
       v-if="profileUsername"
       :username="profileUsername"
       :sidebarChats="sidebarChats"
+      :chatId="isAiChat ? null : chatId"
       @close="profileUsername = null"
       @open-chat="(id) => { profileUsername = null; router.push(`/chats/${id}`) }"
       @go-profile="router.push('/profile')"
+      @open-media="profileUsername = null; showMediaGallery = true"
     />
 
     <!-- Image lightbox -->
@@ -909,6 +921,13 @@
       :index="lightboxIndex"
       @close="lightboxOpen = false"
       @navigate="lightboxIndex = $event"
+    />
+
+    <!-- Media gallery panel -->
+    <MediaGallery
+      v-if="showMediaGallery && !isAiChat"
+      :chatId="chatId"
+      @close="showMediaGallery = false"
     />
 
     <!-- Forward modal -->
@@ -1117,10 +1136,15 @@ import GlobalSearchPanel from '../components/GlobalSearchPanel.vue'
 import ScheduledMessagesModal from '../components/ScheduledMessagesModal.vue'
 import SchedulePickerModal from '../components/SchedulePickerModal.vue'
 import LinkPreview from '../components/LinkPreview.vue'
+import MediaGallery from '../components/MediaGallery.vue'
 
 const route = useRoute()
 const router = useRouter()
 const chatId = computed(() => route.params.chatId)
+
+// App version injected at build time by Vite (see vite.config.js → define.__APP_VERSION__).
+// Source of truth is /VERSION at the project root. devops-agent bumps it per commit.
+const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
 const me = ref(null)
 const chat = ref(null)
@@ -1242,6 +1266,7 @@ const pinnedIndex = ref(0)
 const showGroupProfile = ref(false)
 const showOnlinePanel = ref(false)
 const globalSearchOpen = ref(false)
+const showMediaGallery = ref(false)
 const onlineUsers = ref([])
 const draftMap = ref({})
 const showEmojiPicker = ref(false)
@@ -3118,6 +3143,7 @@ watch(chatId, async (newId, oldId) => {
   showSendMenu.value = false
   closeSearch()
   globalSearchOpen.value = false
+  showMediaGallery.value = false
   showForwardModal.value = false
   forwardingMsg.value = null
   exitSelectionMode()

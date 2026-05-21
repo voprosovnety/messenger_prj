@@ -34,6 +34,17 @@
           <div v-else class="user-profile-actions">
             <button class="btn btn-ghost" style="width:100%" @click="$emit('go-profile')">Edit profile</button>
           </div>
+          <div v-if="chatId && user && !user.is_me" class="user-profile-actions" style="margin-top:4px">
+            <button class="btn btn-ghost" style="width:100%;gap:6px" @click="$emit('open-media')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/>
+                <rect x="14" y="14" width="7" height="7" rx="1"/>
+              </svg>
+              Media
+            </button>
+          </div>
         </template>
 
         <div v-else class="user-profile-loading">User not found</div>
@@ -59,8 +70,9 @@ import { api } from '../api.js'
 const props = defineProps({
   username: { type: String, required: true },
   sidebarChats: { type: Array, default: () => [] },
+  chatId: { type: [String, null], default: null },
 })
-const emit = defineEmits(['close', 'open-chat', 'go-profile'])
+const emit = defineEmits(['close', 'open-chat', 'go-profile', 'open-media'])
 
 const user = ref(null)
 const loading = ref(true)

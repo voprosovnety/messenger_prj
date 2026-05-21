@@ -49,6 +49,16 @@
 
         <div class="gp-meta">{{ localParticipants.length }} members</div>
 
+        <button class="btn btn-ghost" style="width:100%;font-size:13px;gap:6px;margin-bottom:4px" @click="$emit('open-media')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
+            <rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+          Media
+        </button>
+
         <div v-if="error" class="auth-error" style="margin:0 0 8px">{{ error }}</div>
 
         <!-- Members -->
@@ -150,7 +160,7 @@ const props = defineProps({
   me: { type: Object, default: null },
   onlineUsers: { type: Array, default: () => [] },
 })
-const emit = defineEmits(['close', 'updated', 'member-added', 'member-removed', 'left', 'deleted', 'open-user'])
+const emit = defineEmits(['close', 'updated', 'member-added', 'member-removed', 'left', 'deleted', 'open-user', 'open-media'])
 
 const localParticipants = ref([...props.participants])
 const localAvatarUrl = ref(props.chat.avatar_url || null)
