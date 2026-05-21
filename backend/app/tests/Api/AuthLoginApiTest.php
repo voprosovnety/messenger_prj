@@ -38,7 +38,7 @@ final class AuthLoginApiTest extends ApiTestCase
 
     public function testLoginWithWrongPasswordReturns401(): void
     {
-        $this->createHashedUser('wrongpwuser', 'correct');
+        $this->createHashedUser('wrongpwuser', 'correct_password');
 
         $this->client->jsonRequest('POST', '/api/auth/login', [
             'identifier' => 'wrongpwuser',
