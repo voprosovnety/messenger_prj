@@ -54,6 +54,9 @@ class Message
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $attachments = null;
 
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $linkPreview = null;
+
     #[ORM\Column(length: 150, nullable: true)]
     private ?string $forwardedFrom = null;
 
@@ -168,6 +171,9 @@ class Message
 
     public function getAttachments(): ?array { return $this->attachments; }
     public function setAttachments(?array $v): static { $this->attachments = $v; return $this; }
+
+    public function getLinkPreview(): ?array { return $this->linkPreview; }
+    public function setLinkPreview(?array $linkPreview): void { $this->linkPreview = $linkPreview; }
 
     public function getForwardedFrom(): ?string { return $this->forwardedFrom; }
     public function setForwardedFrom(?string $v): static { $this->forwardedFrom = $v; return $this; }

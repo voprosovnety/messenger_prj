@@ -3571,6 +3571,64 @@ kbd {
   white-space: nowrap;
 }
 
+/* ─── Composer link preview card ──────────────────────────────────── */
+.composer-link-preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  animation: bar-slide-down 180ms ease forwards;
+}
+
+/* Constrain the LinkPreview component inside the composer strip */
+.composer-link-preview .link-preview {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Close button: visually 24×24 but tap target is 44×44 via ::before */
+.composer-link-preview-close {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--text-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition), color var(--transition);
+  padding: 0;
+}
+.composer-link-preview-close::before {
+  content: '';
+  position: absolute;
+  inset: -10px;  /* extends touch target to 44×44px */
+}
+.composer-link-preview-close:hover { background: var(--surface-2); color: var(--text); }
+@media (hover: none) {
+  .composer-link-preview-close:hover { background: var(--surface-3); color: var(--text-2); }
+  .composer-link-preview-close:active { background: var(--surface-2); color: var(--text); }
+}
+
+@media (max-width: 640px) {
+  /* Constrain link preview image to avoid stretching bubbles on narrow screens.
+     80px is safe — the bubble min-width on mobile is ~85% × 320px = 272px,
+     which leaves 192px for the body. Reduce to 64px so the body has more room
+     on the narrowest (320px) viewports. */
+  .link-preview-img {
+    width: 64px;
+    min-width: 64px;
+  }
+}
+
 .selection-actions {
   display: flex;
   gap: 8px;
@@ -3690,3 +3748,4 @@ kbd {
 }
 .header-more-danger { color: var(--danger); }
 .header-more-danger svg { color: var(--danger); }
+

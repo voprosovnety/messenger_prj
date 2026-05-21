@@ -140,6 +140,7 @@ final class ListMessagesController
                 'attachment_name' => $m->getAttachmentName(),
                 'reactions'       => $reactionsMap[(string) $m->getId()] ?? [],
                 'poll'            => $pollMap[(string) $m->getId()] ?? null,
+                'link_preview'    => $m->getLinkPreview(),
             ];
         }
 

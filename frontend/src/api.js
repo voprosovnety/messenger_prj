@@ -449,4 +449,6 @@ export const api = {
         if (!res.ok) throw new Error(json.error || 'Failed to load read receipts')
         return json
     },
+
+    getLinkPreview: (url) => request(`/api/link-preview?url=${encodeURIComponent(url)}`),
 }

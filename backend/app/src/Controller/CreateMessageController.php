@@ -6,6 +6,7 @@ use App\Entity\Chat;
 use App\Entity\ChatMember;
 use App\Entity\Message;
 use App\Entity\User;
+use App\Service\LinkPreviewService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,6 +24,7 @@ final class CreateMessageController
         EntityManagerInterface $em,
         UserInterface $me,
         HubInterface $hub,
+        LinkPreviewService $linkPreviewService,
     ): JsonResponse {
         /** @var User $me */
         $chat = $em->getRepository(Chat::class)->find($chatId);
@@ -102,6 +104,17 @@ final class CreateMessageController
         $em->persist($msg);
         $em->flush();
 
+        // Extract first URL from content and attach link preview
+        if (!empty($content) && is_string($content)) {
+            if (preg_match('/https?:\/\/[^\s<>"\']+/i', $content, $urlMatch)) {
+                $preview = $linkPreviewService->fetch($urlMatch[0]);
+                if ($preview !== null) {
+                    $msg->setLinkPreview($preview);
+                    $em->flush();
+                }
+            }
+        }
+
         $serializeReply = static function (?Message $r): ?array {
             if (!$r) return null;
             return [
@@ -129,6 +142,7 @@ final class CreateMessageController
             'attachment_type' => $msg->getAttachmentType(),
             'attachment_name' => $msg->getAttachmentName(),
             'reactions'       => [],
+            'link_preview'    => $msg->getLinkPreview(),
         ];
 
         $payload = json_encode(['type' => 'message.created', 'data' => $msgData], JSON_UNESCAPED_SLASHES);

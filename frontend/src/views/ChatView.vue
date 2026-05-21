@@ -435,6 +435,7 @@
                                 </a>
                               </div>
                             </template>
+                            <LinkPreview v-if="m.link_preview && !m.deleted_at" :preview="m.link_preview" />
                             </template><!-- end v-else (non-poll) -->
                           </template>
                           <div class="message-meta">
@@ -760,6 +761,13 @@
                 </div>
               </div>
             </Teleport>
+
+          <div v-if="composerLinkPreview && !composerLinkPreviewDismissed" class="composer-link-preview">
+            <LinkPreview :preview="composerLinkPreview" />
+            <button class="composer-link-preview-close" @click="composerLinkPreviewDismissed = true; composerLinkPreview = null" aria-label="Dismiss preview">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
 
           <div class="composer">
             <!-- @mention popup -->
@@ -1129,6 +1137,7 @@ import PollForm from '../components/PollForm.vue'
 import GlobalSearchPanel from '../components/GlobalSearchPanel.vue'
 import ScheduledMessagesModal from '../components/ScheduledMessagesModal.vue'
 import SchedulePickerModal from '../components/SchedulePickerModal.vue'
+import LinkPreview from '../components/LinkPreview.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -1303,6 +1312,11 @@ const sseStatus = ref('connected')
 
 // ─── Header overflow menu ─────────────────────────────────────────
 const showHeaderMenu = ref(false)
+
+// ─── Composer link preview ────────────────────────────────────────
+const composerLinkPreview = ref(null)
+const composerLinkPreviewDismissed = ref(false)
+let linkPreviewDebounce = null
 
 // ─── Notification sound ───────────────────────────────────────────
 const notifSoundEnabled = ref(localStorage.getItem('notifSound') !== 'false')
@@ -1945,6 +1959,22 @@ function onTyping() {
   typingDebounce = setTimeout(() => {
     api.sendTyping(chatId.value).catch(() => {})
   }, 400)
+  // Link preview debounce
+  clearTimeout(linkPreviewDebounce)
+  if (!composerLinkPreviewDismissed.value) {
+    const urlMatch = input.value.match(/https?:\/\/[^\s]+/)
+    if (urlMatch) {
+      linkPreviewDebounce = setTimeout(async () => {
+        try {
+          const res = await api.getLinkPreview(urlMatch[0])
+          if (res.status === 204 || !res.ok) { composerLinkPreview.value = null; return }
+          composerLinkPreview.value = await res.json()
+        } catch { composerLinkPreview.value = null }
+      }, 800)
+    } else {
+      composerLinkPreview.value = null
+    }
+  }
 }
 
 // ─── SSE ─────────────────────────────────────────────────────────
@@ -2410,6 +2440,8 @@ async function send() {
   input.value = ''
   replyingTo.value = null
   pendingFiles.value = []
+  composerLinkPreview.value = null
+  composerLinkPreviewDismissed.value = false
   // Reset textarea height after clear
   if (composerEl.value) { composerEl.value.style.height = 'auto' }
   composerEl.value?.focus()
@@ -3090,6 +3122,9 @@ watch(chatId, async (newId, oldId) => {
   cancelReply()
   cancelFile()
   cancelRecording()
+  clearTimeout(linkPreviewDebounce)
+  composerLinkPreview.value = null
+  composerLinkPreviewDismissed.value = false
   dragCounter = 0
   dragging.value = false
   lightboxOpen.value = false
@@ -3473,6 +3508,7 @@ onBeforeUnmount(() => {
   if (onlineUsersInterval) clearInterval(onlineUsersInterval)
   clearTimeout(typingTimeout)
   clearTimeout(typingDebounce)
+  clearTimeout(linkPreviewDebounce)
   document.removeEventListener('visibilitychange', markReadIfPossible)
   document.removeEventListener('paste', onPaste)
   document.removeEventListener('keydown', onGlobalKeydown)
