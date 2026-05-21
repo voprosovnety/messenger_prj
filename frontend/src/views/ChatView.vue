@@ -8,7 +8,11 @@
     <!-- Sidebar with chat list -->
     <aside class="sidebar" :class="{ 'sidebar-hidden': sidebarHidden }">
       <div class="sidebar-header">
-        <div class="sidebar-logo">💬</div>
+        <div class="sidebar-logo">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="color:#fff">
+            <path d="M20 2H4C2.9 2 2 2.9 2 4v12c0 1.1.9 2 2 2h6l4 4 4-4h2c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-4 9c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-4 0c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zM8 11c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/>
+          </svg>
+        </div>
         <span class="sidebar-logo-text">RealtimeChat</span>
         <button class="online-indicator" :class="{ active: showOnlinePanel }" :title="showOnlinePanel ? 'Close' : 'Online users'" @click="showOnlinePanel = !showOnlinePanel">
           <span class="online-indicator-dot"></span>{{ onlineUsers.length }} online
@@ -80,7 +84,7 @@
             @click="router.push(`/chats/${c.id}`)"
             @contextmenu.prevent="openSidebarMenu($event, c)"
           >
-          <UserAvatar :username="c.display_name || c.id" :avatarUrl="c.avatar_url || null" size="md" />
+          <UserAvatar :username="c.display_name || c.id" :avatarUrl="c.avatar_url || null" size="md" :shape="c.is_group ? 'square' : 'circle'" />
           <div class="chat-item-info">
             <div class="chat-item-top">
               <span class="chat-item-name">{{ c.display_name || c.id }}</span>
@@ -115,6 +119,7 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         </button>
       </div>
+      <div class="sidebar-version" :title="`RealtimeChat v${appVersion}`">v{{ appVersion }}</div>
     </aside>
 
     <!-- Mobile: tap-outside backdrop behind the open sidebar -->
@@ -131,7 +136,7 @@
       @dragover.prevent
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
-      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false; closeMobileMenu(); closeDesktopMenu()"
+      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false; closeMobileMenu(); closeDesktopMenu(); showHeaderMenu = false"
     >
       <!-- Drag-and-drop overlay -->
       <div v-if="dragging && !isAiChat" class="drop-overlay">
@@ -149,6 +154,7 @@
           :username="chatTitle"
           :avatarUrl="isGroup ? chat?.avatar_url : (peerUser?.avatar_url ?? null)"
           size="md"
+          :shape="isGroup ? 'square' : 'circle'"
           style="cursor:pointer"
           @click="isGroup ? openGroupProfile() : peerUser ? openUserProfile(peerUser.username) : undefined"
         />
@@ -164,6 +170,14 @@
           </div>
         </div>
         <div class="chat-header-actions">
+          <button v-if="!isAiChat" class="btn-icon" :title="showMediaGallery ? 'Close gallery' : 'Media gallery'" :class="{ active: showMediaGallery }" @click="showMediaGallery = !showMediaGallery">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+          </button>
           <button v-if="!isAiChat" class="btn-icon" :title="searchOpen ? 'Close search' : 'Search messages'" :style="searchOpen ? 'color:var(--accent)' : ''" @click="toggleSearch">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </button>
@@ -171,21 +185,32 @@
             <svg v-if="isMuted(chatId)" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           </button>
-          <button
-            class="btn-icon"
-            :class="{ 'notif-sound-btn-off': !notifSoundEnabled }"
-            :title="notifSoundEnabled ? 'Mute sounds' : 'Enable sounds'"
-            @click="toggleNotifSound"
-          >
-            <svg v-if="notifSoundEnabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-          </button>
-          <button class="btn-icon" title="Keyboard shortcuts (?)" @click="showKeyboardShortcutsModal = true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
-          </button>
-          <button v-if="!isGroup" class="btn-icon" title="Delete chat" style="color:var(--danger)" @click="deleteChat">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-          </button>
+          <!-- Secondary actions in overflow "⋯" menu -->
+          <div class="header-more-wrap" @click.stop>
+            <button class="btn-icon" :class="{ active: showHeaderMenu }" title="More options" @click="showHeaderMenu = !showHeaderMenu">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>
+            </button>
+            <div v-if="showHeaderMenu" class="header-more-menu">
+              <button class="header-more-item" @click="toggleNotifSound(); showHeaderMenu = false">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><template v-if="!notifSoundEnabled"><line x1="1" y1="1" x2="23" y2="23"/></template></svg>
+                <span class="header-more-item-label">{{ notifSoundEnabled ? 'Mute sounds' : 'Enable sounds' }}</span>
+                <span v-if="notifSoundEnabled" class="header-more-item-badge">On</span>
+                <span v-else class="header-more-item-badge">Off</span>
+              </button>
+              <button class="header-more-item" @click="showKeyboardShortcutsModal = true; showHeaderMenu = false">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+                <span class="header-more-item-label">Keyboard shortcuts</span>
+                <span class="header-more-item-badge">?</span>
+              </button>
+              <template v-if="!isGroup && !isAiChat">
+                <div class="header-more-divider"></div>
+                <button class="header-more-item header-more-danger" @click="deleteChat(); showHeaderMenu = false">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                  <span class="header-more-item-label">Delete chat</span>
+                </button>
+              </template>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -350,27 +375,6 @@
                       >
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
                       </div>
-                        <!-- Actions (desktop hover only, hidden on mobile) -->
-                        <div v-if="!m.deleted_at && !isAiChat" class="message-actions">
-                          <button v-if="isMine(m)" class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Edit" @click="startEdit(m)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                          </button>
-                          <button v-if="isMine(m)" class="btn-icon" style="padding:4px 6px;border-radius:4px;color:var(--danger)" title="Delete" @click="removeMessage(m)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-                          </button>
-                          <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Reply" @click="startReply(m)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
-                          </button>
-                          <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="Forward" @click="startForward(m)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
-                          </button>
-                          <button v-if="canPin" class="btn-icon" style="padding:4px 6px;border-radius:4px" :title="pinnedMessages.some(p => p.id === m.id) ? 'Unpin' : 'Pin'" @click="doPin(m.id)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
-                          </button>
-                          <button class="btn-icon" style="padding:4px 6px;border-radius:4px" title="React" @click.stop="openReactionPicker(m.id, $event)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-                          </button>
-                        </div>
                         <div class="message-bubble" :class="{ deleted: !!m.deleted_at }">
                           <div v-if="m.forwarded_from" class="forwarded-badge">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
@@ -419,23 +423,23 @@
                                 </a>
                               </div>
                             </template>
+                            <LinkPreview v-if="m.link_preview && !m.deleted_at" :preview="m.link_preview" />
                             </template><!-- end v-else (non-poll) -->
                           </template>
+                          <div class="message-meta">
+                            <span class="message-time">{{ formatTime(m.created_at) }}</span>
+                            <span v-if="m.edited_at && !m.deleted_at" class="message-edited">edited</span>
+                            <span
+                              v-if="isMine(m) && !m.deleted_at"
+                              class="message-ticks"
+                              :class="{ read: peerReadId && idLE(m.id, peerReadId), 'ticks-clickable': isGroup }"
+                              @click.stop="isGroup && openReadBy(m.id)"
+                            >
+                              <template v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</template>
+                              <template v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</template>
+                            </span>
+                          </div>
                         </div>
-                    </div>
-
-                    <div class="message-meta">
-                      <span class="message-time">{{ formatTime(m.created_at) }}</span>
-                      <span v-if="m.edited_at && !m.deleted_at" class="message-edited">edited</span>
-                      <span
-                        v-if="isMine(m) && !m.deleted_at"
-                        class="message-ticks"
-                        :class="{ read: peerReadId && idLE(m.id, peerReadId), 'ticks-clickable': isGroup }"
-                        @click.stop="isGroup && openReadBy(m.id)"
-                      >
-                        <template v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</template>
-                        <template v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</template>
-                      </span>
                     </div>
 
                     <!-- Reactions row -->
@@ -746,6 +750,13 @@
               </div>
             </Teleport>
 
+          <div v-if="composerLinkPreview && !composerLinkPreviewDismissed" class="composer-link-preview">
+            <LinkPreview :preview="composerLinkPreview" />
+            <button class="composer-link-preview-close" @click="composerLinkPreviewDismissed = true; composerLinkPreview = null" aria-label="Dismiss preview">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+
           <div class="composer">
             <!-- @mention popup -->
             <div v-if="mentionOpen && filteredMentions.length" class="mention-popup">
@@ -888,6 +899,7 @@
       @left="sidebarChats = sidebarChats.filter(c => c.id !== chatId); router.push('/')"
       @deleted="sidebarChats = sidebarChats.filter(c => c.id !== chatId); router.push('/')"
       @open-user="openUserProfile($event)"
+      @open-media="showGroupProfile = false; showMediaGallery = true"
     />
 
     <!-- User profile modal -->
@@ -895,9 +907,11 @@
       v-if="profileUsername"
       :username="profileUsername"
       :sidebarChats="sidebarChats"
+      :chatId="isAiChat ? null : chatId"
       @close="profileUsername = null"
       @open-chat="(id) => { profileUsername = null; router.push(`/chats/${id}`) }"
       @go-profile="router.push('/profile')"
+      @open-media="profileUsername = null; showMediaGallery = true"
     />
 
     <!-- Image lightbox -->
@@ -907,6 +921,13 @@
       :index="lightboxIndex"
       @close="lightboxOpen = false"
       @navigate="lightboxIndex = $event"
+    />
+
+    <!-- Media gallery panel -->
+    <MediaGallery
+      v-if="showMediaGallery && !isAiChat"
+      :chatId="chatId"
+      @close="showMediaGallery = false"
     />
 
     <!-- Forward modal -->
@@ -1021,7 +1042,15 @@
 
     <!-- Toast notification -->
     <Transition name="toast-fade">
-      <div v-if="toastMsg" class="toast">{{ toastMsg }}</div>
+      <div v-if="toastMsg" class="toast" :class="`toast--${toastType}`">
+        <span class="toast-icon">
+          <svg v-if="toastType === 'success'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <svg v-else-if="toastType === 'error'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <svg v-else-if="toastType === 'warning'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </span>
+        {{ toastMsg }}
+      </div>
     </Transition>
 
     <!-- Read receipt details modal -->
@@ -1106,10 +1135,16 @@ import PollForm from '../components/PollForm.vue'
 import GlobalSearchPanel from '../components/GlobalSearchPanel.vue'
 import ScheduledMessagesModal from '../components/ScheduledMessagesModal.vue'
 import SchedulePickerModal from '../components/SchedulePickerModal.vue'
+import LinkPreview from '../components/LinkPreview.vue'
+import MediaGallery from '../components/MediaGallery.vue'
 
 const route = useRoute()
 const router = useRouter()
 const chatId = computed(() => route.params.chatId)
+
+// App version injected at build time by Vite (see vite.config.js → define.__APP_VERSION__).
+// Source of truth is /VERSION at the project root. devops-agent bumps it per commit.
+const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
 const me = ref(null)
 const chat = ref(null)
@@ -1231,6 +1266,7 @@ const pinnedIndex = ref(0)
 const showGroupProfile = ref(false)
 const showOnlinePanel = ref(false)
 const globalSearchOpen = ref(false)
+const showMediaGallery = ref(false)
 const onlineUsers = ref([])
 const draftMap = ref({})
 const showEmojiPicker = ref(false)
@@ -1265,16 +1301,26 @@ const sidebarCtxMenuEl = ref(null)
 
 // ─── Toast notifications ──────────────────────────────────────────
 const toastMsg = ref(null)
+const toastType = ref('info')
 let toastTimer = null
 
-function showToast(text, duration = 2200) {
+function showToast(text, type = 'info', duration = 2200) {
   clearTimeout(toastTimer)
   toastMsg.value = text
+  toastType.value = type
   toastTimer = setTimeout(() => { toastMsg.value = null }, duration)
 }
 
 // ─── SSE status ───────────────────────────────────────────────────
 const sseStatus = ref('connected')
+
+// ─── Header overflow menu ─────────────────────────────────────────
+const showHeaderMenu = ref(false)
+
+// ─── Composer link preview ────────────────────────────────────────
+const composerLinkPreview = ref(null)
+const composerLinkPreviewDismissed = ref(false)
+let linkPreviewDebounce = null
 
 // ─── Notification sound ───────────────────────────────────────────
 const notifSoundEnabled = ref(localStorage.getItem('notifSound') !== 'false')
@@ -1495,7 +1541,7 @@ async function bulkDelete() {
   for (const id of deletable) {
     try { await api.deleteMessage(chatId.value, id) } catch {}
   }
-  showToast(`${deletable.length} message${deletable.length > 1 ? 's' : ''} deleted`)
+  showToast(`${deletable.length} message${deletable.length > 1 ? 's' : ''} deleted`, 'success')
   exitSelectionMode()
 }
 
@@ -1917,6 +1963,22 @@ function onTyping() {
   typingDebounce = setTimeout(() => {
     api.sendTyping(chatId.value).catch(() => {})
   }, 400)
+  // Link preview debounce
+  clearTimeout(linkPreviewDebounce)
+  if (!composerLinkPreviewDismissed.value) {
+    const urlMatch = input.value.match(/https?:\/\/[^\s]+/)
+    if (urlMatch) {
+      linkPreviewDebounce = setTimeout(async () => {
+        try {
+          const res = await api.getLinkPreview(urlMatch[0])
+          if (res.status === 204 || !res.ok) { composerLinkPreview.value = null; return }
+          composerLinkPreview.value = await res.json()
+        } catch { composerLinkPreview.value = null }
+      }, 800)
+    } else {
+      composerLinkPreview.value = null
+    }
+  }
 }
 
 // ─── SSE ─────────────────────────────────────────────────────────
@@ -2382,6 +2444,8 @@ async function send() {
   input.value = ''
   replyingTo.value = null
   pendingFiles.value = []
+  composerLinkPreview.value = null
+  composerLinkPreviewDismissed.value = false
   // Reset textarea height after clear
   if (composerEl.value) { composerEl.value.style.height = 'auto' }
   composerEl.value?.focus()
@@ -2717,7 +2781,7 @@ async function doForward(targetChatId) {
   forwardingMsg.value = null
   try {
     await api.sendForwardedMessage(targetChatId, m.id)
-    showToast('Message forwarded')
+    showToast('Message forwarded', 'success')
     if (targetChatId !== chatId.value) {
       router.push(`/chats/${targetChatId}`)
     }
@@ -2777,7 +2841,7 @@ async function removeMessage(m) {
     const i = messages.value.findIndex(x => x.id === m.id)
     if (i !== -1) messages.value[i].deleted_at = new Date().toISOString()
     if (editingId.value === m.id) cancelEdit()
-    showToast('Message deleted')
+    showToast('Message deleted', 'success')
   } catch (e) { error.value = e.message }
   finally { busy.value = false }
 }
@@ -3062,6 +3126,9 @@ watch(chatId, async (newId, oldId) => {
   cancelReply()
   cancelFile()
   cancelRecording()
+  clearTimeout(linkPreviewDebounce)
+  composerLinkPreview.value = null
+  composerLinkPreviewDismissed.value = false
   dragCounter = 0
   dragging.value = false
   lightboxOpen.value = false
@@ -3076,6 +3143,7 @@ watch(chatId, async (newId, oldId) => {
   showSendMenu.value = false
   closeSearch()
   globalSearchOpen.value = false
+  showMediaGallery.value = false
   showForwardModal.value = false
   forwardingMsg.value = null
   exitSelectionMode()
@@ -3228,7 +3296,7 @@ function closeDesktopMenu() {
 
 function copyMessageText(m) {
   if (m.content) {
-    showToast('Copied!')
+    showToast('Copied!', 'success')
     navigator.clipboard?.writeText(m.content).catch(() => {})
   }
   closeMobileMenu()
@@ -3362,6 +3430,7 @@ function onGlobalKeydown(e) {
     if (readByMsgId.value) { readByMsgId.value = null; return }
     if (selectionMode.value) { exitSelectionMode(); return }
     if (sidebarItemMenu.value) { closeSidebarMenu(); return }
+    if (showHeaderMenu.value) { showHeaderMenu.value = false; return }
     if (showKeyboardShortcutsModal.value) { showKeyboardShortcutsModal.value = false; return }
   }
 }
@@ -3444,6 +3513,7 @@ onBeforeUnmount(() => {
   if (onlineUsersInterval) clearInterval(onlineUsersInterval)
   clearTimeout(typingTimeout)
   clearTimeout(typingDebounce)
+  clearTimeout(linkPreviewDebounce)
   document.removeEventListener('visibilitychange', markReadIfPossible)
   document.removeEventListener('paste', onPaste)
   document.removeEventListener('keydown', onGlobalKeydown)

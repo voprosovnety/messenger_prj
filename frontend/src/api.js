@@ -449,4 +449,13 @@ export const api = {
         if (!res.ok) throw new Error(json.error || 'Failed to load read receipts')
         return json
     },
+
+    getLinkPreview: (url) => request(`/api/link-preview?url=${encodeURIComponent(url)}`),
+
+    getChatMedia: async (chatId) => {
+        const res = await request(`/api/chats/${chatId}/media`)
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to load media')
+        return json  // { items: [...] }
+    },
 }
