@@ -1,7 +1,7 @@
 <template>
   <div
     class="avatar"
-    :class="sizeClass"
+    :class="[sizeClass, shapeClass]"
     :style="!avatarUrl ? { background: bgColor } : {}"
     :title="username"
   >
@@ -19,6 +19,7 @@ const props = defineProps({
   avatarUrl: { type: String, default: null },
   size: { type: String, default: 'md' },
   isOnline: { type: Boolean, default: false },
+  shape: { type: String, default: 'circle' }, // 'circle' | 'square'
 })
 
 const COLORS = [
@@ -42,4 +43,5 @@ const initials = computed(() => {
 
 const bgColor = computed(() => COLORS[hashCode(props.username) % COLORS.length])
 const sizeClass = computed(() => `avatar-${props.size}`)
+const shapeClass = computed(() => props.shape === 'square' ? 'avatar-square' : '')
 </script>

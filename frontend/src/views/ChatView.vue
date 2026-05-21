@@ -84,7 +84,7 @@
             @click="router.push(`/chats/${c.id}`)"
             @contextmenu.prevent="openSidebarMenu($event, c)"
           >
-          <UserAvatar :username="c.display_name || c.id" :avatarUrl="c.avatar_url || null" size="md" />
+          <UserAvatar :username="c.display_name || c.id" :avatarUrl="c.avatar_url || null" size="md" :shape="c.is_group ? 'square' : 'circle'" />
           <div class="chat-item-info">
             <div class="chat-item-top">
               <span class="chat-item-name">{{ c.display_name || c.id }}</span>
@@ -153,6 +153,7 @@
           :username="chatTitle"
           :avatarUrl="isGroup ? chat?.avatar_url : (peerUser?.avatar_url ?? null)"
           size="md"
+          :shape="isGroup ? 'square' : 'circle'"
           style="cursor:pointer"
           @click="isGroup ? openGroupProfile() : peerUser ? openUserProfile(peerUser.username) : undefined"
         />
@@ -436,21 +437,20 @@
                             </template>
                             </template><!-- end v-else (non-poll) -->
                           </template>
+                          <div class="message-meta">
+                            <span class="message-time">{{ formatTime(m.created_at) }}</span>
+                            <span v-if="m.edited_at && !m.deleted_at" class="message-edited">edited</span>
+                            <span
+                              v-if="isMine(m) && !m.deleted_at"
+                              class="message-ticks"
+                              :class="{ read: peerReadId && idLE(m.id, peerReadId), 'ticks-clickable': isGroup }"
+                              @click.stop="isGroup && openReadBy(m.id)"
+                            >
+                              <template v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</template>
+                              <template v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</template>
+                            </span>
+                          </div>
                         </div>
-                    </div>
-
-                    <div class="message-meta">
-                      <span class="message-time">{{ formatTime(m.created_at) }}</span>
-                      <span v-if="m.edited_at && !m.deleted_at" class="message-edited">edited</span>
-                      <span
-                        v-if="isMine(m) && !m.deleted_at"
-                        class="message-ticks"
-                        :class="{ read: peerReadId && idLE(m.id, peerReadId), 'ticks-clickable': isGroup }"
-                        @click.stop="isGroup && openReadBy(m.id)"
-                      >
-                        <template v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</template>
-                        <template v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</template>
-                      </span>
                     </div>
 
                     <!-- Reactions row -->

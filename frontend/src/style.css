@@ -876,6 +876,12 @@ textarea.input {
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.04);
   transition: box-shadow var(--transition);
 }
+/* #16: contain the floated .message-meta inside */
+.message-bubble::after {
+  content: '';
+  display: table;
+  clear: both;
+}
 .message-bubble-outer:hover .message-bubble {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255, 255, 255, 0.06);
 }
@@ -892,12 +898,22 @@ textarea.input {
   background: var(--surface);
 }
 
+/* #16: time floated inside bubble (Telegram-style) */
 .message-meta {
-  display: flex;
+  float: right;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-top: 3px;
-  padding: 0 4px;
+  margin-left: 8px;
+  margin-top: 4px;
+  margin-bottom: -1px;
+  padding: 0;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+.message-meta .message-ticks {
+  pointer-events: auto;
 }
 .message-time {
   font-size: 11px;
@@ -925,6 +941,7 @@ textarea.input {
   align-items: center;
 }
 
+/* #18: bubble hover actions — desktop only, smooth fade-in */
 .message-actions {
   position: absolute;
   right: calc(100% + 6px);
@@ -940,8 +957,19 @@ textarea.input {
   white-space: nowrap;
   z-index: 1;
 }
-.message-row:hover .message-actions {
-  display: flex;
+@media (pointer: fine) {
+  .message-actions {
+    display: flex;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(3px);
+    transition: opacity 0.13s ease, visibility 0.13s ease, transform 0.13s ease;
+  }
+  .message-row:hover .message-actions {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
 }
 
 /* Swipe-to-reply icon — hidden on desktop, styled on mobile via media query */
@@ -1098,6 +1126,10 @@ textarea.input {
 .avatar-md  { width: 36px; height: 36px; font-size: 14px; }
 .avatar-lg  { width: 44px; height: 44px; font-size: 17px; }
 .avatar-xl  { width: 64px; height: 64px; font-size: 24px; }
+
+/* #17: Group chats get rounded-square avatars (Telegram-style) */
+.avatar-square { border-radius: 30%; }
+.avatar-square img { border-radius: 28%; }
 
 .avatar-online-dot {
   position: absolute;
@@ -3069,10 +3101,7 @@ textarea.input {
 .dctx-danger { color: var(--danger); }
 .dctx-danger svg { color: var(--danger); }
 
-/* Hide desktop hover actions on desktop since we use right-click menu */
-@media (pointer: fine) {
-  .message-actions { display: none !important; }
-}
+/* #18: non-own message actions appear on the right side */
 
 /* ─── TASK 4: Audio speed button ─────────────────────────────────── */
 .audio-speed-btn {
