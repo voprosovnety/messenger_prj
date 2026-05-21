@@ -243,7 +243,9 @@ export const api = {
             method: 'POST',
             body: JSON.stringify(body),
         })
-        return res.json()
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to send message')
+        return json
     },
 
     sendForwardedMessage: async (chatId, originalMessageId) => {
@@ -251,7 +253,9 @@ export const api = {
             method: 'POST',
             body: JSON.stringify({ forwarded_from_id: originalMessageId }),
         })
-        return res.json()
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to forward message')
+        return json
     },
 
     editMessage: async (chatId, messageId, content) => {
@@ -450,7 +454,12 @@ export const api = {
         return json
     },
 
-    getLinkPreview: (url) => request(`/api/link-preview?url=${encodeURIComponent(url)}`),
+    getLinkPreview: async (url) => {
+        const res = await request(`/api/link-preview?url=${encodeURIComponent(url)}`)
+        const json = await res.json().catch(() => null)
+        if (!res.ok || !json) return null
+        return json
+    },
 
     getChatMedia: async (chatId) => {
         const res = await request(`/api/chats/${chatId}/media`)

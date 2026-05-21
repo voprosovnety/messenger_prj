@@ -47,6 +47,7 @@
               :type="showPassword ? 'text' : 'password'"
               placeholder="••••••••"
               autocomplete="new-password"
+              minlength="8"
               required
             />
             <button type="button" class="input-action-btn" :title="showPassword ? 'Hide password' : 'Show password'" @click="showPassword = !showPassword">
@@ -54,6 +55,7 @@
               <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
+          <div class="input-hint">At least 8 characters</div>
         </div>
         <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px" :disabled="loading">
           {{ loading ? 'Creating account…' : 'Create account' }}

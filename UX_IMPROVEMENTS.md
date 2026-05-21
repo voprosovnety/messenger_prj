@@ -8,10 +8,140 @@ Living backlog of UX/UI ideas for the messenger. This file is maintained automat
 - **Completed** — items that have shipped to `dev`. Each line records the version (from `/VERSION`) in which it was delivered.
 - **Reference** — design intent, things deliberately left alone, and the "what's already good" notes. Not actionable; not pruned automatically.
 
+---
+
 ## Planned / In progress
 
-<!-- Add new items here as `- [ ] short description`. When an item starts being implemented, leave it here; `devops-agent` will move it to Completed after the push that ships it. -->
+<!-- Audit 2026-05-22: full product-polish audit. Items marked with P0–P3. -->
 
+### P0 — Критические баги (ломают базовый UX)
+
+- [x] **P0-1 · Отправка сообщения падает без каких-либо уведомлений** — shipped in v1.1.1  
+  _Что не так:_ `api.sendMessage()` делает `return res.json()` без проверки `res.ok`. Вызывающий код делает `.catch(() => {})`. При ошибке (400/403/500 от сервера) пользователь нажимает «Отправить», поле очищается, сообщение не появляется — и никакого сигнала ошибки нет.  
+  _Почему важно:_ Пользователь думает, что сообщение отправлено, хотя оно исчезло в пустоту.  
+  _Что делать:_ Добавить `if (!res.ok) throw new Error(...)` в `api.sendMessage` и `api.sendForwardedMessage`. В `send()` / `sendVoice()` убрать `.catch(() => {})`, заменить на `catch (e) { showToast(e.message, 'error') }`.  
+  _Файлы:_ `frontend/src/api.js:238-246, 249-254`, `frontend/src/views/ChatView.vue:2453, 2670`
+
+- [x] **P0-2 · Голосовое сообщение тоже тихо проваливается** — shipped in v1.1.1  
+  _Что не так:_ `api.sendMessage(...).catch(() => {})` на строке ChatView.vue:2670 — та же проблема, что P0-1.  
+  _Файлы:_ `frontend/src/views/ChatView.vue:2670`
+
+- [x] **P0-3 · Реакции, пины, голоса — ошибки проглатываются бесшумно** — shipped in v1.1.1  
+  _Что не так:_ Вызовы `api.toggleReaction()`, `api.votePoll()`, `api.toggleSidebarPin()` используют `.catch(() => {})`. API-функции корректно бросают ошибку при `!res.ok`, но catch её удаляет. Пользователь нажимает реакцию — ничего не меняется, почему — непонятно.  
+  _Что делать:_ Заменить `.catch(() => {})` на `catch (e) { showToast(e.message || 'Action failed', 'error') }`.  
+  _Файлы:_ `frontend/src/views/ChatView.vue:2297, 1179`
+
+---
+
+### P1 — Заметно ухудшают качество продукта
+
+- [x] **P1-1 · `console.error` в продакшн-коде** — shipped in v1.1.1  
+  _Что не так:_ `console.error('togglePin error', e)` на строке ChatView.vue:1185 выдаёт стек-трейсы в консоль браузера. Это утечка внутренних деталей. Логика уже перехватывает ошибку — надо показывать тост вместо консоли.  
+  _Что делать:_ Заменить `console.error(...)` на `showToast(e.message || 'Failed to pin chat', 'error')`.  
+  _Файлы:_ `frontend/src/views/ChatView.vue:1185`
+
+- [x] **P1-2 · Регистрация принимает любой «email» и любой пароль** — shipped in v1.1.1  
+  _Что не так:_ `AuthController::register()` проверяет только `!$email`, но не валидирует формат. Любая строка проходит. Пароль тоже — минимальная длина не задана (можно зарегистрироваться с паролем `a`).  
+  _Почему важно:_ Слабые пароли — дыра в безопасности. Невалидный email сломает маршруты восстановления доступа.  
+  _Что делать:_ Добавить Symfony `Assert\Email` и `Assert\Length(min: 8)` на поля, или ручную валидацию. На фронте — добавить `minlength="8"` и подсказку «Minimum 8 characters» под полем пароля в `RegisterView.vue`.  
+  _Файлы:_ `backend/app/src/Controller/AuthController.php:22-27`, `frontend/src/views/RegisterView.vue:44-56`
+
+- [ ] **P1-3 · Нет rate limiting на `/api/auth/login` — возможен брутфорс**  
+  _Что не так:_ Эндпоинт логина не ограничивает количество попыток. Атакующий может перебирать пароли неограниченно.  
+  _Что делать:_ Symfony RateLimiter (`framework.rate_limiter`) на `AuthController` или через nginx `limit_req_zone`.  
+  _Файлы:_ `backend/app/src/Controller/`, `backend/app/config/packages/framework.yaml`, `docker/nginx/`
+
+- [ ] **P1-4 · Пароль базы данных захардкожен в docker-compose.yml**  
+  _Что не так:_ `POSTGRES_PASSWORD: messenger` лежит в открытом тексте в файле репозитория. Если кто-то получит доступ к коду, получит и пароль БД.  
+  _Что делать:_ Заменить на `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-messenger}` с документацией в README.  
+  _Файлы:_ `docker-compose.yml:34`
+
+- [ ] **P1-5 · Mercure `cors_origins *` — слишком широкий доступ**  
+  _Что не так:_ Любой origin может делать запросы к Mercure hub. В продакшн-среде это нужно ограничить.  
+  _Что делать:_ Для `dev`-среды оставить `*`, для прода использовать `${CORS_ORIGINS:-*}` и документировать.  
+  _Файлы:_ `docker-compose.yml` (секция mercure)
+
+- [x] **P1-6 · `getLinkPreview` в api.js возвращает raw Response без обработки ошибок** — shipped in v1.1.1  
+  _Что не так:_ `getLinkPreview: (url) => request(...)` — единственный метод в api.js, который возвращает сырой `Response` вместо распарсенного JSON. Вызывающий код в `LinkPreview.vue` вынужден самостоятельно читать `res.json()` и обрабатывать ошибки. Несовместимо с паттерном всего остального api.js.  
+  _Что делать:_ Привести к общему паттерну: `const json = await res.json().catch(() => ({})); if (!res.ok) return null; return json`.  
+  _Файлы:_ `frontend/src/api.js:453`
+
+- [x] **P1-7 · `sidebarTypingTimers` не очищается при размонтировании компонента** — shipped in v1.1.1  
+  _Что не так:_ Объект `sidebarTypingTimers` накапливает ID таймеров по `chatId`. В `onBeforeUnmount` он не очищается — если пользователь открыл много чатов, объект будет расти. Хотя таймеры сами фаерятся и очищают значение, объект с мёртвыми ключами остаётся в памяти.  
+  _Что делать:_ В `onBeforeUnmount` добавить: `Object.values(sidebarTypingTimers).forEach(clearTimeout)`.  
+  _Файлы:_ `frontend/src/views/ChatView.vue:3510-3532`
+
+---
+
+### P2 — Polish и визуальные улучшения
+
+- [x] **P2-1 · `ChatsView.vue` мёртвый файл — импортирован в router.js, но ни в одном маршруте не используется** — shipped in v1.1.1  
+  _Что не так:_ `router.js:3` делает `import ChatsView from './views/ChatsView.vue'`, но ни один `routes[]` не указывает на него. Это мёртвый импорт + мёртвый компонент (650+ строк устаревшего кода).  
+  _Что делать:_ Удалить `ChatsView.vue` и строку импорта из `router.js`.  
+  _Файлы:_ `frontend/src/views/ChatsView.vue`, `frontend/src/router.js:3`
+
+- [x] **P2-2 · Мёртвые файлы от Vite-скаффолда** — shipped in v1.1.1  
+  _Что не так:_ `frontend/src/components/HelloWorld.vue`, `frontend/src/assets/vite.svg`, `frontend/src/assets/vue.svg`, `frontend/src/assets/hero.png` — шаблонные файлы Vite, ни в одном реальном компоненте не используются (только внутри самого `HelloWorld.vue`).  
+  _Что делать:_ Удалить все 4 файла.  
+  _Файлы:_ `frontend/src/components/HelloWorld.vue`, `frontend/src/assets/{vite.svg,vue.svg,hero.png}`
+
+- [ ] **P2-3 · `ChatsView.vue` использует emoji 💬 вместо SVG логотипа**  
+  _Что не так:_ Если `ChatsView.vue` не удаляется (P2-1), его сайдбар использует `<div class="sidebar-logo">💬</div>` — это противоречит SVG-логотипу в `ChatView.vue`.  
+  _Файлы:_ `frontend/src/views/ChatsView.vue:7`
+
+- [x] **P2-4 · `App.vue` содержит пустой `<script setup>`** — shipped in v1.1.1  
+  _Что не так:_ Пустой `<script setup></script>` без содержимого — лишний шум.  
+  _Что делать:_ Убрать пустой script-блок.  
+  _Файлы:_ `frontend/src/App.vue:1-2`
+
+- [ ] **P2-5 · Нет фокус-трапа в модальных окнах**  
+  _Что не так:_ При открытии любого модала (создание чата, редактирование, scheduled messages) фокус не переносится внутрь модала и не ограничивается им. Пользователь на клавиатуре может Tab'ом попасть на элементы за оверлеем — нарушение WCAG.  
+  _Что делать:_ При `v-if` открытии модала вызывать `nextTick(() => modal.querySelector('input,button')?.focus())`. Перехватывать Tab/Shift+Tab на последнем/первом фокусируемом элементе.  
+  _Файлы:_ `frontend/src/views/ChatView.vue` (все модалы)
+
+- [ ] **P2-6 · Нет подтверждения для массового удаления сообщений**  
+  _Что не так:_ В режиме bulk selection одно случайное нажатие на Delete удаляет несколько сообщений без подтверждения. Отмены нет.  
+  _Что делать:_ Добавить `confirm('Delete N messages?')` или маленький инлайн-тост с отменой.  
+  _Файлы:_ `frontend/src/views/ChatView.vue` (bulk delete handler)
+
+- [x] **P2-7 · Poll c 0 голосов: непонятный пустой стейт** — shipped in v1.1.1  
+  _Что не так:_ При `total_votes === 0` компонент `PollMessage.vue` показывает варианты с полосками 0% и скрытыми числами — выглядит как сломанный UI. Непонятно: голосование закрыто? Никто не голосовал? Можно ли голосовать?  
+  _Что делать:_ При `total_votes === 0` показывать плейсхолдер «No votes yet» вместо пустых барів.  
+  _Файлы:_ `frontend/src/components/PollMessage.vue`
+
+- [ ] **P2-8 · Link preview: нет skeleton/индикатора загрузки**  
+  _Что не так:_ Пока OG-метаданные загружаются, под сообщением нет никакого плейсхолдера. Превью появляется рывком.  
+  _Что делать:_ Добавить skeleton-полосу (`shimmer` класс уже есть) пока `isLoading` = true в `LinkPreview.vue`.  
+  _Файлы:_ `frontend/src/components/LinkPreview.vue`
+
+- [x] **P2-9 · Форма регистрации: нет подсказки о требованиях к паролю** — shipped in v1.1.1  
+  _Что не так:_ Поле пароля показывает только плейсхолдер `••••••••`. Пользователь вводит `12345`, получает ошибку с сервера без объяснения минимальной длины.  
+  _Что делать:_ Добавить под полем пароля «At least 8 characters» и `minlength="8"` на input.  
+  _Файлы:_ `frontend/src/views/RegisterView.vue:44-56`
+
+- [x] **P2-10 · Нет навигационного guard для уже-авторизованных на /login и /register** — shipped in v1.1.1  
+  _Что не так:_ `router.beforeEach` только редиректит _неавторизованных_ на `/login`. Авторизованный пользователь может открыть `/login` — форма загрузится, хотя должен быть редирект на чаты.  
+  _Что делать:_ В guard добавить `if (access && (to.path === '/login' || to.path === '/register')) return '/chats/ai'`.  
+  _Файлы:_ `frontend/src/router.js:19-22`
+
+---
+
+### P3 — Nice-to-have
+
+- [ ] **P3-1 · README: API-таблица неполная**  
+  _Что не так:_ Отсутствуют: `GET /api/chats/{id}` (детали чата), `POST /api/chats/{id}/messages` с пересылкой (`forwarded_from_id`), `GET /api/chats/{id}/media`, `GET /api/chats/{id}/messages/{mid}/read-by`, `POST /api/me/ping`.  
+  _Файлы:_ `README.md`
+
+- [ ] **P3-2 · Нет Vue error boundary**  
+  _Что не так:_ Если любой компонент бросит необработанное исключение в рендере, всё приложение падает. Нет глобального `onErrorCaptured` или компонента-обёртки.  
+  _Что делать:_ В `App.vue` добавить `onErrorCaptured` и глобальный `app.config.errorHandler` с fallback-сообщением.  
+  _Файлы:_ `frontend/src/App.vue`, `frontend/src/main.js`
+
+- [ ] **P3-3 · `POSTGRES_PASSWORD` не документирован как переменная среды**  
+  _Что не так:_ README рассказывает про `MERCURE_JWT_SECRET` и `ANTHROPIC_API_KEY`, но не про `POSTGRES_PASSWORD`. Новый разработчик не знает, что пароль нужно менять перед деплоем.  
+  _Файлы:_ `README.md`, `.env.example`
+
+---
 
 ## Completed
 
@@ -86,3 +216,8 @@ Living backlog of UX/UI ideas for the messenger. This file is maintained automat
 - Poll progress bar `transition: width 0.35s ease`
 - Hover scale on reactions and emoji
 - Highlight flash on quote click
+- `ScheduledMessageDispatcher::dispatchDue()` — корректно обёрнут в try/catch на уровне сервиса, цикл диспатча не падает при ошибке одного сообщения
+- `word-break: break-word; overflow-wrap: anywhere` — применено к message bubble (style.css:882-883)
+- Text overflow ellipsis — покрыт во всех ключевых местах (style.css:413, 426, 471, 571...)
+- `sendMessage` timer/debounce cleanup — корректно очищается в `onBeforeUnmount` (ChatView:3514)
+- `uploadFile` error handling — корректно обрабатывает HTTP ошибки через XHR status check

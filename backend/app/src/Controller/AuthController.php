@@ -27,6 +27,18 @@ final class AuthController
             return new JsonResponse(['error' => 'email, password, username are required'], 400);
         }
 
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return new JsonResponse(['error' => 'Invalid email format'], 400);
+        }
+
+        if (mb_strlen($password) < 8) {
+            return new JsonResponse(['error' => 'Password must be at least 8 characters'], 400);
+        }
+
+        if (mb_strlen($username) < 2 || mb_strlen($username) > 32) {
+            return new JsonResponse(['error' => 'Username must be 2–32 characters'], 400);
+        }
+
         // простая проверка на существование email
         $existsEmail = $em->getRepository(User::class)->findOneBy(['email' => $email]);
         if ($existsEmail) {

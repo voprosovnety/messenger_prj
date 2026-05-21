@@ -1182,7 +1182,7 @@ async function togglePin(c) {
       sidebarChats.value[idx] = { ...sidebarChats.value[idx], is_pinned: result.is_pinned }
     }
   } catch (e) {
-    console.error('togglePin error', e)
+    showToast(e.message || 'Failed to pin chat', 'error')
   } finally {
     closeSidebarMenu()
   }
@@ -1970,9 +1970,7 @@ function onTyping() {
     if (urlMatch) {
       linkPreviewDebounce = setTimeout(async () => {
         try {
-          const res = await api.getLinkPreview(urlMatch[0])
-          if (res.status === 204 || !res.ok) { composerLinkPreview.value = null; return }
-          composerLinkPreview.value = await res.json()
+          composerLinkPreview.value = await api.getLinkPreview(urlMatch[0])
         } catch { composerLinkPreview.value = null }
       }, 800)
     } else {
@@ -2294,7 +2292,11 @@ async function doToggleReaction(msgId, emoji) {
     }
   }
 
-  await api.toggleReaction(chatId.value, msgId, emoji).catch(() => {})
+  try {
+    await api.toggleReaction(chatId.value, msgId, emoji)
+  } catch (e) {
+    showToast(e.message || 'Failed to toggle reaction', 'error')
+  }
 }
 
 function handleReactionClick(m, emoji, event) {
@@ -2450,7 +2452,11 @@ async function send() {
   if (composerEl.value) { composerEl.value.style.height = 'auto' }
   composerEl.value?.focus()
   navigator.vibrate?.(10)
-  await api.sendMessage(chatId.value, text, replyId, atts).catch(() => {})
+  try {
+    await api.sendMessage(chatId.value, text, replyId, atts)
+  } catch (e) {
+    showToast(e.message || 'Failed to send message', 'error')
+  }
 }
 
 async function sendToAi(text) {
@@ -2667,7 +2673,7 @@ async function sendRecording() {
     const ext = type.includes('ogg') ? 'ogg' : 'webm'
     const file = new File([blob], `voice-${Date.now()}.${ext}`, { type })
     const result = await api.uploadFile(file)
-    await api.sendMessage(chatId.value, '', null, [{ url: result.url, type: 'audio', name: 'Voice message' }]).catch(() => {})
+    await api.sendMessage(chatId.value, '', null, [{ url: result.url, type: 'audio', name: 'Voice message' }])
   } catch (err) {
     error.value = err.message
   } finally {
@@ -3514,6 +3520,7 @@ onBeforeUnmount(() => {
   clearTimeout(typingTimeout)
   clearTimeout(typingDebounce)
   clearTimeout(linkPreviewDebounce)
+  Object.values(sidebarTypingTimers).forEach(clearTimeout)
   document.removeEventListener('visibilitychange', markReadIfPossible)
   document.removeEventListener('paste', onPaste)
   document.removeEventListener('keydown', onGlobalKeydown)
