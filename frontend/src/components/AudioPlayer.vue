@@ -53,14 +53,16 @@
   </div>
 </template>
 
+<script>
+// Runs once at module level — shared across ALL AudioPlayer instances
+const _active = { stop: null }
+</script>
+
 <script setup>
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 
 const props = defineProps({ src: { type: String, required: true } })
 const emit = defineEmits(['ended'])
-
-// Module-level singleton: only one AudioPlayer may play at a time
-const _active = { stop: null }
 
 const SPEEDS = [1, 1.5, 2, 0.5]
 const _storedSpeed = parseFloat(localStorage.getItem('audioSpeed') || '1')
