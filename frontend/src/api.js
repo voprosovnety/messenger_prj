@@ -380,10 +380,10 @@ export const api = {
         return json
     },
 
-    sendPoll: async (chatId, { question, options, multipleAnswers, anonymous }) => {
+    sendPoll: async (chatId, { question, options, multipleAnswers, anonymous, allowRetraction }) => {
         const res = await request(`/api/chats/${chatId}/messages/poll`, {
             method: 'POST',
-            body: JSON.stringify({ question, options, multiple_answers: multipleAnswers, anonymous }),
+            body: JSON.stringify({ question, options, multiple_answers: multipleAnswers, anonymous, allow_retraction: allowRetraction }),
         })
         const json = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(json.error || 'Failed to create poll')
