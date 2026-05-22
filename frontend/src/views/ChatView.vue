@@ -136,7 +136,7 @@
       @dragover.prevent
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
-      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false; closeMobileMenu(); closeDesktopMenu(); showHeaderMenu = false"
+      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false; closeMobileMenu(); closeDesktopMenu()"
     >
       <!-- Drag-and-drop overlay -->
       <div v-if="dragging && !isAiChat" class="drop-overlay">
@@ -185,32 +185,6 @@
             <svg v-if="isMuted(chatId)" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           </button>
-          <!-- Secondary actions in overflow "⋯" menu -->
-          <div class="header-more-wrap" @click.stop>
-            <button class="btn-icon" :class="{ active: showHeaderMenu }" title="More options" @click="showHeaderMenu = !showHeaderMenu">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>
-            </button>
-            <div v-if="showHeaderMenu" class="header-more-menu">
-              <button class="header-more-item" @click="toggleNotifSound(); showHeaderMenu = false">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><template v-if="!notifSoundEnabled"><line x1="1" y1="1" x2="23" y2="23"/></template></svg>
-                <span class="header-more-item-label">{{ notifSoundEnabled ? 'Mute sounds' : 'Enable sounds' }}</span>
-                <span v-if="notifSoundEnabled" class="header-more-item-badge">On</span>
-                <span v-else class="header-more-item-badge">Off</span>
-              </button>
-              <button class="header-more-item" @click="showKeyboardShortcutsModal = true; showHeaderMenu = false">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
-                <span class="header-more-item-label">Keyboard shortcuts</span>
-                <span class="header-more-item-badge">?</span>
-              </button>
-              <template v-if="!isGroup && !isAiChat">
-                <div class="header-more-divider"></div>
-                <button class="header-more-item header-more-danger" @click="deleteChat(); showHeaderMenu = false">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                  <span class="header-more-item-label">Delete chat</span>
-                </button>
-              </template>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -1336,9 +1310,6 @@ function showToast(text, type = 'info', duration = 2200) {
 // ─── SSE status ───────────────────────────────────────────────────
 const sseStatus = ref('connected')
 
-// ─── Header overflow menu ─────────────────────────────────────────
-const showHeaderMenu = ref(false)
-
 // ─── Composer link preview ────────────────────────────────────────
 const composerLinkPreview = ref(null)
 const composerLinkPreviewDismissed = ref(false)
@@ -1346,15 +1317,7 @@ const composerLinkPreviewLoading = ref(false)
 let linkPreviewDebounce = null
 
 // ─── Notification sound ───────────────────────────────────────────
-const notifSoundEnabled = ref(localStorage.getItem('notifSound') !== 'false')
-
-function toggleNotifSound() {
-  notifSoundEnabled.value = !notifSoundEnabled.value
-  localStorage.setItem('notifSound', String(notifSoundEnabled.value))
-}
-
 function playNotifSound() {
-  if (!notifSoundEnabled.value) return
   try {
     const ctx = new AudioContext()
     const osc = ctx.createOscillator()
@@ -3016,14 +2979,6 @@ function updatePinnedIndexFromScroll() {
   if (pinnedIndex.value !== targetIdx) pinnedIndex.value = targetIdx
 }
 
-async function deleteChat() {
-  if (!confirm('Delete this chat permanently?')) return
-  const id = chatId.value
-  await api.deleteChat(id)
-  sidebarChats.value = sidebarChats.value.filter(c => c.id !== id)
-  router.push('/')
-}
-
 async function logout() {
   await api.logout()
   router.push('/login')
@@ -3516,7 +3471,6 @@ function onGlobalKeydown(e) {
     if (bulkDeleteConfirming.value) { bulkDeleteConfirming.value = false; return }
     if (selectionMode.value) { exitSelectionMode(); return }
     if (sidebarItemMenu.value) { closeSidebarMenu(); return }
-    if (showHeaderMenu.value) { showHeaderMenu.value = false; return }
     if (showKeyboardShortcutsModal.value) { showKeyboardShortcutsModal.value = false; return }
   }
 }
