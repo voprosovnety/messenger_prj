@@ -400,6 +400,13 @@ export const api = {
         return json
     },
 
+    retractPollVote: async (chatId, messageId) => {
+        const res = await request(`/api/chats/${chatId}/messages/${messageId}/poll/vote`, { method: 'DELETE' })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error || 'Failed to retract vote')
+        return json
+    },
+
     listScheduledMessages: async (chatId) => {
         const res = await request(`/api/chats/${chatId}/scheduled-messages`)
         const json = await res.json().catch(() => ({}))

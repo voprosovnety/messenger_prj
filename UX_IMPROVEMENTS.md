@@ -223,6 +223,10 @@ Living backlog of UX/UI ideas for the messenger. This file is maintained automat
 - [x] Auth page background — subtle dot-grid pattern
 - [x] Header overflow menu — Sound / Shortcuts / Delete moved to `⋯` dropdown
 - [x] Fix `var(--bg-2)` bug — system-notification token corrected to `var(--surface-2)`
+- [x] Poll vote retraction — allow_retraction field + RetractPollVoteController + "Return vote" button in poll footer — shipped in v1.3.0
+- [x] Poll UI redesign (Telegram-like) — progress bar background fill, rounded cards, selected option accent, redesigned footer — shipped in v1.3.0
+- [x] Poll results modal — per-option vote counts + percentages, voter names for non-anonymous polls — shipped in v1.3.0
+- [x] Context menu Edit hidden for pure-media messages (voice/image/video/file) and poll messages — shipped in v1.3.0
 
 ## Reference
 

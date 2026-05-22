@@ -365,7 +365,11 @@
                               v-if="m.type === 'poll' && m.poll"
                               :poll="m.poll"
                               :my-username="me?.username"
+                              :allow-retraction="m.poll?.allow_retraction ?? false"
+                              :chat-id="chatId"
                               @vote="doVotePoll(m.id, $event)"
+                              @retract="doRetractPollVote(m.id)"
+                              @show-results="openPollResults(m)"
                             />
                             <template v-else>
                             <span v-if="m.content" class="message-content" style="white-space:pre-wrap;word-break:break-word" v-html="renderContent(m.content)" @click.stop="onMessageContentClick($event)"></span>
@@ -654,7 +658,7 @@
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                       Copy
                     </button>
-                    <button v-if="isMine(mobileMenu.msg)" class="mobile-ctx-item" @click="startEdit(mobileMenu.msg); closeMobileMenu()">
+                    <button v-if="isMine(mobileMenu.msg) && mobileMenu.msg?.content && mobileMenu.msg?.type !== 'poll'" class="mobile-ctx-item" @click="startEdit(mobileMenu.msg); closeMobileMenu()">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       Edit
                     </button>
@@ -713,7 +717,7 @@
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                       Copy text
                     </button>
-                    <button v-if="!isAiChat && isMine(desktopMenu.msg)" class="dctx-item" @click="startEdit(desktopMenu.msg); closeDesktopMenu()">
+                    <button v-if="!isAiChat && isMine(desktopMenu.msg) && desktopMenu.msg?.content && desktopMenu.msg?.type !== 'poll'" class="dctx-item" @click="startEdit(desktopMenu.msg); closeDesktopMenu()">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       Edit
                     </button>
@@ -1029,6 +1033,13 @@
       @submit="onSchedulePicked"
     />
 
+    <!-- Poll results modal -->
+    <PollResultsModal
+      v-if="pollResultsMsg?.poll"
+      :poll="pollResultsMsg.poll"
+      @close="pollResultsMsg = null"
+    />
+
     <!-- Toast notification -->
     <Transition name="toast-fade">
       <div v-if="toastMsg" class="toast" :class="`toast--${toastType}`">
@@ -1127,6 +1138,7 @@ import ScheduledMessagesModal from '../components/ScheduledMessagesModal.vue'
 import SchedulePickerModal from '../components/SchedulePickerModal.vue'
 import LinkPreview from '../components/LinkPreview.vue'
 import MediaGallery from '../components/MediaGallery.vue'
+import PollResultsModal from '../components/PollResultsModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -1335,6 +1347,13 @@ function playNotifSound() {
 
 // ─── Keyboard shortcuts modal ─────────────────────────────────────
 const showKeyboardShortcutsModal = ref(false)
+
+// ─── Poll results modal ───────────────────────────────────────────
+const pollResultsMsg = ref(null)
+
+function openPollResults(msg) {
+  pollResultsMsg.value = msg
+}
 
 // ─── Read receipt details ─────────────────────────────────────────
 const readByMsgId = ref(null)
@@ -2450,6 +2469,26 @@ async function doVotePoll(messageId, optionId) {
     const j = messages.value.findIndex(m => m.id === messageId)
     if (j !== -1) messages.value[j] = { ...messages.value[j], poll }
     composerError.value = e.message
+  }
+}
+
+async function doRetractPollVote(messageId) {
+  const msg = messages.value.find(m => m.id === messageId)
+  if (!msg?.poll) return
+  const poll = msg.poll
+  const myCount = (poll.my_votes || []).length
+  const i = messages.value.findIndex(m => m.id === messageId)
+  if (i !== -1) {
+    messages.value[i] = { ...messages.value[i], poll: { ...poll, my_votes: [], total_votes: Math.max(0, (poll.total_votes || 0) - myCount) } }
+  }
+  try {
+    const res = await api.retractPollVote(chatId.value, messageId)
+    const j = messages.value.findIndex(m => m.id === messageId)
+    if (j !== -1 && res.poll) messages.value[j] = { ...messages.value[j], poll: res.poll }
+  } catch (e) {
+    const j = messages.value.findIndex(m => m.id === messageId)
+    if (j !== -1) messages.value[j] = { ...messages.value[j], poll }
+    showToast(e.message || 'Failed to retract vote', 'error')
   }
 }
 

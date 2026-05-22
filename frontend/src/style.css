@@ -2606,10 +2606,11 @@ textarea.input {
   animation: picker-pop 0.18s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
-/* ─── Poll card ──────────────────────────────────────────────── */
+/* ─── Poll card (Telegram-style) ─────────────────────────────── */
 .poll-card {
   min-width: 220px;
   max-width: 340px;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2637,34 +2638,44 @@ textarea.input {
   flex-direction: column;
   gap: 6px;
 }
+/* Each option: relative container so the background bar sits behind content */
 .poll-option {
   position: relative;
+  border-radius: 10px;
   overflow: hidden;
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
-  background: transparent;
-  cursor: pointer;
+  min-height: 36px;
   padding: 0;
-  text-align: left;
-  transition: border-color var(--transition), transform var(--transition);
+  cursor: pointer;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  transition: border-color var(--transition), background var(--transition);
   color: var(--text);
   font-family: var(--font);
+  text-align: left;
 }
-.poll-option:hover:not(.poll-option-disabled) { border-color: var(--accent); transform: translateX(2px); }
+.poll-option:hover:not(.poll-option-disabled) {
+  border-color: var(--accent);
+  background: var(--surface-3);
+}
 .poll-option-voted { border-color: var(--accent); }
+/* Background progress bar — absolutely positioned behind content */
 .poll-option-bar {
   position: absolute;
-  left: 0; top: 0; bottom: 0;
+  left: 0;
+  top: 0;
+  height: 100%;
   background: var(--accent);
-  opacity: 0.13;
-  border-radius: 6px;
+  opacity: 0.15;
+  border-radius: 8px;
   transition: width 0.35s ease;
   pointer-events: none;
 }
-.poll-option-voted .poll-option-bar { opacity: 0.22; }
-.poll-option-winner .poll-option-bar { opacity: 0.28; }
+.poll-option-voted .poll-option-bar { opacity: 0.28; }
+.poll-option-winner .poll-option-bar { opacity: 0.38; }
+/* Content row sits above the bar via z-index */
 .poll-option-content {
   position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2691,9 +2702,12 @@ textarea.input {
 }
 .poll-option-text {
   flex: 1;
-  font-size: 13.5px;
+  font-size: 13px;
+  color: var(--text-1, var(--text));
+  word-break: break-word;
 }
 .poll-option-pct {
+  margin-left: auto;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-2);
@@ -2703,15 +2717,115 @@ textarea.input {
   font-size: 11px;
   color: var(--text-2);
   padding: 0 10px 7px 36px;
+  position: relative;
+  z-index: 1;
 }
 .poll-option-disabled { cursor: default; }
 .poll-footer {
+  margin-top: 2px;
   font-size: 12px;
   color: var(--text-3);
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.poll-footer-votes {
+  font-size: 12px;
+  color: var(--text-3);
 }
 .poll-multi-label { color: var(--text-3); }
+/* "Return vote" and "View results" — text-link style buttons */
+.poll-retract-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-3);
+  font-size: 12px;
+  font-family: var(--font);
+  line-height: 1;
+  transition: color var(--transition);
+  position: relative;
+}
+.poll-retract-btn:hover { color: var(--text-2); }
+/* Extend tap target to 44px tall on touch devices without changing visual layout */
+@media (hover: none) {
+  .poll-retract-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* ─── Poll results modal ──────────────────────────────────────── */
+.poll-results-modal {
+  max-width: 420px;
+  width: calc(100vw - 32px);
+}
+.prd-body {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.prd-option {
+  margin-bottom: 14px;
+}
+.prd-option:last-child { margin-bottom: 0; }
+.prd-option-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+  gap: 8px;
+}
+.prd-option-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+  word-break: break-word;
+}
+.prd-option-count {
+  font-size: 12px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.prd-bar-track {
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.prd-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.prd-voters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.prd-voter {
+  font-size: 11px;
+  color: var(--text-3);
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 1px 7px;
+}
+.modal-footer-info {
+  padding: 10px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
 
 /* ─── Poll form modal ─────────────────────────────────────────── */
 .poll-form-modal { max-width: 420px; width: 100%; }
@@ -2907,6 +3021,12 @@ textarea.input {
      safe-area edge regardless of device. */
   .scroll-to-bottom {
     bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Modals: respect device safe-area on notched phones so the modal footer
+     is never clipped behind the home indicator. */
+  .modal-overlay {
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
   }
 }
 

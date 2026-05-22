@@ -42,6 +42,7 @@ final class CreatePollController
         $rawOptions = $data['options'] ?? [];
         $multipleAnswers = (bool) ($data['multiple_answers'] ?? false);
         $anonymous = (bool) ($data['anonymous'] ?? false);
+        $allowRetraction = (bool) ($data['allow_retraction'] ?? false);
 
         if ($question === '') {
             return new JsonResponse(['error' => 'question is required'], 400);
@@ -72,6 +73,7 @@ final class CreatePollController
         $poll->setOptions($options);
         $poll->setMultipleAnswers($multipleAnswers);
         $poll->setAnonymous($anonymous);
+        $poll->setAllowRetraction($allowRetraction);
         $em->persist($poll);
 
         $em->flush();

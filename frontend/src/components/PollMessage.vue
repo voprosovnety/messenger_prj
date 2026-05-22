@@ -20,7 +20,7 @@
         :disabled="isDeleted"
         @click="vote(opt.id)"
       >
-        <div class="poll-option-bar" :style="{ width: barWidth(opt) }"></div>
+        <div class="poll-option-bar" :style="{ width: pct(opt) + '%' }"></div>
         <div class="poll-option-content">
           <span class="poll-option-check">
             <svg v-if="isVoted(opt.id)" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -36,9 +36,18 @@
     </div>
 
     <div class="poll-footer">
-      <span v-if="poll.total_votes === 0" style="color:var(--text-3)">No votes yet</span>
-      <span v-else>{{ poll.total_votes }} vote{{ poll.total_votes !== 1 ? 's' : '' }}</span>
+      <span v-if="poll.total_votes === 0" class="poll-footer-votes">No votes yet</span>
+      <button
+        v-else
+        class="poll-retract-btn poll-footer-votes"
+        @click.stop="$emit('show-results')"
+      >{{ poll.total_votes }} vote{{ poll.total_votes !== 1 ? 's' : '' }}</button>
       <span v-if="poll.multiple_answers" class="poll-multi-label">· Multiple answers</span>
+      <button
+        v-if="allowRetraction && myVotes.length > 0"
+        class="poll-retract-btn"
+        @click.stop="$emit('retract')"
+      >&#8629; Return vote</button>
     </div>
   </div>
 </template>
@@ -50,18 +59,16 @@ const props = defineProps({
   poll: { type: Object, required: true },
   myUsername: { type: String, default: null },
   isDeleted: { type: Boolean, default: false },
+  allowRetraction: { type: Boolean, default: false },
+  chatId: { type: [Number, String], default: null },
 })
-const emit = defineEmits(['vote'])
+const emit = defineEmits(['vote', 'retract', 'show-results'])
 
 const showResults = computed(() => props.poll.total_votes > 0)
+const myVotes = computed(() => props.poll.my_votes || [])
 
 function isVoted(optId) {
-  return (props.poll.my_votes || []).includes(optId)
-}
-
-function barWidth(opt) {
-  if (!props.poll.total_votes) return '0%'
-  return Math.round((opt.votes / props.poll.total_votes) * 100) + '%'
+  return myVotes.value.includes(optId)
 }
 
 function pct(opt) {
