@@ -416,7 +416,12 @@
                             <template v-for="(a, ai) in getAttachments(m).filter(a => a.type !== 'image')" :key="ai">
                               <div class="attachment">
                                 <video v-if="a.type === 'video'" :src="a.url" controls class="attachment-video"></video>
-                                <AudioPlayer v-else-if="a.type === 'audio'" :src="a.url" />
+                                <AudioPlayer
+                                  v-else-if="a.type === 'audio'"
+                                  :src="a.url"
+                                  :ref="el => { if (el) audioPlayerRefs[m.id] = el; else delete audioPlayerRefs[m.id] }"
+                                  @ended="onAudioEnded(m.id)"
+                                />
                                 <a v-else :href="a.url" target="_blank" download class="attachment-file">
                                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                   {{ a.name || 'Download file' }}
@@ -1377,6 +1382,36 @@ const readByLoading = ref(false)
 const waveformBars = ref([])
 let waveformRafId = null
 let waveformAudioCtx = null
+
+// ─── Audio player refs (auto-play next voice message) ─────────────
+const audioPlayerRefs = {}
+
+function isVoiceMessage(m) {
+  const atts = getAttachments(m)
+  if (atts.length && atts[0].type?.startsWith('audio')) return true
+  if (m.attachment_url) {
+    const u = m.attachment_url.toLowerCase()
+    return u.endsWith('.webm') || u.endsWith('.ogg') || u.endsWith('.mp3')
+  }
+  return false
+}
+
+function onAudioEnded(msgId) {
+  const msgs = displayMessages.value
+  const idx = msgs.findIndex(m => m.id === msgId)
+  if (idx === -1) return
+  // Find next voice message after this one
+  for (let i = idx + 1; i < msgs.length; i++) {
+    const m = msgs[i]
+    if (!m.deleted_at && isVoiceMessage(m)) {
+      const playerRef = audioPlayerRefs[m.id]
+      if (playerRef?.play) {
+        playerRef.play()
+      }
+      return
+    }
+  }
+}
 
 // ─── renderContent (linkify + markdown-lite) ──────────────────────
 function renderContent(text) {

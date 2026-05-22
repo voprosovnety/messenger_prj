@@ -139,10 +139,32 @@ Living backlog of UX/UI ideas for the messenger. This file is maintained automat
   _Что не так:_ README не упоминал `POSTGRES_PASSWORD`. Новый разработчик не знал, что пароль нужно менять перед деплоем.  
   _Файлы:_ `README.md`
 
+### Audio & Voice
+
+- [ ] **Speed-persist per message** — скорость воспроизведения запоминается глобально, но хотелось бы «запомнить для голосовых» отдельно от «обычного аудио»
+
+### Telegram-inspired ideas
+
+- [ ] **Spoiler text** — специальная разметка `||текст||`, закрывающая фрагмент сообщения «мутным блоком»; тап — открывает. Нужен парсер в `renderContent()` и CSS `.spoiler` (blur + transition).
+- [ ] **«Typing»: имя пользователя в группе** — сейчас «typing…» в группе — анонимно. Показывать конкретно «Alice is typing…» / «Alice and Bob are typing…» (payload `user.typing` уже содержит `userId`).
+- [ ] **Delete for everyone vs delete for me** — сейчас удаление — soft-delete для всех. Добавить выбор при удалении своего сообщения: «Удалить у всех» / «Удалить только у себя» (скрыть локально без Mercure-события).
+- [ ] **Disappearing messages** — в настройках чата включить «Самоудаляющиеся: 1д / 1нед / 1мес». Новая колонка `Message.deletedAfterSeconds` + фоновая задача в `scheduler`.
+- [ ] **Saved Messages** — специальный чат с самим собой (`type: saved`) для заметок/закладок. Пересылка любого сообщения → «Сохранить в Saved Messages».
+- [ ] **Message translation** — иконка «Перевести» в контекстном меню; использует Claude API (`/api/ai/translate`); результат показывается инлайн под оригиналом.
+- [ ] **Slow mode for groups** — настройка OWNER: минимальный интервал между сообщениями (30 с / 1 мин / 5 мин). Бэкенд возвращает 429 при нарушении.
+- [ ] **Group invite links** — `POST /api/chats/{id}/invite-link` генерирует короткий токен; `GET /api/invite/{token}` присоединяет к чату. OWNER может отозвать.
+- [ ] **Chat export** — «Экспортировать историю» в меню группы; возвращает JSON или plain-text файл со всеми сообщениями (без медиа).
+- [ ] **Send without sound** — длинное нажатие на кнопку «Отправить» → меню «Отправить без уведомления» (поле `silent: true` в `CreateMessageController`; фронт показывает иконку 🔕 рядом с временем).
+- [ ] **Message effects** — при отправке определённых эмодзи (🎉 🎊 ❤️) — CSS-конфетти-анимация поверх чата (чисто фронт, `canvas` confetti over `.messages-area`).
+- [ ] **Compact message list** — тумблер в настройках: «Компактный режим» (меньший padding пузырьков, font-size 13px) для dense-информации.
+- [ ] **Read receipts в DM** — «прочитано в 14:32» под последним прочитанным сообщением (timestamp из `chat.read` Mercure-события уже есть).
+
 ---
 
 ## Completed
 
+- [x] Waveform visualization on audio playback — canvas-based, Web Audio API, 60 bars, click-to-seek — shipped in v1.2.0
+- [x] Auto-play next voice message (Telegram-style) — after playback ends, next voice message starts automatically — shipped in v1.2.0
 - [x] Media gallery accessible from chat info panels (GroupProfileModal, UserProfileModal) — shipped in v1.1.0
 - [x] msg-in animation — `style.css:709`, `.message-row.msg-new`
 - [x] Typing dots animation — `style.css:856`, three dots with stagger bounce

@@ -1922,6 +1922,13 @@ textarea.input {
   min-width: 220px;
   max-width: 320px;
 }
+.ap-waveform {
+  flex: 1;
+  height: 32px;
+  display: block;
+  cursor: pointer;
+  border-radius: 3px;
+}
 .ap-play {
   width: 28px;
   height: 28px;
