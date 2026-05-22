@@ -36,7 +36,8 @@
     </div>
 
     <div class="poll-footer">
-      <span>{{ poll.total_votes }} vote{{ poll.total_votes !== 1 ? 's' : '' }}</span>
+      <span v-if="poll.total_votes === 0" style="color:var(--text-3)">No votes yet</span>
+      <span v-else>{{ poll.total_votes }} vote{{ poll.total_votes !== 1 ? 's' : '' }}</span>
       <span v-if="poll.multiple_answers" class="poll-multi-label">· Multiple answers</span>
     </div>
   </div>

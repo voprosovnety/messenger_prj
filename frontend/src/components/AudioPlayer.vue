@@ -14,7 +14,16 @@
       <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
     </button>
 
-    <div class="ap-track">
+    <!-- Waveform canvas (shown when decode succeeded) -->
+    <canvas
+      v-if="!waveformFailed"
+      ref="canvasEl"
+      class="ap-waveform"
+      @click="seekByCanvas"
+      @mousedown.prevent
+    />
+    <!-- Fallback: original range track -->
+    <div v-else class="ap-track">
       <input
         type="range"
         class="ap-seek"
@@ -44,27 +53,163 @@
   </div>
 </template>
 
+<script>
+// Runs once at module level — shared across ALL AudioPlayer instances
+const _active = { stop: null }
+</script>
+
 <script setup>
-import { ref, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 
 const props = defineProps({ src: { type: String, required: true } })
+const emit = defineEmits(['ended'])
 
 const SPEEDS = [1, 1.5, 2, 0.5]
 const _storedSpeed = parseFloat(localStorage.getItem('audioSpeed') || '1')
 const speed = ref(SPEEDS.includes(_storedSpeed) ? _storedSpeed : 1)
 
 const audioEl = ref(null)
+const canvasEl = ref(null)
 const playing = ref(false)
 const current = ref(0)
 const duration = ref(0)
 const vol = ref(1)
 let seeking = false
 
+// Waveform state
+const waveformFailed = ref(false)
+let peaks = []      // Float32Array-like: downsampled amplitude peaks
+let audioCtx = null // created lazily on first toggle() call (autoplay policy)
+let decodePromise = null
+
+// ─── Waveform decode ──────────────────────────────────────────────
+const BAR_COUNT = 60
+
+async function decodePeaks() {
+  try {
+    // Create AudioContext for decoding only; suspended by default in many browsers
+    // — we just need decodeAudioData which doesn't require a running context.
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    const response = await fetch(props.src, { credentials: 'same-origin' })
+    if (!response.ok) throw new Error('fetch failed')
+    const arrayBuf = await response.arrayBuffer()
+    const audioBuf = await audioCtx.decodeAudioData(arrayBuf)
+    const channelData = audioBuf.getChannelData(0)
+    const blockSize = Math.floor(channelData.length / BAR_COUNT)
+    const newPeaks = new Float32Array(BAR_COUNT)
+    for (let i = 0; i < BAR_COUNT; i++) {
+      let max = 0
+      const start = i * blockSize
+      for (let j = 0; j < blockSize; j++) {
+        const abs = Math.abs(channelData[start + j])
+        if (abs > max) max = abs
+      }
+      newPeaks[i] = max
+    }
+    peaks = newPeaks
+    drawWaveform()
+  } catch (e) {
+    // Cross-origin, unsupported format, or browser restriction — fall back gracefully
+    waveformFailed.value = true
+  }
+}
+
+// ─── Canvas drawing ───────────────────────────────────────────────
+function drawWaveform() {
+  const canvas = canvasEl.value
+  if (!canvas || !peaks.length) return
+  const dpr = window.devicePixelRatio || 1
+  const w = canvas.clientWidth
+  const h = canvas.clientHeight
+  if (w === 0 || h === 0) return
+
+  // Size canvas backing store to match display size
+  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+    canvas.width = Math.round(w * dpr)
+    canvas.height = Math.round(h * dpr)
+  }
+
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+  const progress = duration.value > 0 ? current.value / duration.value : 0
+  const BAR_W = 2
+  const BAR_GAP = 2
+  const STEP = BAR_W + BAR_GAP
+  const usableW = canvas.width
+  // Use actual peak count constrained by available canvas width
+  const barCount = Math.min(peaks.length, Math.floor(usableW / (STEP * dpr)))
+  const MIN_H = 3 * dpr
+  const MAX_H = (h - 4) * dpr // 2px top + 2px bottom margin
+
+  // Resolve CSS variables for colors
+  const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5b8dee'
+  const dimColor = getComputedStyle(document.documentElement).getPropertyValue('--text-3').trim() || '#484f58'
+
+  const playedIdx = Math.round(progress * barCount)
+
+  for (let i = 0; i < barCount; i++) {
+    const peakIdx = Math.round((i / barCount) * peaks.length)
+    const amplitude = peaks[Math.min(peakIdx, peaks.length - 1)]
+    const barH = Math.max(MIN_H, amplitude * MAX_H)
+    const x = i * STEP * dpr
+    const y = (canvas.height - barH) / 2
+
+    ctx.fillStyle = i < playedIdx ? accentColor : dimColor
+    // Slightly brighter for the current bar
+    if (i === playedIdx) ctx.fillStyle = accentColor
+    ctx.beginPath()
+    ctx.roundRect(x, y, BAR_W * dpr, barH, 1)
+    ctx.fill()
+  }
+}
+
+// ─── Click-to-seek on canvas ──────────────────────────────────────
+function seekByCanvas(e) {
+  const canvas = canvasEl.value
+  if (!canvas || !duration.value) return
+  const rect = canvas.getBoundingClientRect()
+  const ratio = (e.clientX - rect.left) / rect.width
+  const t = Math.max(0, Math.min(duration.value, ratio * duration.value))
+  current.value = t
+  if (audioEl.value) audioEl.value.currentTime = t
+}
+
+// ─── Audio element callbacks ──────────────────────────────────────
+function _stopSelf() {
+  const a = audioEl.value
+  if (a && !a.paused) a.pause()
+  playing.value = false
+  if (_active.stop === _stopSelf) _active.stop = null
+}
+
+function _resumeCtx() {
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {})
+}
+
 function toggle() {
   const a = audioEl.value
   if (!a) return
-  if (a.paused) { a.play(); playing.value = true }
-  else { a.pause(); playing.value = false }
+  _resumeCtx()
+  if (a.paused) {
+    _active.stop?.()        // stop whatever is playing
+    _active.stop = _stopSelf
+    a.play()
+    playing.value = true
+  } else {
+    _stopSelf()
+  }
+}
+
+// Exposed so ChatView can call .play() programmatically
+function play() {
+  const a = audioEl.value
+  if (!a || !a.paused) return
+  _resumeCtx()
+  _active.stop?.()
+  _active.stop = _stopSelf
+  a.play()
+  playing.value = true
 }
 
 function onMeta() {
@@ -96,11 +241,16 @@ function onDurationChange() {
 }
 
 function onEnded() {
+  if (_active.stop === _stopSelf) _active.stop = null
   playing.value = false
+  emit('ended')
 }
 
 function onTimeUpdate() {
-  if (!seeking) current.value = audioEl.value?.currentTime ?? 0
+  if (!seeking) {
+    current.value = audioEl.value?.currentTime ?? 0
+    if (!waveformFailed.value && peaks.length) drawWaveform()
+  }
 }
 
 function seekPreview(e) {
@@ -125,7 +275,21 @@ function fmt(s) {
   return `${m}:${String(sec).padStart(2, '0')}`
 }
 
-onBeforeUnmount(() => {
-  audioEl.value?.pause()
+onMounted(() => {
+  // Start decoding immediately; browsers allow decodeAudioData without user interaction
+  decodePromise = decodePeaks()
+  // Draw initial (empty progress) waveform after next tick so canvas has layout
+  nextTick(() => drawWaveform())
 })
+
+onBeforeUnmount(() => {
+  if (_active.stop === _stopSelf) _active.stop = null
+  audioEl.value?.pause()
+  if (audioCtx) {
+    audioCtx.close().catch(() => {})
+    audioCtx = null
+  }
+})
+
+defineExpose({ play })
 </script>

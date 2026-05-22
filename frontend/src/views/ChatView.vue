@@ -416,7 +416,12 @@
                             <template v-for="(a, ai) in getAttachments(m).filter(a => a.type !== 'image')" :key="ai">
                               <div class="attachment">
                                 <video v-if="a.type === 'video'" :src="a.url" controls class="attachment-video"></video>
-                                <AudioPlayer v-else-if="a.type === 'audio'" :src="a.url" />
+                                <AudioPlayer
+                                  v-else-if="a.type === 'audio'"
+                                  :src="a.url"
+                                  :ref="el => { if (el) audioPlayerRefs[m.id] = el; else delete audioPlayerRefs[m.id] }"
+                                  @ended="onAudioEnded(m.id)"
+                                />
                                 <a v-else :href="a.url" target="_blank" download class="attachment-file">
                                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                   {{ a.name || 'Download file' }}
@@ -536,15 +541,25 @@
           <div v-if="selectionMode" class="selection-bar">
             <span class="selection-count">{{ selectedMsgIds.size }} selected</span>
             <div class="selection-actions">
-              <button class="btn btn-secondary" @click="bulkForward">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
-                Forward
-              </button>
-              <button class="btn btn-danger" :disabled="!canDeleteSelected" @click="bulkDelete">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                Delete
-              </button>
-              <button class="btn btn-secondary" @click="exitSelectionMode">Cancel</button>
+              <template v-if="!bulkDeleteConfirming">
+                <button class="btn btn-secondary" @click="bulkForward">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+                  Forward
+                </button>
+                <button class="btn btn-danger" :disabled="!canDeleteSelected" @click="bulkDelete">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                  Delete
+                </button>
+                <button class="btn btn-secondary" @click="exitSelectionMode">Cancel</button>
+              </template>
+              <template v-else>
+                <span class="bulk-delete-confirm-label">Delete {{ selectedMsgIds.size }} message{{ selectedMsgIds.size !== 1 ? 's' : '' }}?</span>
+                <button class="btn btn-danger" @click="bulkDelete">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                  Confirm delete
+                </button>
+                <button class="btn btn-secondary" @click="bulkDeleteConfirming = false">Cancel</button>
+              </template>
             </div>
           </div>
 
@@ -750,9 +765,9 @@
               </div>
             </Teleport>
 
-          <div v-if="composerLinkPreview && !composerLinkPreviewDismissed" class="composer-link-preview">
-            <LinkPreview :preview="composerLinkPreview" />
-            <button class="composer-link-preview-close" @click="composerLinkPreviewDismissed = true; composerLinkPreview = null" aria-label="Dismiss preview">
+          <div v-if="(composerLinkPreview || composerLinkPreviewLoading) && !composerLinkPreviewDismissed" class="composer-link-preview">
+            <LinkPreview :preview="composerLinkPreview" :isLoading="composerLinkPreviewLoading" />
+            <button class="composer-link-preview-close" @click="composerLinkPreviewDismissed = true; composerLinkPreview = null; composerLinkPreviewLoading = false" aria-label="Dismiss preview">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
@@ -932,7 +947,7 @@
 
     <!-- Forward modal -->
     <div v-if="showForwardModal" class="modal-overlay" @click.self="showForwardModal = false">
-      <div class="modal">
+      <div ref="forwardModalEl" class="modal">
         <div class="modal-header">
           <span class="modal-title">Forward to…</span>
           <button class="btn-icon" @click="showForwardModal = false">
@@ -955,7 +970,7 @@
 
     <!-- New chat modal -->
     <div v-if="showCreate" class="modal-overlay" @click.self="closeCreate">
-      <div class="modal">
+      <div ref="createModalEl" class="modal">
         <div class="modal-header">
           <span class="modal-title">New conversation</span>
           <button class="btn-icon" @click="closeCreate">
@@ -1056,7 +1071,7 @@
     <!-- Read receipt details modal -->
     <Teleport to="body">
       <div v-if="readByMsgId" class="modal-overlay" @click.self="readByMsgId = null">
-        <div class="modal read-by-modal">
+        <div ref="readByModalEl" class="modal read-by-modal">
           <div class="modal-header">
             <span class="modal-title">Read by</span>
             <button class="btn-icon" @click="readByMsgId = null">
@@ -1077,7 +1092,7 @@
 
     <!-- Keyboard shortcuts modal -->
     <div v-if="showKeyboardShortcutsModal" class="modal-overlay" @click.self="showKeyboardShortcutsModal = false">
-      <div class="modal kbd-shortcuts-modal">
+      <div ref="kbdShortcutsModalEl" class="modal kbd-shortcuts-modal">
         <div class="modal-header">
           <span class="modal-title">Keyboard Shortcuts</span>
           <button class="btn-icon" @click="showKeyboardShortcutsModal = false">
@@ -1123,6 +1138,7 @@
 import { onMounted, onBeforeUnmount, ref, nextTick, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
+import { useFocusTrap } from '../composables/useFocusTrap'
 import UserAvatar from '../components/UserAvatar.vue'
 import AudioPlayer from '../components/AudioPlayer.vue'
 import ImageLightbox from '../components/ImageLightbox.vue'
@@ -1182,7 +1198,7 @@ async function togglePin(c) {
       sidebarChats.value[idx] = { ...sidebarChats.value[idx], is_pinned: result.is_pinned }
     }
   } catch (e) {
-    console.error('togglePin error', e)
+    showToast(e.message || 'Failed to pin chat', 'error')
   } finally {
     closeSidebarMenu()
   }
@@ -1299,6 +1315,12 @@ const sidebarFilterInputRef = ref(null)
 const sidebarItemMenu = ref(null) // { chat, x, y }
 const sidebarCtxMenuEl = ref(null)
 
+// ─── Modal element refs (for focus trap) ─────────────────────────
+const createModalEl = ref(null)
+const forwardModalEl = ref(null)
+const readByModalEl = ref(null)
+const kbdShortcutsModalEl = ref(null)
+
 // ─── Toast notifications ──────────────────────────────────────────
 const toastMsg = ref(null)
 const toastType = ref('info')
@@ -1320,6 +1342,7 @@ const showHeaderMenu = ref(false)
 // ─── Composer link preview ────────────────────────────────────────
 const composerLinkPreview = ref(null)
 const composerLinkPreviewDismissed = ref(false)
+const composerLinkPreviewLoading = ref(false)
 let linkPreviewDebounce = null
 
 // ─── Notification sound ───────────────────────────────────────────
@@ -1359,6 +1382,36 @@ const readByLoading = ref(false)
 const waveformBars = ref([])
 let waveformRafId = null
 let waveformAudioCtx = null
+
+// ─── Audio player refs (auto-play next voice message) ─────────────
+const audioPlayerRefs = {}
+
+function isVoiceMessage(m) {
+  const atts = getAttachments(m)
+  if (atts.length && atts[0].type?.startsWith('audio')) return true
+  if (m.attachment_url) {
+    const u = m.attachment_url.toLowerCase()
+    return u.endsWith('.webm') || u.endsWith('.ogg') || u.endsWith('.mp3')
+  }
+  return false
+}
+
+function onAudioEnded(msgId) {
+  const msgs = displayMessages.value
+  const idx = msgs.findIndex(m => m.id === msgId)
+  if (idx === -1) return
+  // Find next voice message after this one
+  for (let i = idx + 1; i < msgs.length; i++) {
+    const m = msgs[i]
+    if (!m.deleted_at && isVoiceMessage(m)) {
+      const playerRef = audioPlayerRefs[m.id]
+      if (playerRef?.play) {
+        playerRef.play()
+      }
+      return
+    }
+  }
+}
 
 // ─── renderContent (linkify + markdown-lite) ──────────────────────
 function renderContent(text) {
@@ -1492,6 +1545,7 @@ const showForwardModal = ref(false)
 // ─── Bulk selection ───────────────────────────────────────────────
 const selectionMode = ref(false)
 const selectedMsgIds = ref(new Set())
+const bulkDeleteConfirming = ref(false)
 
 function enterSelectionMode(msgId) {
   selectionMode.value = true
@@ -1501,6 +1555,7 @@ function enterSelectionMode(msgId) {
 function exitSelectionMode() {
   selectionMode.value = false
   selectedMsgIds.value = new Set()
+  bulkDeleteConfirming.value = false
 }
 
 function toggleMsgSelection(msgId) {
@@ -1509,6 +1564,7 @@ function toggleMsgSelection(msgId) {
   if (s.has(msgId)) s.delete(msgId)
   else s.add(msgId)
   selectedMsgIds.value = s
+  bulkDeleteConfirming.value = false  // reset confirm state when selection changes
   if (s.size === 0) exitSelectionMode()
 }
 
@@ -1532,6 +1588,12 @@ const canDeleteSelected = computed(() =>
 )
 
 async function bulkDelete() {
+  if (!bulkDeleteConfirming.value) {
+    bulkDeleteConfirming.value = true
+    return
+  }
+  // Second click: confirmed — execute the deletion
+  bulkDeleteConfirming.value = false
   const ids = [...selectedMsgIds.value]
   const deletable = ids.filter(id => {
     const m = messages.value.find(x => x.id === id)
@@ -1968,15 +2030,17 @@ function onTyping() {
   if (!composerLinkPreviewDismissed.value) {
     const urlMatch = input.value.match(/https?:\/\/[^\s]+/)
     if (urlMatch) {
+      composerLinkPreviewLoading.value = true
+      composerLinkPreview.value = null
       linkPreviewDebounce = setTimeout(async () => {
         try {
-          const res = await api.getLinkPreview(urlMatch[0])
-          if (res.status === 204 || !res.ok) { composerLinkPreview.value = null; return }
-          composerLinkPreview.value = await res.json()
+          composerLinkPreview.value = await api.getLinkPreview(urlMatch[0])
         } catch { composerLinkPreview.value = null }
+        finally { composerLinkPreviewLoading.value = false }
       }, 800)
     } else {
       composerLinkPreview.value = null
+      composerLinkPreviewLoading.value = false
     }
   }
 }
@@ -2294,7 +2358,11 @@ async function doToggleReaction(msgId, emoji) {
     }
   }
 
-  await api.toggleReaction(chatId.value, msgId, emoji).catch(() => {})
+  try {
+    await api.toggleReaction(chatId.value, msgId, emoji)
+  } catch (e) {
+    showToast(e.message || 'Failed to toggle reaction', 'error')
+  }
 }
 
 function handleReactionClick(m, emoji, event) {
@@ -2450,7 +2518,11 @@ async function send() {
   if (composerEl.value) { composerEl.value.style.height = 'auto' }
   composerEl.value?.focus()
   navigator.vibrate?.(10)
-  await api.sendMessage(chatId.value, text, replyId, atts).catch(() => {})
+  try {
+    await api.sendMessage(chatId.value, text, replyId, atts)
+  } catch (e) {
+    showToast(e.message || 'Failed to send message', 'error')
+  }
 }
 
 async function sendToAi(text) {
@@ -2667,7 +2739,7 @@ async function sendRecording() {
     const ext = type.includes('ogg') ? 'ogg' : 'webm'
     const file = new File([blob], `voice-${Date.now()}.${ext}`, { type })
     const result = await api.uploadFile(file)
-    await api.sendMessage(chatId.value, '', null, [{ url: result.url, type: 'audio', name: 'Voice message' }]).catch(() => {})
+    await api.sendMessage(chatId.value, '', null, [{ url: result.url, type: 'audio', name: 'Voice message' }])
   } catch (err) {
     error.value = err.message
   } finally {
@@ -2676,6 +2748,10 @@ async function sendRecording() {
 }
 
 function onKeydown(e) {
+  if (e.key === 'Escape' && bulkDeleteConfirming.value) {
+    bulkDeleteConfirming.value = false
+    return
+  }
   if (e.key === 'Escape' && selectionMode.value) {
     exitSelectionMode()
     return
@@ -3099,6 +3175,14 @@ watch(input, (val) => {
   if (!editingId.value && !isAiChat.value) saveDraft(chatId.value, val)
 })
 
+// ─── Focus traps for modals ───────────────────────────────────────
+useFocusTrap(createModalEl, showCreate)
+useFocusTrap(forwardModalEl, showForwardModal)
+// readByMsgId is not a boolean — derive one
+const readByOpen = computed(() => !!readByMsgId.value)
+useFocusTrap(readByModalEl, readByOpen)
+useFocusTrap(kbdShortcutsModalEl, showKeyboardShortcutsModal)
+
 // ─── watcher: reloads chat data when chatId changes (same component reuse) ───
 watch(chatId, async (newId, oldId) => {
   if (!newId || newId === oldId) return
@@ -3129,6 +3213,7 @@ watch(chatId, async (newId, oldId) => {
   clearTimeout(linkPreviewDebounce)
   composerLinkPreview.value = null
   composerLinkPreviewDismissed.value = false
+  composerLinkPreviewLoading.value = false
   dragCounter = 0
   dragging.value = false
   lightboxOpen.value = false
@@ -3428,6 +3513,7 @@ function onGlobalKeydown(e) {
   // Escape — close modals
   if (e.key === 'Escape') {
     if (readByMsgId.value) { readByMsgId.value = null; return }
+    if (bulkDeleteConfirming.value) { bulkDeleteConfirming.value = false; return }
     if (selectionMode.value) { exitSelectionMode(); return }
     if (sidebarItemMenu.value) { closeSidebarMenu(); return }
     if (showHeaderMenu.value) { showHeaderMenu.value = false; return }
@@ -3514,6 +3600,7 @@ onBeforeUnmount(() => {
   clearTimeout(typingTimeout)
   clearTimeout(typingDebounce)
   clearTimeout(linkPreviewDebounce)
+  Object.values(sidebarTypingTimers).forEach(clearTimeout)
   document.removeEventListener('visibilitychange', markReadIfPossible)
   document.removeEventListener('paste', onPaste)
   document.removeEventListener('keydown', onGlobalKeydown)
@@ -3609,5 +3696,12 @@ onBeforeUnmount(() => {
   color: var(--text-3);
   flex-shrink: 0;
   display: block;
+}
+
+.bulk-delete-confirm-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+  white-space: nowrap;
 }
 </style>

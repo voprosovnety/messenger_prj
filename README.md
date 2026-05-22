@@ -23,6 +23,10 @@
 MERCURE_JWT_SECRET=минимум_32_символа_любая_случайная_строка
 MERCURE_PUBLIC_URL=http://<домен-или-ip>/.well-known/mercure
 ANTHROPIC_API_KEY=sk-ant-...   # опционально, для AI-ассистента
+
+# Переопредели перед первым деплоем в продакшн:
+POSTGRES_PASSWORD=смени_в_продакшн   # по умолчанию "messenger"
+CORS_ORIGINS=https://<твой-домен>    # по умолчанию "*" (только dev)
 ```
 
 Запусти:
@@ -96,7 +100,11 @@ docker compose up -d --build
 | DELETE | `/api/me/avatar-history/{id}` | Удалить запись истории аватара |
 | GET | `/api/chats/{id}/avatar-history` | История аватаров группы |
 | DELETE | `/api/chats/{id}/avatar-history/{id}` | Удалить запись истории аватара группы |
+| GET | `/api/chats/{id}` | Детали чата (пины, аватар, участники) |
+| GET | `/api/chats/{id}/media` | Медиагалерея чата (изображения и видео) |
+| GET | `/api/chats/{id}/messages/{mid}/read-by` | Кто прочитал сообщение (группа) |
 | POST | `/api/upload` | Загрузить файл (до 50 МБ) |
+| POST | `/api/me/ping` | Обновить онлайн-статус (раз в ~60 с) |
 | POST | `/api/ai/chat` | AI-ассистент (Claude Haiku) |
 | GET | `/api/chats/{id}/messages/search` | Поиск сообщений внутри чата |
 | GET | `/api/messages/search` | Глобальный поиск по всем чатам |

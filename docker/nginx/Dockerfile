@@ -3,6 +3,7 @@ WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm install --frozen-lockfile
 COPY frontend/ .
+COPY VERSION /VERSION
 RUN npm run build
 
 FROM nginx:1.27-alpine

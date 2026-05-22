@@ -1,5 +1,17 @@
 <template>
+  <!-- Loading skeleton -->
+  <div v-if="isLoading" class="link-preview link-preview--skeleton" aria-hidden="true">
+    <div class="lp-skeleton-img skeleton-bubble"></div>
+    <div class="link-preview-body lp-skeleton-body">
+      <div class="lp-skeleton-title skeleton-bubble"></div>
+      <div class="lp-skeleton-desc skeleton-bubble"></div>
+      <div class="lp-skeleton-domain skeleton-bubble"></div>
+    </div>
+  </div>
+
+  <!-- Loaded preview -->
   <a
+    v-else-if="preview"
     class="link-preview"
     :href="preview.url"
     target="_blank"
@@ -17,8 +29,14 @@
 
 <script setup>
 import { computed } from 'vue'
-const props = defineProps({ preview: { type: Object, required: true } })
-const domain = computed(() => { try { return new URL(props.preview.url).hostname } catch { return props.preview.url } })
+const props = defineProps({
+  preview:   { type: Object, default: null },
+  isLoading: { type: Boolean, default: false },
+})
+const domain = computed(() => {
+  if (!props.preview?.url) return ''
+  try { return new URL(props.preview.url).hostname } catch { return props.preview.url }
+})
 </script>
 
 <style scoped>
@@ -35,10 +53,48 @@ const domain = computed(() => { try { return new URL(props.preview.url).hostname
   transition: background var(--transition);
   max-width: 340px;
 }
-.link-preview:hover { background: var(--surface-3); }
+.link-preview:not(.link-preview--skeleton):hover { background: var(--surface-3); }
 @media (hover: none) {
-  .link-preview:hover { background: var(--surface-2); }
+  .link-preview:not(.link-preview--skeleton):hover { background: var(--surface-2); }
 }
+
+/* Skeleton variant */
+.link-preview--skeleton {
+  cursor: default;
+  pointer-events: none;
+}
+.lp-skeleton-img {
+  width: 80px;
+  min-width: 80px;
+  height: auto;
+  min-height: 72px;
+  border-radius: 0;
+  flex-shrink: 0;
+}
+.lp-skeleton-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  justify-content: center;
+}
+.lp-skeleton-title {
+  height: 13px;
+  width: 80%;
+  border-radius: 4px;
+}
+.lp-skeleton-desc {
+  height: 11px;
+  width: 95%;
+  border-radius: 4px;
+}
+.lp-skeleton-domain {
+  height: 10px;
+  width: 50%;
+  border-radius: 4px;
+}
+
 .link-preview-img {
   width: 80px;
   min-width: 80px;
