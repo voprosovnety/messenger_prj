@@ -356,7 +356,7 @@
                           </div>
                           <div v-if="m.reply_to" class="reply-quote" @click.stop="jumpToMessage(m.reply_to.id)">
                             <span class="reply-quote-sender">{{ m.reply_to.sender }}</span>
-                            <span class="reply-quote-content">{{ m.reply_to.deleted ? 'Message deleted' : m.reply_to.content }}</span>
+                            <span class="reply-quote-content">{{ m.reply_to.deleted ? 'Message deleted' : replyPreview(m.reply_to) }}</span>
                           </div>
                           <span v-if="m.deleted_at" style="font-style:italic">Message deleted</span>
                           <template v-else>
@@ -473,7 +473,7 @@
           <div v-if="replyingTo" class="reply-bar">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
             <span class="reply-bar-text">
-              <strong>{{ replyingTo.sender }}</strong>{{ replyingTo.deleted ? ' · Message deleted' : ': ' + replyingTo.content }}
+              <strong>{{ replyingTo.sender }}</strong>{{ replyingTo.deleted ? ' · Message deleted' : ': ' + replyPreview(replyingTo) }}
             </span>
             <button class="btn-icon" style="padding:4px" @click="cancelReply">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -2775,8 +2775,37 @@ function onGlobalSearchSelect({ chatId: targetChatId, messageId }) {
   router.push({ path: `/chats/${targetChatId}`, query: { highlight: messageId } })
 }
 
+function replyPreview(msg) {
+  if (!msg || msg.deleted) return ''
+  if (msg.type === 'poll') return 'Poll'
+  const atts = msg.attachments?.length ? msg.attachments
+    : msg.attachment_type ? [{ type: msg.attachment_type, name: msg.attachment_name }]
+    : null
+  if (atts?.length) {
+    const images = atts.filter(a => a.type === 'image')
+    const videos = atts.filter(a => a.type === 'video')
+    const audios = atts.filter(a => a.type === 'audio')
+    const files = atts.filter(a => !['image', 'video', 'audio'].includes(a.type))
+    if (images.length > 1) return `${images.length} photos`
+    if (images.length === 1) return 'Photo'
+    if (videos.length) return 'Video'
+    if (audios.length) return 'Voice message'
+    if (files.length) return files[0].name ? `File: ${files[0].name}` : 'File'
+  }
+  return msg.content || 'Message'
+}
+
 function startReply(m) {
-  replyingTo.value = { id: m.id, sender: m.sender, content: m.content, deleted: !!m.deleted_at }
+  replyingTo.value = {
+    id: m.id,
+    sender: m.sender,
+    content: m.content,
+    deleted: !!m.deleted_at,
+    type: m.type,
+    attachments: m.attachments,
+    attachment_type: m.attachment_type,
+    attachment_name: m.attachment_name,
+  }
   composerEl.value?.focus()
 }
 

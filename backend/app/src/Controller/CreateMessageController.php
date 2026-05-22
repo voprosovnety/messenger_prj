@@ -118,10 +118,14 @@ final class CreateMessageController
         $serializeReply = static function (?Message $r): ?array {
             if (!$r) return null;
             return [
-                'id'      => (string) $r->getId(),
-                'sender'  => $r->getSender()?->getUsername(),
-                'content' => $r->getDeletedAt() ? null : $r->getContent(),
-                'deleted' => $r->getDeletedAt() !== null,
+                'id'              => (string) $r->getId(),
+                'sender'          => $r->getSender()?->getUsername(),
+                'content'         => $r->getDeletedAt() ? null : $r->getContent(),
+                'deleted'         => $r->getDeletedAt() !== null,
+                'type'            => $r->getType(),
+                'attachments'     => $r->getDeletedAt() ? null : $r->getAttachments(),
+                'attachment_type' => $r->getDeletedAt() ? null : $r->getAttachmentType(),
+                'attachment_name' => $r->getDeletedAt() ? null : $r->getAttachmentName(),
             ];
         };
 
