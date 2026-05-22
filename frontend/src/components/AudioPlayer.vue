@@ -59,6 +59,9 @@ import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 const props = defineProps({ src: { type: String, required: true } })
 const emit = defineEmits(['ended'])
 
+// Module-level singleton: only one AudioPlayer may play at a time
+const _active = { stop: null }
+
 const SPEEDS = [1, 1.5, 2, 0.5]
 const _storedSpeed = parseFloat(localStorage.getItem('audioSpeed') || '1')
 const speed = ref(SPEEDS.includes(_storedSpeed) ? _storedSpeed : 1)
@@ -171,24 +174,38 @@ function seekByCanvas(e) {
 }
 
 // ─── Audio element callbacks ──────────────────────────────────────
+function _stopSelf() {
+  const a = audioEl.value
+  if (a && !a.paused) a.pause()
+  playing.value = false
+  if (_active.stop === _stopSelf) _active.stop = null
+}
+
+function _resumeCtx() {
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {})
+}
+
 function toggle() {
   const a = audioEl.value
   if (!a) return
-  // Lazily resume AudioContext on first user interaction (autoplay policy)
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume().catch(() => {})
+  _resumeCtx()
+  if (a.paused) {
+    _active.stop?.()        // stop whatever is playing
+    _active.stop = _stopSelf
+    a.play()
+    playing.value = true
+  } else {
+    _stopSelf()
   }
-  if (a.paused) { a.play(); playing.value = true }
-  else { a.pause(); playing.value = false }
 }
 
 // Exposed so ChatView can call .play() programmatically
 function play() {
   const a = audioEl.value
   if (!a || !a.paused) return
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume().catch(() => {})
-  }
+  _resumeCtx()
+  _active.stop?.()
+  _active.stop = _stopSelf
   a.play()
   playing.value = true
 }
@@ -222,6 +239,7 @@ function onDurationChange() {
 }
 
 function onEnded() {
+  if (_active.stop === _stopSelf) _active.stop = null
   playing.value = false
   emit('ended')
 }
@@ -263,6 +281,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (_active.stop === _stopSelf) _active.stop = null
   audioEl.value?.pause()
   if (audioCtx) {
     audioCtx.close().catch(() => {})
