@@ -2749,6 +2749,18 @@ textarea.input {
   position: relative;
 }
 .poll-retract-btn:hover { color: var(--text-2); }
+.poll-view-results-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0;
+  margin-left: auto;
+  line-height: 1;
+}
+.poll-view-results-btn:hover { opacity: 0.8; }
 /* Extend tap target to 44px tall on touch devices without changing visual layout */
 @media (hover: none) {
   .poll-retract-btn::before {

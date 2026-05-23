@@ -670,6 +670,14 @@
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
                       Forward
                     </button>
+                    <button
+                      v-if="mobileMenu.msg?.type === 'poll' && mobileMenu.msg?.poll?.allow_retraction && mobileMenu.msg?.poll?.my_votes?.length > 0"
+                      class="mobile-ctx-item"
+                      @click="doRetractPollVote(mobileMenu.msg.id); closeMobileMenu()"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                      Retract vote
+                    </button>
                     <button v-if="isMine(mobileMenu.msg)" class="mobile-ctx-item mobile-ctx-danger" @click="removeMessage(mobileMenu.msg); closeMobileMenu()">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                       Delete
@@ -732,6 +740,14 @@
                     <button v-if="!isAiChat && !desktopMenu.msg.deleted_at" class="dctx-item" @click="openReactionPicker(desktopMenu.msg.id, desktopMenu.anchorEvent); closeDesktopMenu()">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
                       Add reaction
+                    </button>
+                    <button
+                      v-if="desktopMenu.msg?.type === 'poll' && desktopMenu.msg?.poll?.allow_retraction && desktopMenu.msg?.poll?.my_votes?.length > 0"
+                      class="dctx-item"
+                      @click="doRetractPollVote(desktopMenu.msg.id); closeDesktopMenu()"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                      Retract vote
                     </button>
                     <div v-if="isMine(desktopMenu.msg)" class="dctx-divider"></div>
                     <button v-if="isMine(desktopMenu.msg) && !isAiChat" class="dctx-item dctx-danger" @click="removeMessage(desktopMenu.msg); closeDesktopMenu()">

@@ -1,11 +1,5 @@
 <template>
-  <div
-    class="poll-card"
-    @contextmenu.prevent.stop="openContextMenu"
-    @touchstart.passive="onTouchStart"
-    @touchmove.passive="onTouchMove"
-    @touchend.passive="onTouchEnd"
-  >
+  <div class="poll-card">
     <div class="poll-header">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
       <span class="poll-type-label">{{ poll.anonymous ? 'Anonymous Poll' : 'Poll' }}</span>
@@ -25,6 +19,10 @@
         :style="{ transitionDelay: index * 60 + 'ms' }"
         :disabled="isDeleted"
         @click="vote(opt.id)"
+        @contextmenu.prevent.stop="isVoted(opt.id) ? openContextMenu($event) : undefined"
+        @touchstart.passive="isVoted(opt.id) ? onTouchStart($event) : undefined"
+        @touchmove.passive="isVoted(opt.id) ? onTouchMove() : undefined"
+        @touchend.passive="isVoted(opt.id) ? onTouchEnd() : undefined"
       >
         <div class="poll-option-bar" :style="{ width: pct(opt) + '%' }"></div>
         <div class="poll-option-content">
@@ -42,13 +40,15 @@
     </div>
 
     <div class="poll-footer">
-      <span v-if="poll.total_votes === 0" class="poll-footer-votes">No votes yet</span>
-      <button
-        v-else
-        class="poll-retract-btn poll-footer-votes"
-        @click.stop="$emit('show-results')"
-      >{{ poll.total_votes }} vote{{ poll.total_votes !== 1 ? 's' : '' }}</button>
+      <span class="poll-footer-votes">
+        {{ poll.total_votes === 0 ? 'No votes yet' : `${poll.total_votes} vote${poll.total_votes !== 1 ? 's' : ''}` }}
+      </span>
       <span v-if="poll.multiple_answers" class="poll-multi-label">· Multiple answers</span>
+      <button
+        v-if="poll.total_votes > 0"
+        class="poll-view-results-btn"
+        @click.stop="$emit('show-results')"
+      >View results</button>
     </div>
 
     <!-- Context menu (right-click / long-press) -->
