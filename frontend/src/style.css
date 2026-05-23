@@ -2766,12 +2766,12 @@ textarea.input {
 .poll-ctx-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 199;
+  z-index: 399;
 }
 
 .poll-ctx-menu {
   position: fixed;
-  z-index: 200;
+  z-index: 400;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

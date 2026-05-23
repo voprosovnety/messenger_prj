@@ -1,7 +1,7 @@
 <template>
   <div
     class="poll-card"
-    @contextmenu.prevent="openContextMenu"
+    @contextmenu.prevent.stop="openContextMenu"
     @touchstart.passive="onTouchStart"
     @touchmove.passive="onTouchMove"
     @touchend.passive="onTouchEnd"
