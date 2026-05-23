@@ -82,7 +82,7 @@ const question = ref('')
 const options = ref(['', ''])
 const multipleAnswers = ref(false)
 const anonymous = ref(false)
-const allowRetraction = ref(false)
+const allowRetraction = ref(true)
 const submitting = ref(false)
 const error = ref('')
 

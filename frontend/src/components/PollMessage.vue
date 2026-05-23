@@ -1,5 +1,11 @@
 <template>
-  <div class="poll-card">
+  <div
+    class="poll-card"
+    @contextmenu.prevent="openContextMenu"
+    @touchstart.passive="onTouchStart"
+    @touchmove.passive="onTouchMove"
+    @touchend.passive="onTouchEnd"
+  >
     <div class="poll-header">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
       <span class="poll-type-label">{{ poll.anonymous ? 'Anonymous Poll' : 'Poll' }}</span>
@@ -14,7 +20,7 @@
         :class="{
           'poll-option-voted': isVoted(opt.id),
           'poll-option-winner': showResults && isWinner(opt),
-          'poll-option-disabled': isDeleted,
+          'poll-option-disabled': isDeleted || isVoted(opt.id) || (myVotes.length > 0 && !poll.multiple_answers),
         }"
         :style="{ transitionDelay: index * 60 + 'ms' }"
         :disabled="isDeleted"
@@ -43,17 +49,29 @@
         @click.stop="$emit('show-results')"
       >{{ poll.total_votes }} vote{{ poll.total_votes !== 1 ? 's' : '' }}</button>
       <span v-if="poll.multiple_answers" class="poll-multi-label">· Multiple answers</span>
-      <button
-        v-if="allowRetraction && myVotes.length > 0"
-        class="poll-retract-btn"
-        @click.stop="$emit('retract')"
-      >&#8629; Return vote</button>
     </div>
+
+    <!-- Context menu (right-click / long-press) -->
+    <Teleport to="body">
+      <template v-if="contextMenu.visible && allowRetraction && myVotes.length > 0">
+        <div class="poll-ctx-backdrop" @click="closeContextMenu" @contextmenu.prevent="closeContextMenu"></div>
+        <div
+          class="poll-ctx-menu"
+          :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
+          role="menu"
+        >
+          <button class="poll-ctx-menu-item" @click="retractAndClose">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+            Retract vote
+          </button>
+        </div>
+      </template>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onUnmounted } from 'vue'
 
 const props = defineProps({
   poll: { type: Object, required: true },
@@ -84,6 +102,62 @@ function isWinner(opt) {
 
 function vote(optId) {
   if (props.isDeleted) return
+  // Already voted for this option — no toggle
+  if (isVoted(optId)) return
+  // Single-choice: already voted for any option — do nothing
+  if (!props.poll.multiple_answers && myVotes.value.length > 0) return
+  // Multiple-choice: already voted for this specific option — guard above covers it
   emit('vote', optId)
 }
+
+// ── Context menu ──────────────────────────────────────────────────────
+const contextMenu = ref({ visible: false, x: 0, y: 0 })
+let longPressTimer = null
+
+function openContextMenu(event) {
+  if (!props.allowRetraction || myVotes.value.length === 0) return
+  const x = event.clientX ?? (event.touches?.[0]?.clientX ?? 0)
+  const y = event.clientY ?? (event.touches?.[0]?.clientY ?? 0)
+  // Clamp so the menu does not overflow the viewport
+  const menuW = 180
+  const menuH = 48
+  contextMenu.value = {
+    visible: true,
+    x: Math.min(x, window.innerWidth - menuW - 8),
+    y: Math.min(y, window.innerHeight - menuH - 8),
+  }
+}
+
+function closeContextMenu() {
+  contextMenu.value.visible = false
+}
+
+function retractAndClose() {
+  closeContextMenu()
+  emit('retract')
+}
+
+// Long-press support for touch devices
+function onTouchStart(e) {
+  clearTimeout(longPressTimer)
+  // Capture coordinates immediately — touches list is live and may be empty by timeout fire
+  const touch = e.touches?.[0]
+  const coords = touch ? { clientX: touch.clientX, clientY: touch.clientY } : null
+  longPressTimer = setTimeout(() => {
+    if (navigator.vibrate) navigator.vibrate(10)
+    if (coords) openContextMenu(coords)
+  }, 500)
+}
+
+function onTouchMove() {
+  clearTimeout(longPressTimer)
+}
+
+function onTouchEnd() {
+  clearTimeout(longPressTimer)
+}
+
+onUnmounted(() => {
+  clearTimeout(longPressTimer)
+})
 </script>

@@ -2762,6 +2762,48 @@ textarea.input {
   }
 }
 
+/* ─── Poll context menu (right-click / long-press on poll card) ── */
+.poll-ctx-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 199;
+}
+
+.poll-ctx-menu {
+  position: fixed;
+  z-index: 200;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  min-width: 160px;
+  overflow: hidden;
+  animation: picker-pop 0.12s cubic-bezier(0.34, 1.5, 0.64, 1) both;
+}
+
+.poll-ctx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-family: var(--font);
+  color: var(--text);
+  text-align: left;
+  transition: background var(--transition);
+  min-height: 44px;
+}
+.poll-ctx-menu-item:hover { background: var(--surface-3); }
+@media (hover: none) {
+  .poll-ctx-menu-item:hover { background: none; }
+  .poll-ctx-menu-item:active { background: var(--surface-3); }
+}
+.poll-ctx-menu-item svg { color: var(--text-2); flex-shrink: 0; }
+
 /* ─── Poll results modal ──────────────────────────────────────── */
 .poll-results-modal {
   max-width: 420px;
