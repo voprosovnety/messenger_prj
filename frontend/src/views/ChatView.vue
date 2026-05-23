@@ -136,7 +136,7 @@
       @dragover.prevent
       @dragleave="onDragLeave"
       @drop.prevent="onDrop"
-      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false; closeMobileMenu(); closeDesktopMenu(); showHeaderMenu = false"
+      @click="showEmojiPicker = false; closeReactionPicker(); showAttachMenu = false; showSendMenu = false; closeMobileMenu(); closeDesktopMenu()"
     >
       <!-- Drag-and-drop overlay -->
       <div v-if="dragging && !isAiChat" class="drop-overlay">
@@ -185,32 +185,6 @@
             <svg v-if="isMuted(chatId)" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           </button>
-          <!-- Secondary actions in overflow "⋯" menu -->
-          <div class="header-more-wrap" @click.stop>
-            <button class="btn-icon" :class="{ active: showHeaderMenu }" title="More options" @click="showHeaderMenu = !showHeaderMenu">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>
-            </button>
-            <div v-if="showHeaderMenu" class="header-more-menu">
-              <button class="header-more-item" @click="toggleNotifSound(); showHeaderMenu = false">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><template v-if="!notifSoundEnabled"><line x1="1" y1="1" x2="23" y2="23"/></template></svg>
-                <span class="header-more-item-label">{{ notifSoundEnabled ? 'Mute sounds' : 'Enable sounds' }}</span>
-                <span v-if="notifSoundEnabled" class="header-more-item-badge">On</span>
-                <span v-else class="header-more-item-badge">Off</span>
-              </button>
-              <button class="header-more-item" @click="showKeyboardShortcutsModal = true; showHeaderMenu = false">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
-                <span class="header-more-item-label">Keyboard shortcuts</span>
-                <span class="header-more-item-badge">?</span>
-              </button>
-              <template v-if="!isGroup && !isAiChat">
-                <div class="header-more-divider"></div>
-                <button class="header-more-item header-more-danger" @click="deleteChat(); showHeaderMenu = false">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                  <span class="header-more-item-label">Delete chat</span>
-                </button>
-              </template>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -382,7 +356,7 @@
                           </div>
                           <div v-if="m.reply_to" class="reply-quote" @click.stop="jumpToMessage(m.reply_to.id)">
                             <span class="reply-quote-sender">{{ m.reply_to.sender }}</span>
-                            <span class="reply-quote-content">{{ m.reply_to.deleted ? 'Message deleted' : m.reply_to.content }}</span>
+                            <span class="reply-quote-content">{{ m.reply_to.deleted ? 'Message deleted' : replyPreview(m.reply_to) }}</span>
                           </div>
                           <span v-if="m.deleted_at" style="font-style:italic">Message deleted</span>
                           <template v-else>
@@ -391,7 +365,11 @@
                               v-if="m.type === 'poll' && m.poll"
                               :poll="m.poll"
                               :my-username="me?.username"
+                              :allow-retraction="m.poll?.allow_retraction ?? false"
+                              :chat-id="chatId"
                               @vote="doVotePoll(m.id, $event)"
+                              @retract="doRetractPollVote(m.id)"
+                              @show-results="openPollResults(m)"
                             />
                             <template v-else>
                             <span v-if="m.content" class="message-content" style="white-space:pre-wrap;word-break:break-word" v-html="renderContent(m.content)" @click.stop="onMessageContentClick($event)"></span>
@@ -499,7 +477,7 @@
           <div v-if="replyingTo" class="reply-bar">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
             <span class="reply-bar-text">
-              <strong>{{ replyingTo.sender }}</strong>{{ replyingTo.deleted ? ' · Message deleted' : ': ' + replyingTo.content }}
+              <strong>{{ replyingTo.sender }}</strong>{{ replyingTo.deleted ? ' · Message deleted' : ': ' + replyPreview(replyingTo) }}
             </span>
             <button class="btn-icon" style="padding:4px" @click="cancelReply">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -680,7 +658,7 @@
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                       Copy
                     </button>
-                    <button v-if="isMine(mobileMenu.msg)" class="mobile-ctx-item" @click="startEdit(mobileMenu.msg); closeMobileMenu()">
+                    <button v-if="isMine(mobileMenu.msg) && mobileMenu.msg?.content && mobileMenu.msg?.type !== 'poll'" class="mobile-ctx-item" @click="startEdit(mobileMenu.msg); closeMobileMenu()">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       Edit
                     </button>
@@ -691,6 +669,14 @@
                     <button class="mobile-ctx-item" @click="startForward(mobileMenu.msg); closeMobileMenu()">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
                       Forward
+                    </button>
+                    <button
+                      v-if="mobileMenu.msg?.type === 'poll' && mobileMenu.msg?.poll?.allow_retraction && mobileMenu.msg?.poll?.my_votes?.length > 0"
+                      class="mobile-ctx-item"
+                      @click="doRetractPollVote(mobileMenu.msg.id); closeMobileMenu()"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                      Retract vote
                     </button>
                     <button v-if="isMine(mobileMenu.msg)" class="mobile-ctx-item mobile-ctx-danger" @click="removeMessage(mobileMenu.msg); closeMobileMenu()">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
@@ -739,7 +725,7 @@
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                       Copy text
                     </button>
-                    <button v-if="!isAiChat && isMine(desktopMenu.msg)" class="dctx-item" @click="startEdit(desktopMenu.msg); closeDesktopMenu()">
+                    <button v-if="!isAiChat && isMine(desktopMenu.msg) && desktopMenu.msg?.content && desktopMenu.msg?.type !== 'poll'" class="dctx-item" @click="startEdit(desktopMenu.msg); closeDesktopMenu()">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       Edit
                     </button>
@@ -754,6 +740,14 @@
                     <button v-if="!isAiChat && !desktopMenu.msg.deleted_at" class="dctx-item" @click="openReactionPicker(desktopMenu.msg.id, desktopMenu.anchorEvent); closeDesktopMenu()">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
                       Add reaction
+                    </button>
+                    <button
+                      v-if="desktopMenu.msg?.type === 'poll' && desktopMenu.msg?.poll?.allow_retraction && desktopMenu.msg?.poll?.my_votes?.length > 0"
+                      class="dctx-item"
+                      @click="doRetractPollVote(desktopMenu.msg.id); closeDesktopMenu()"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                      Retract vote
                     </button>
                     <div v-if="isMine(desktopMenu.msg)" class="dctx-divider"></div>
                     <button v-if="isMine(desktopMenu.msg) && !isAiChat" class="dctx-item dctx-danger" @click="removeMessage(desktopMenu.msg); closeDesktopMenu()">
@@ -1055,6 +1049,13 @@
       @submit="onSchedulePicked"
     />
 
+    <!-- Poll results modal -->
+    <PollResultsModal
+      v-if="pollResultsMsg?.poll"
+      :poll="pollResultsMsg.poll"
+      @close="pollResultsMsg = null"
+    />
+
     <!-- Toast notification -->
     <Transition name="toast-fade">
       <div v-if="toastMsg" class="toast" :class="`toast--${toastType}`">
@@ -1153,6 +1154,7 @@ import ScheduledMessagesModal from '../components/ScheduledMessagesModal.vue'
 import SchedulePickerModal from '../components/SchedulePickerModal.vue'
 import LinkPreview from '../components/LinkPreview.vue'
 import MediaGallery from '../components/MediaGallery.vue'
+import PollResultsModal from '../components/PollResultsModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -1336,9 +1338,6 @@ function showToast(text, type = 'info', duration = 2200) {
 // ─── SSE status ───────────────────────────────────────────────────
 const sseStatus = ref('connected')
 
-// ─── Header overflow menu ─────────────────────────────────────────
-const showHeaderMenu = ref(false)
-
 // ─── Composer link preview ────────────────────────────────────────
 const composerLinkPreview = ref(null)
 const composerLinkPreviewDismissed = ref(false)
@@ -1346,15 +1345,7 @@ const composerLinkPreviewLoading = ref(false)
 let linkPreviewDebounce = null
 
 // ─── Notification sound ───────────────────────────────────────────
-const notifSoundEnabled = ref(localStorage.getItem('notifSound') !== 'false')
-
-function toggleNotifSound() {
-  notifSoundEnabled.value = !notifSoundEnabled.value
-  localStorage.setItem('notifSound', String(notifSoundEnabled.value))
-}
-
 function playNotifSound() {
-  if (!notifSoundEnabled.value) return
   try {
     const ctx = new AudioContext()
     const osc = ctx.createOscillator()
@@ -1372,6 +1363,13 @@ function playNotifSound() {
 
 // ─── Keyboard shortcuts modal ─────────────────────────────────────
 const showKeyboardShortcutsModal = ref(false)
+
+// ─── Poll results modal ───────────────────────────────────────────
+const pollResultsMsg = ref(null)
+
+function openPollResults(msg) {
+  pollResultsMsg.value = msg
+}
 
 // ─── Read receipt details ─────────────────────────────────────────
 const readByMsgId = ref(null)
@@ -2490,6 +2488,26 @@ async function doVotePoll(messageId, optionId) {
   }
 }
 
+async function doRetractPollVote(messageId) {
+  const msg = messages.value.find(m => m.id === messageId)
+  if (!msg?.poll) return
+  const poll = msg.poll
+  const myCount = (poll.my_votes || []).length
+  const i = messages.value.findIndex(m => m.id === messageId)
+  if (i !== -1) {
+    messages.value[i] = { ...messages.value[i], poll: { ...poll, my_votes: [], total_votes: Math.max(0, (poll.total_votes || 0) - myCount) } }
+  }
+  try {
+    const res = await api.retractPollVote(chatId.value, messageId)
+    const j = messages.value.findIndex(m => m.id === messageId)
+    if (j !== -1 && res.poll) messages.value[j] = { ...messages.value[j], poll: res.poll }
+  } catch (e) {
+    const j = messages.value.findIndex(m => m.id === messageId)
+    if (j !== -1) messages.value[j] = { ...messages.value[j], poll }
+    showToast(e.message || 'Failed to retract vote', 'error')
+  }
+}
+
 // ─── actions ──────────────────────────────────────────────────────
 async function send() {
   if (isAiChat.value) {
@@ -2812,8 +2830,37 @@ function onGlobalSearchSelect({ chatId: targetChatId, messageId }) {
   router.push({ path: `/chats/${targetChatId}`, query: { highlight: messageId } })
 }
 
+function replyPreview(msg) {
+  if (!msg || msg.deleted) return ''
+  if (msg.type === 'poll') return 'Poll'
+  const atts = msg.attachments?.length ? msg.attachments
+    : msg.attachment_type ? [{ type: msg.attachment_type, name: msg.attachment_name }]
+    : null
+  if (atts?.length) {
+    const images = atts.filter(a => a.type === 'image')
+    const videos = atts.filter(a => a.type === 'video')
+    const audios = atts.filter(a => a.type === 'audio')
+    const files = atts.filter(a => !['image', 'video', 'audio'].includes(a.type))
+    if (images.length > 1) return `${images.length} photos`
+    if (images.length === 1) return 'Photo'
+    if (videos.length) return 'Video'
+    if (audios.length) return 'Voice message'
+    if (files.length) return files[0].name ? `File: ${files[0].name}` : 'File'
+  }
+  return msg.content || 'Message'
+}
+
 function startReply(m) {
-  replyingTo.value = { id: m.id, sender: m.sender, content: m.content, deleted: !!m.deleted_at }
+  replyingTo.value = {
+    id: m.id,
+    sender: m.sender,
+    content: m.content,
+    deleted: !!m.deleted_at,
+    type: m.type,
+    attachments: m.attachments,
+    attachment_type: m.attachment_type,
+    attachment_name: m.attachment_name,
+  }
   composerEl.value?.focus()
 }
 
@@ -3014,14 +3061,6 @@ function updatePinnedIndexFromScroll() {
     }
   }
   if (pinnedIndex.value !== targetIdx) pinnedIndex.value = targetIdx
-}
-
-async function deleteChat() {
-  if (!confirm('Delete this chat permanently?')) return
-  const id = chatId.value
-  await api.deleteChat(id)
-  sidebarChats.value = sidebarChats.value.filter(c => c.id !== id)
-  router.push('/')
 }
 
 async function logout() {
@@ -3516,7 +3555,6 @@ function onGlobalKeydown(e) {
     if (bulkDeleteConfirming.value) { bulkDeleteConfirming.value = false; return }
     if (selectionMode.value) { exitSelectionMode(); return }
     if (sidebarItemMenu.value) { closeSidebarMenu(); return }
-    if (showHeaderMenu.value) { showHeaderMenu.value = false; return }
     if (showKeyboardShortcutsModal.value) { showKeyboardShortcutsModal.value = false; return }
   }
 }

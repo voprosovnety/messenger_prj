@@ -29,6 +29,9 @@ class Poll
     #[ORM\Column]
     private bool $anonymous = false;
 
+    #[ORM\Column(options: ['default' => false])]
+    private bool $allowRetraction = false;
+
     public function __construct()
     {
         $this->id = Uuid::v7();
@@ -50,4 +53,7 @@ class Poll
 
     public function isAnonymous(): bool { return $this->anonymous; }
     public function setAnonymous(bool $v): static { $this->anonymous = $v; return $this; }
+
+    public function isAllowRetraction(): bool { return $this->allowRetraction; }
+    public function setAllowRetraction(bool $v): static { $this->allowRetraction = $v; return $this; }
 }

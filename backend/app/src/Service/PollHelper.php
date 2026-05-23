@@ -52,6 +52,7 @@ class PollHelper
             'options'          => $builtOptions,
             'multiple_answers' => $poll->isMultipleAnswers(),
             'anonymous'        => $poll->isAnonymous(),
+            'allow_retraction' => $poll->isAllowRetraction(),
             'total_votes'      => count($votes),
             'my_votes'         => $myVotes,
         ];

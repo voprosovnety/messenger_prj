@@ -241,6 +241,7 @@ function onDurationChange() {
 }
 
 function onEnded() {
+  if (!playing.value) return  // spurious ended from seek-to-1e10 duration probe (Safari quirk)
   if (_active.stop === _stopSelf) _active.stop = null
   playing.value = false
   emit('ended')

@@ -55,6 +55,10 @@
             <input v-model="anonymous" type="checkbox" class="poll-checkbox" />
             Anonymous poll
           </label>
+          <label class="poll-checkbox-row">
+            <input v-model="allowRetraction" type="checkbox" class="poll-checkbox" />
+            Allow vote retraction
+          </label>
         </div>
 
         <div v-if="error" class="auth-error" style="margin:0">{{ error }}</div>
@@ -78,6 +82,7 @@ const question = ref('')
 const options = ref(['', ''])
 const multipleAnswers = ref(false)
 const anonymous = ref(false)
+const allowRetraction = ref(true)
 const submitting = ref(false)
 const error = ref('')
 
@@ -104,6 +109,7 @@ async function submit() {
       options: opts,
       multipleAnswers: multipleAnswers.value,
       anonymous: anonymous.value,
+      allowRetraction: allowRetraction.value,
     })
   } finally {
     submitting.value = false

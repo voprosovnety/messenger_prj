@@ -645,7 +645,7 @@ textarea.input {
   -webkit-backdrop-filter: blur(12px);
   flex-shrink: 0;
   max-width: 100%;
-  overflow: hidden;
+  position: relative;
 }
 .chat-header-info {
   flex: 1;
@@ -663,6 +663,9 @@ textarea.input {
   font-size: 12px;
   color: var(--text-2);
   margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .chat-header-online {
   font-size: 12px;
@@ -2603,10 +2606,11 @@ textarea.input {
   animation: picker-pop 0.18s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
-/* ─── Poll card ──────────────────────────────────────────────── */
+/* ─── Poll card (Telegram-style) ─────────────────────────────── */
 .poll-card {
   min-width: 220px;
   max-width: 340px;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2634,34 +2638,44 @@ textarea.input {
   flex-direction: column;
   gap: 6px;
 }
+/* Each option: relative container so the background bar sits behind content */
 .poll-option {
   position: relative;
+  border-radius: 10px;
   overflow: hidden;
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
-  background: transparent;
-  cursor: pointer;
+  min-height: 36px;
   padding: 0;
-  text-align: left;
-  transition: border-color var(--transition), transform var(--transition);
+  cursor: pointer;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  transition: border-color var(--transition), background var(--transition);
   color: var(--text);
   font-family: var(--font);
+  text-align: left;
 }
-.poll-option:hover:not(.poll-option-disabled) { border-color: var(--accent); transform: translateX(2px); }
+.poll-option:hover:not(.poll-option-disabled) {
+  border-color: var(--accent);
+  background: var(--surface-3);
+}
 .poll-option-voted { border-color: var(--accent); }
+/* Background progress bar — absolutely positioned behind content */
 .poll-option-bar {
   position: absolute;
-  left: 0; top: 0; bottom: 0;
+  left: 0;
+  top: 0;
+  height: 100%;
   background: var(--accent);
-  opacity: 0.13;
-  border-radius: 6px;
+  opacity: 0.15;
+  border-radius: 8px;
   transition: width 0.35s ease;
   pointer-events: none;
 }
-.poll-option-voted .poll-option-bar { opacity: 0.22; }
-.poll-option-winner .poll-option-bar { opacity: 0.28; }
+.poll-option-voted .poll-option-bar { opacity: 0.28; }
+.poll-option-winner .poll-option-bar { opacity: 0.38; }
+/* Content row sits above the bar via z-index */
 .poll-option-content {
   position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2688,9 +2702,12 @@ textarea.input {
 }
 .poll-option-text {
   flex: 1;
-  font-size: 13.5px;
+  font-size: 13px;
+  color: var(--text-1, var(--text));
+  word-break: break-word;
 }
 .poll-option-pct {
+  margin-left: auto;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-2);
@@ -2700,15 +2717,169 @@ textarea.input {
   font-size: 11px;
   color: var(--text-2);
   padding: 0 10px 7px 36px;
+  position: relative;
+  z-index: 1;
 }
 .poll-option-disabled { cursor: default; }
 .poll-footer {
+  margin-top: 2px;
   font-size: 12px;
   color: var(--text-3);
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.poll-footer-votes {
+  font-size: 12px;
+  color: var(--text-3);
 }
 .poll-multi-label { color: var(--text-3); }
+/* "Return vote" and "View results" — text-link style buttons */
+.poll-retract-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-3);
+  font-size: 12px;
+  font-family: var(--font);
+  line-height: 1;
+  transition: color var(--transition);
+  position: relative;
+}
+.poll-retract-btn:hover { color: var(--text-2); }
+.poll-view-results-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0;
+  margin-left: auto;
+  line-height: 1;
+}
+.poll-view-results-btn:hover { opacity: 0.8; }
+/* Extend tap target to 44px tall on touch devices without changing visual layout */
+@media (hover: none) {
+  .poll-retract-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* ─── Poll context menu (right-click / long-press on poll card) ── */
+.poll-ctx-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 399;
+}
+
+.poll-ctx-menu {
+  position: fixed;
+  z-index: 400;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  min-width: 160px;
+  overflow: hidden;
+  animation: picker-pop 0.12s cubic-bezier(0.34, 1.5, 0.64, 1) both;
+}
+
+.poll-ctx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-family: var(--font);
+  color: var(--text);
+  text-align: left;
+  transition: background var(--transition);
+  min-height: 44px;
+}
+.poll-ctx-menu-item:hover { background: var(--surface-3); }
+@media (hover: none) {
+  .poll-ctx-menu-item:hover { background: none; }
+  .poll-ctx-menu-item:active { background: var(--surface-3); }
+}
+.poll-ctx-menu-item svg { color: var(--text-2); flex-shrink: 0; }
+
+/* ─── Poll results modal ──────────────────────────────────────── */
+.poll-results-modal {
+  max-width: 420px;
+  width: calc(100vw - 32px);
+}
+.prd-body {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.prd-option {
+  margin-bottom: 14px;
+}
+.prd-option:last-child { margin-bottom: 0; }
+.prd-option-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+  gap: 8px;
+}
+.prd-option-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+  word-break: break-word;
+}
+.prd-option-count {
+  font-size: 12px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.prd-bar-track {
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.prd-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.prd-voters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.prd-voter {
+  font-size: 11px;
+  color: var(--text-3);
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 1px 7px;
+}
+.modal-footer-info {
+  padding: 10px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
 
 /* ─── Poll form modal ─────────────────────────────────────────── */
 .poll-form-modal { max-width: 420px; width: 100%; }
@@ -2904,6 +3075,12 @@ textarea.input {
      safe-area edge regardless of device. */
   .scroll-to-bottom {
     bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Modals: respect device safe-area on notched phones so the modal footer
+     is never clipped behind the home indicator. */
+  .modal-overlay {
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
   }
 }
 
@@ -3678,58 +3855,4 @@ kbd {
 .toast--info .toast-icon { color: var(--accent); }
 
 /* ─── Chat header overflow menu ───────────────────────────────── */
-.header-more-wrap {
-  position: relative;
-}
-.header-more-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-  min-width: 200px;
-  padding: 4px;
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  animation: picker-pop 0.14s cubic-bezier(0.34, 1.4, 0.64, 1) both;
-}
-.header-more-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 9px 12px;
-  background: none;
-  border: none;
-  color: var(--text);
-  font-size: 13.5px;
-  font-family: var(--font);
-  border-radius: 6px;
-  cursor: pointer;
-  text-align: left;
-  transition: background var(--transition);
-  white-space: nowrap;
-}
-.header-more-item:hover { background: var(--surface-3); }
-.header-more-item svg { color: var(--text-2); flex-shrink: 0; }
-.header-more-item:hover svg { color: var(--accent); }
-.header-more-item-label { flex: 1; }
-.header-more-item-badge {
-  font-size: 11px;
-  color: var(--text-3);
-  background: var(--surface-3);
-  border-radius: 4px;
-  padding: 1px 5px;
-}
-.header-more-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 3px 8px;
-}
-.header-more-danger { color: var(--danger); }
-.header-more-danger svg { color: var(--danger); }
 
