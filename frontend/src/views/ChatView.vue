@@ -2245,6 +2245,10 @@ async function connectSse() {
       }
     } catch {
       if (chatSseStopped || chatSseGen !== gen) return
+      if (!localStorage.getItem('access_token')) {
+        router.push('/login')
+        return
+      }
       sseStatus.value = 'reconnecting'
       chatSseTimer = setTimeout(attempt, chatSseDelay)
       chatSseDelay = Math.min(chatSseDelay * 2, 30000)
