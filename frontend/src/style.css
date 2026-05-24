@@ -680,29 +680,38 @@ textarea.input {
 .pinned-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 16px 6px 12px;
+  gap: 10px;
+  padding: 7px 10px 7px 14px;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
   border-left: 3px solid var(--accent);
   cursor: pointer;
-  transition: background var(--transition), transform var(--transition);
+  transition: background var(--transition);
   min-width: 0;
+  user-select: none;
 }
-.pinned-bar:hover { background: var(--surface-3); transform: translateX(1px); }
+.pinned-bar:hover { background: var(--surface-3); }
+.pinned-bar:active { background: var(--surface-3); opacity: 0.85; }
+.pinned-bar-icon {
+  flex-shrink: 0;
+  color: var(--accent);
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+}
 .pinned-bar-info {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 .pinned-bar-label {
   font-size: 11px;
   font-weight: 600;
   color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
+  line-height: 1;
 }
 .pinned-bar-content {
   font-size: 13px;
@@ -710,18 +719,23 @@ textarea.input {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.3;
 }
 .pinned-nav-row {
   display: flex;
   flex-direction: row;
   align-items: center;
   flex-shrink: 0;
-  gap: 2px;
+  gap: 0;
 }
 .pinned-nav-btn {
-  padding: 5px 7px;
+  padding: 6px 8px;
   flex-shrink: 0;
+  color: var(--text-3);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition), background var(--transition);
 }
+.pinned-nav-btn:hover { color: var(--text-2); background: var(--surface-3); }
 
 /* ─── Messages list ──────────────────────────────────────────── */
 .messages-area {
@@ -1113,6 +1127,7 @@ textarea.input {
   object-fit: cover;
   border-radius: 50%;
 }
+.avatar-xs  { width: 20px; height: 20px; font-size: 8px; }
 .avatar-sm  { width: 28px; height: 28px; font-size: 11px; }
 .avatar-md  { width: 36px; height: 36px; font-size: 14px; }
 .avatar-lg  { width: 44px; height: 44px; font-size: 17px; }
@@ -1536,12 +1551,13 @@ textarea.input {
 
 @keyframes msg-highlight-flash {
   0%   { background: transparent; }
-  15%  { background: rgba(91, 141, 238, 0.22); }
-  60%  { background: rgba(91, 141, 238, 0.22); }
+  15%  { background: rgba(91, 141, 238, 0.2); }
+  60%  { background: rgba(91, 141, 238, 0.2); }
   100% { background: transparent; }
 }
-.msg-highlighted {
-  border-radius: 8px;
+/* Highlight applied to the bubble wrapper only — keeps sender name unaffected */
+.msg-highlighted .message-bubble-outer {
+  border-radius: var(--radius-lg);
   animation: msg-highlight-flash 1.8s ease forwards;
 }
 .message-row:not(.own) .reply-quote {
@@ -2608,7 +2624,7 @@ textarea.input {
 
 /* ─── Poll card (Telegram-style) ─────────────────────────────── */
 .poll-card {
-  min-width: 220px;
+  min-width: 230px;
   max-width: 340px;
   width: 100%;
   display: flex;
@@ -2624,31 +2640,31 @@ textarea.input {
   font-size: 11px;
   font-weight: 600;
   color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
 }
 .poll-question {
   font-size: 14.5px;
   font-weight: 600;
   color: var(--text);
   line-height: 1.4;
+  letter-spacing: -0.01em;
 }
 .poll-options {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
 }
 /* Each option: relative container so the background bar sits behind content */
 .poll-option {
   position: relative;
   border-radius: 10px;
   overflow: hidden;
-  min-height: 36px;
+  min-height: 40px;
   padding: 0;
   cursor: pointer;
   background: var(--surface-2);
   border: 1.5px solid var(--border);
-  transition: border-color var(--transition), background var(--transition);
+  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
   color: var(--text);
   font-family: var(--font);
   text-align: left;
@@ -2656,22 +2672,29 @@ textarea.input {
 .poll-option:hover:not(.poll-option-disabled) {
   border-color: var(--accent);
   background: var(--surface-3);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
 }
-.poll-option-voted { border-color: var(--accent); }
+.poll-option-voted {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+}
 /* Background progress bar — absolutely positioned behind content */
 .poll-option-bar {
   position: absolute;
   left: 0;
   top: 0;
   height: 100%;
-  background: var(--accent);
-  opacity: 0.15;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 12%, transparent));
   border-radius: 8px;
-  transition: width 0.35s ease;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
 }
-.poll-option-voted .poll-option-bar { opacity: 0.28; }
-.poll-option-winner .poll-option-bar { opacity: 0.38; }
+.poll-option-voted .poll-option-bar {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 35%, transparent), color-mix(in srgb, var(--accent) 20%, transparent));
+}
+.poll-option-winner .poll-option-bar {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 45%, transparent), color-mix(in srgb, var(--accent) 25%, transparent));
+}
 /* Content row sits above the bar via z-index */
 .poll-option-content {
   position: relative;
@@ -2679,7 +2702,7 @@ textarea.input {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 9px 10px;
 }
 .poll-option-check {
   width: 18px;
@@ -2690,45 +2713,70 @@ textarea.input {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: border-color var(--transition);
-  color: var(--accent);
+  transition: border-color var(--transition), background var(--transition);
+  color: #fff;
+  background: transparent;
 }
-.poll-option-voted .poll-option-check { border-color: var(--accent); }
+.poll-option-voted .poll-option-check {
+  border-color: var(--accent);
+  background: var(--accent);
+}
 .poll-option-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--text-3);
+  transition: background var(--transition);
 }
+.poll-option:hover:not(.poll-option-disabled) .poll-option-dot { background: var(--text-2); }
 .poll-option-text {
   flex: 1;
   font-size: 13px;
-  color: var(--text-1, var(--text));
+  font-weight: 500;
+  color: var(--text);
   word-break: break-word;
+  line-height: 1.35;
 }
 .poll-option-pct {
   margin-left: auto;
   font-size: 12px;
-  font-weight: 600;
-  color: var(--text-2);
+  font-weight: 700;
+  color: var(--accent);
   flex-shrink: 0;
+  letter-spacing: -0.01em;
 }
+/* Voter avatar stack inside option */
 .poll-option-voters {
-  font-size: 11px;
-  color: var(--text-2);
-  padding: 0 10px 7px 36px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 10px 8px 36px;
   position: relative;
   z-index: 1;
 }
+.poll-voter-avatar {
+  border: 1.5px solid var(--recv-bg);
+  border-radius: 50%;
+  margin-left: -5px;
+  flex-shrink: 0;
+}
+.poll-voter-avatar:first-child { margin-left: 0; }
+.poll-voter-more {
+  font-size: 10px;
+  color: var(--text-3);
+  margin-left: 6px;
+  white-space: nowrap;
+}
 .poll-option-disabled { cursor: default; }
 .poll-footer {
-  margin-top: 2px;
+  margin-top: 0;
   font-size: 12px;
   color: var(--text-3);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+  min-height: 22px;
 }
 .poll-footer-votes {
   font-size: 12px;
@@ -2864,15 +2912,20 @@ textarea.input {
 .prd-voters {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 5px;
 }
 .prd-voter {
-  font-size: 11px;
-  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-2);
   background: var(--surface-2);
-  border-radius: 10px;
-  padding: 1px 7px;
+  border-radius: 20px;
+  padding: 2px 8px 2px 2px;
+  border: 1px solid var(--border);
 }
+.prd-voter span { line-height: 1; }
 .modal-footer-info {
   padding: 10px 0 0;
   font-size: 12px;

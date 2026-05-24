@@ -2,7 +2,7 @@
   <div class="poll-card">
     <div class="poll-header">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="17" y="13" width="4" height="8" rx="1"/></svg>
-      <span class="poll-type-label">{{ poll.anonymous ? 'Anonymous Poll' : 'Poll' }}</span>
+      <span class="poll-type-label">{{ poll.anonymous ? 'Anonymous poll' : 'Poll' }}</span>
     </div>
     <div class="poll-question">{{ poll.question }}</div>
 
@@ -24,7 +24,7 @@
         @touchmove.passive="isVoted(opt.id) ? onTouchMove() : undefined"
         @touchend.passive="isVoted(opt.id) ? onTouchEnd() : undefined"
       >
-        <div class="poll-option-bar" :style="{ width: pct(opt) + '%' }"></div>
+        <div class="poll-option-bar" :style="{ width: showResults ? pct(opt) + '%' : '0%' }"></div>
         <div class="poll-option-content">
           <span class="poll-option-check">
             <svg v-if="isVoted(opt.id)" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -34,7 +34,15 @@
           <span v-if="showResults" class="poll-option-pct">{{ pct(opt) }}%</span>
         </div>
         <div v-if="showResults && !poll.anonymous && opt.voters?.length" class="poll-option-voters">
-          {{ opt.voters.join(', ') }}
+          <UserAvatar
+            v-for="voter in opt.voters.slice(0, 6)"
+            :key="voter"
+            :username="voter"
+            size="xs"
+            :title="voter"
+            class="poll-voter-avatar"
+          />
+          <span v-if="opt.voters.length > 6" class="poll-voter-more">+{{ opt.voters.length - 6 }}</span>
         </div>
       </button>
     </div>
@@ -72,6 +80,7 @@
 
 <script setup>
 import { computed, ref, onUnmounted } from 'vue'
+import UserAvatar from './UserAvatar.vue'
 
 const props = defineProps({
   poll: { type: Object, required: true },
@@ -82,7 +91,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['vote', 'retract', 'show-results'])
 
-const showResults = computed(() => props.poll.total_votes > 0)
+const showResults = computed(() => myVotes.value.length > 0)
 const myVotes = computed(() => props.poll.my_votes || [])
 
 function isVoted(optId) {

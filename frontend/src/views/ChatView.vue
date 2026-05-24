@@ -247,20 +247,22 @@
 
       <!-- Pinned message bar -->
       <div v-if="currentPinned && !isAiChat" class="pinned-bar" @click="clickPinnedBar">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M12 2a2 2 0 0 0-2 2v8l-3 3v1h10v-1l-3-3V4a2 2 0 0 0-2-2z"/><line x1="12" y1="22" x2="12" y2="19"/></svg>
+        <div class="pinned-bar-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5v6h2v-6h5v-2l-2-2z"/></svg>
+        </div>
         <div class="pinned-bar-info">
-          <span class="pinned-bar-label">Pinned{{ pinnedMessages.length > 1 ? ` · ${pinnedIndex + 1} / ${pinnedMessages.length}` : '' }}</span>
+          <span class="pinned-bar-label">Pinned{{ pinnedMessages.length > 1 ? ` ${pinnedIndex + 1} / ${pinnedMessages.length}` : '' }}</span>
           <span class="pinned-bar-content">{{ pinnedPreview(currentPinned) }}</span>
         </div>
         <div v-if="pinnedMessages.length > 1" class="pinned-nav-row">
           <button class="btn-icon pinned-nav-btn" title="Newer pinned" @click.stop="navigatePin(1)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           <button class="btn-icon pinned-nav-btn" title="Older pinned" @click.stop="navigatePin(-1)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
           </button>
         </div>
-        <button v-if="canPin" class="btn-icon" style="padding:4px;flex-shrink:0" title="Unpin" @click.stop="doPin(currentPinned.id)">
+        <button v-if="canPin" class="btn-icon pinned-nav-btn" style="flex-shrink:0" title="Unpin" @click.stop="doPin(currentPinned.id)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>

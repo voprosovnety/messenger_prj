@@ -17,7 +17,10 @@
             <div class="prd-bar-fill" :style="{ width: pct(opt) + '%' }"></div>
           </div>
           <div v-if="!poll.anonymous && opt.voters?.length" class="prd-voters">
-            <span v-for="(voter, i) in opt.voters" :key="i" class="prd-voter">{{ voter }}</span>
+            <div v-for="(voter, i) in opt.voters" :key="i" class="prd-voter">
+              <UserAvatar :username="voter" size="xs" />
+              <span>{{ voter }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -30,6 +33,7 @@
 
 <script setup>
 import { onMounted, onBeforeUnmount } from 'vue'
+import UserAvatar from './UserAvatar.vue'
 
 const props = defineProps({ poll: { type: Object, required: true } })
 const emit = defineEmits(['close'])
