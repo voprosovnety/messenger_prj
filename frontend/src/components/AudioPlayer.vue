@@ -72,6 +72,7 @@ let seeking = false
 const waveformFailed = ref(false)
 let peaks = []      // Float32Array-like: downsampled amplitude peaks
 let decodePromise = null
+let probingDuration = false // true while currentTime=1e10 duration probe is in flight
 
 // ─── Waveform decode ──────────────────────────────────────────────
 const BAR_COUNT = 60
@@ -215,13 +216,20 @@ function _registerWithStore() {
   }
 }
 
+function _startPlay(a) {
+  const p = a.play()
+  // Catch AbortError: browser rejects play() if currentTime changes mid-start
+  // (e.g. onMeta/onDurationChange firing right after play() for auto-play-next).
+  if (p) p.catch(() => { if (a.paused) _stopSelf() })
+}
+
 function toggle() {
   const a = audioEl.value
   if (!a) return
   if (a.paused) {
     _active.stop?.()
     _active.stop = _stopSelf
-    a.play()
+    _startPlay(a)
     playing.value = true
     _registerWithStore()
   } else {
@@ -235,7 +243,7 @@ function play() {
   if (!a || !a.paused) return
   _active.stop?.()
   _active.stop = _stopSelf
-  a.play()
+  _startPlay(a)
   playing.value = true
   _registerWithStore()
 }
@@ -246,24 +254,27 @@ function onMeta() {
   a.volume = vol.value
   a.playbackRate = speed.value
   if (!isFinite(a.duration)) {
+    if (playing.value) return // skip probe if already playing — would abort play() promise
     // MediaRecorder blobs lack duration metadata — seek to end to force browser to compute it
+    probingDuration = true
     a.currentTime = 1e10
   } else {
     duration.value = a.duration
   }
 }
 
-
 function onDurationChange() {
   const a = audioEl.value
   if (!a || !isFinite(a.duration)) return
   duration.value = a.duration
   if (voiceStore.src === props.src) voiceStore.duration = a.duration
-  a.currentTime = 0
+  probingDuration = false
+  if (!playing.value) a.currentTime = 0 // skip reset if playing — would abort play() promise
 }
 
 function onEnded() {
-  if (!playing.value) return  // spurious ended from seek-to-1e10 duration probe (Safari quirk)
+  if (probingDuration) { probingDuration = false; return } // spurious ended from 1e10 probe
+  if (!playing.value) return
   if (_active.stop === _stopSelf) _active.stop = null
   playing.value = false
   emit('ended')
