@@ -205,6 +205,7 @@ function _registerWithStore() {
     vol.value = v
     voiceStore.vol = v
     if (audioEl.value) audioEl.value.volume = v
+    localStorage.setItem('audioVol', String(v))
   }
   voiceStore._stop = () => {
     _stopSelf()

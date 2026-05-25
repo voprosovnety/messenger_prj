@@ -54,6 +54,9 @@
 
 /* ─── Reset & base ───────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+button, input, select, textarea, a, [role="button"], label {
+  touch-action: manipulation; /* prevents double-tap-to-zoom on interactive elements */
+}
 
 html, body {
   height: 100%;
@@ -686,7 +689,7 @@ textarea.input {
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   flex-shrink: 0;
-  overflow: hidden;
+  position: relative; /* anchor for speed dropdown */
 }
 .gvp-play-btn {
   width: 28px;
@@ -768,6 +771,7 @@ textarea.input {
   flex-shrink: 0;
 }
 .gvp-time-dim { color: var(--text-3); }
+.gvp-speed-wrap { position: relative; flex-shrink: 0; }
 .gvp-speed-btn {
   font-size: 11px;
   font-weight: 600;
@@ -777,12 +781,11 @@ textarea.input {
   background: var(--surface-3);
   border: none;
   cursor: pointer;
-  min-width: 32px;
+  min-width: 36px;
   min-height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   transition: color var(--transition), background var(--transition);
 }
 .gvp-speed-btn:hover { color: var(--text); background: var(--surface-2); }
@@ -790,6 +793,40 @@ textarea.input {
   .gvp-speed-btn:hover { color: var(--text-2); background: var(--surface-3); }
   .gvp-speed-btn:active { color: var(--text); background: var(--surface-2); }
 }
+.gvp-speed-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 72px;
+  z-index: 200;
+  box-shadow: var(--shadow);
+}
+.gvp-speed-option {
+  padding: 7px 12px;
+  border: none;
+  background: none;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  text-align: center;
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition);
+}
+.gvp-speed-option:hover { background: var(--surface-3); color: var(--text); }
+.gvp-speed-option.active { color: var(--accent); font-weight: 700; background: var(--accent-dim); }
+.speed-pop-enter-active, .speed-pop-leave-active { transition: opacity 0.12s ease, transform 0.12s ease; }
+.speed-pop-enter-from, .speed-pop-leave-to { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+.speed-pop-enter-to, .speed-pop-leave-from { opacity: 1; transform: translateX(-50%) translateY(0); }
 .gvp-vol {
   display: flex;
   align-items: center;
@@ -840,7 +877,7 @@ textarea.input {
 @media (max-width: 640px) { .gvp-vol { display: none; } }
 .gvp-slide-enter-active, .gvp-slide-leave-active {
   transition: height 0.2s ease, opacity 0.2s ease;
-  overflow: hidden;
+  overflow: hidden; /* only needed during the animation so bar doesn't bleed */
 }
 .gvp-slide-enter-from, .gvp-slide-leave-to { height: 0; opacity: 0; }
 .gvp-slide-enter-to, .gvp-slide-leave-from { height: 44px; opacity: 1; }
@@ -915,7 +952,7 @@ textarea.input {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  touch-action: pan-y pinch-zoom; /* vertical scroll + pinch-zoom only; horizontal overridden per-platform */
+  touch-action: pan-y; /* vertical scroll only; pinch-zoom prevented app-wide via viewport meta */
   overscroll-behavior: contain; /* prevent elastic bounce propagating to page */
 }
 

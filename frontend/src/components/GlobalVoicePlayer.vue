@@ -16,7 +16,7 @@
             :max="store.duration || 0"
             step="0.05"
             @mousedown="isSeeking = true"
-            @touchstart="isSeeking = true"
+            @touchstart.passive="isSeeking = true"
             @input="e => seekPreview = +e.target.value"
             @change="onSeek"
           />
@@ -26,7 +26,23 @@
 
       <span class="gvp-time">{{ fmt(store.current) }}<span class="gvp-time-dim">/{{ fmt(store.duration) }}</span></span>
 
-      <button class="gvp-speed-btn" @click="cycleSpeed" title="Playback speed">{{ store.speed }}×</button>
+      <!-- Speed selector -->
+      <div class="gvp-speed-wrap" ref="speedWrapEl">
+        <button class="gvp-speed-btn" @click.stop="showSpeedMenu = !showSpeedMenu" title="Playback speed">
+          {{ store.speed }}×
+        </button>
+        <Transition name="speed-pop">
+          <div v-if="showSpeedMenu" class="gvp-speed-menu">
+            <button
+              v-for="s in SPEEDS_DISPLAY"
+              :key="s"
+              class="gvp-speed-option"
+              :class="{ active: store.speed === s }"
+              @click="selectSpeed(s)"
+            >{{ s }}×</button>
+          </div>
+        </Transition>
+      </div>
 
       <div class="gvp-vol">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -54,12 +70,14 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { voiceStore, SPEEDS } from '../voiceStore.js'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { voiceStore, SPEEDS_DISPLAY } from '../voiceStore.js'
 
 const store = voiceStore
 const isSeeking = ref(false)
 const seekPreview = ref(0)
+const showSpeedMenu = ref(false)
+const speedWrapEl = ref(null)
 
 const progressPct = computed(() => {
   const val = isSeeking.value ? seekPreview.value : store.current
@@ -76,14 +94,24 @@ function onSeek(e) {
   store._seek?.(+e.target.value)
 }
 
-function cycleSpeed() {
-  const idx = SPEEDS.indexOf(store.speed)
-  store._setSpeed?.(SPEEDS[(idx + 1) % SPEEDS.length])
+function selectSpeed(s) {
+  store._setSpeed?.(s)
+  showSpeedMenu.value = false
 }
 
 function stop() {
+  showSpeedMenu.value = false
   store._stop?.()
 }
+
+function onDocClick(e) {
+  if (showSpeedMenu.value && speedWrapEl.value && !speedWrapEl.value.contains(e.target)) {
+    showSpeedMenu.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', onDocClick, true))
+onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
 
 function fmt(s) {
   if (!s || !isFinite(s)) return '0:00'
