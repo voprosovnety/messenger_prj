@@ -221,6 +221,7 @@ function _registerWithStore() {
 function toggle() {
   const a = audioEl.value
   if (!a) return
+  if (!decodePromise) decodePromise = decodePeaks() // lazy: AudioContext after user gesture
   _resumeCtx()
   if (a.paused) {
     _active.stop?.()
@@ -237,6 +238,7 @@ function toggle() {
 function play() {
   const a = audioEl.value
   if (!a || !a.paused) return
+  if (!decodePromise) decodePromise = decodePeaks()
   _resumeCtx()
   _active.stop?.()
   _active.stop = _stopSelf
@@ -308,9 +310,9 @@ function fmt(s) {
 }
 
 onMounted(() => {
-  // Start decoding immediately; browsers allow decodeAudioData without user interaction
-  decodePromise = decodePeaks()
-  // Draw initial (empty progress) waveform after next tick so canvas has layout
+  // Do NOT create AudioContext on mount. On iOS Safari, an AudioContext created before
+  // user interaction starts in 'suspended' state and can silently mute the <audio> element.
+  // decodePeaks() is called lazily on the first play/toggle (inside a user gesture) instead.
   nextTick(() => drawWaveform())
 })
 
