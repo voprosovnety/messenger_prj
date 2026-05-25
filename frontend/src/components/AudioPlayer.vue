@@ -71,7 +71,6 @@ let seeking = false
 // Waveform state
 const waveformFailed = ref(false)
 let peaks = []      // Float32Array-like: downsampled amplitude peaks
-let audioCtx = null // created lazily on first toggle() call (autoplay policy)
 let decodePromise = null
 
 // ─── Waveform decode ──────────────────────────────────────────────
@@ -79,13 +78,14 @@ const BAR_COUNT = 60
 
 async function decodePeaks() {
   try {
-    // Create AudioContext for decoding only; suspended by default in many browsers
-    // — we just need decodeAudioData which doesn't require a running context.
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    // OfflineAudioContext is for non-real-time processing only — it is NOT an audio
+    // output device, so iOS Safari never suspends it and it never interferes with
+    // <audio> element playback. Safe to create on mount without user gesture.
     const response = await fetch(props.src, { credentials: 'same-origin' })
     if (!response.ok) throw new Error('fetch failed')
     const arrayBuf = await response.arrayBuffer()
-    const audioBuf = await audioCtx.decodeAudioData(arrayBuf)
+    const offCtx = new OfflineAudioContext(1, 44100, 44100)
+    const audioBuf = await offCtx.decodeAudioData(arrayBuf)
     const channelData = audioBuf.getChannelData(0)
     const blockSize = Math.floor(channelData.length / BAR_COUNT)
     const newPeaks = new Float32Array(BAR_COUNT)
@@ -176,9 +176,6 @@ function _stopSelf() {
   if (voiceStore.src === props.src) voiceStore.playing = false
 }
 
-function _resumeCtx() {
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {})
-}
 
 function _registerWithStore() {
   voiceStore.src = props.src
@@ -221,8 +218,6 @@ function _registerWithStore() {
 function toggle() {
   const a = audioEl.value
   if (!a) return
-  if (!decodePromise) decodePromise = decodePeaks() // lazy: AudioContext after user gesture
-  _resumeCtx()
   if (a.paused) {
     _active.stop?.()
     _active.stop = _stopSelf
@@ -238,8 +233,6 @@ function toggle() {
 function play() {
   const a = audioEl.value
   if (!a || !a.paused) return
-  if (!decodePromise) decodePromise = decodePeaks()
-  _resumeCtx()
   _active.stop?.()
   _active.stop = _stopSelf
   a.play()
@@ -310,9 +303,7 @@ function fmt(s) {
 }
 
 onMounted(() => {
-  // Do NOT create AudioContext on mount. On iOS Safari, an AudioContext created before
-  // user interaction starts in 'suspended' state and can silently mute the <audio> element.
-  // decodePeaks() is called lazily on the first play/toggle (inside a user gesture) instead.
+  decodePromise = decodePeaks()
   nextTick(() => drawWaveform())
 })
 
@@ -325,10 +316,6 @@ onBeforeUnmount(() => {
     voiceStore.playing = false
     voiceStore._play = voiceStore._pause = voiceStore._seek =
       voiceStore._setSpeed = voiceStore._setVol = voiceStore._stop = null
-  }
-  if (audioCtx) {
-    audioCtx.close().catch(() => {})
-    audioCtx = null
   }
 })
 
