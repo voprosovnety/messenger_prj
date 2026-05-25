@@ -245,6 +245,9 @@
         </template>
       </div>
 
+      <!-- Global voice player bar -->
+      <GlobalVoicePlayer />
+
       <!-- Pinned message bar -->
       <div v-if="currentPinned && !isAiChat" class="pinned-bar" @click="clickPinnedBar">
         <div class="pinned-bar-icon">
@@ -399,6 +402,7 @@
                                 <AudioPlayer
                                   v-else-if="a.type === 'audio'"
                                   :src="a.url"
+                                  :sender="m.sender?.username || ''"
                                   :ref="el => { if (el) audioPlayerRefs[m.id] = el; else delete audioPlayerRefs[m.id] }"
                                   @ended="onAudioEnded(m.id)"
                                 />
@@ -1144,6 +1148,7 @@ import { api } from '../api'
 import { useFocusTrap } from '../composables/useFocusTrap'
 import UserAvatar from '../components/UserAvatar.vue'
 import AudioPlayer from '../components/AudioPlayer.vue'
+import GlobalVoicePlayer from '../components/GlobalVoicePlayer.vue'
 import ImageLightbox from '../components/ImageLightbox.vue'
 import UserProfileModal from '../components/UserProfileModal.vue'
 import EmojiPicker from '../components/EmojiPicker.vue'
@@ -1235,6 +1240,7 @@ const editingId = ref(null)
 const editingText = ref('')
 const replyingTo = ref(null)
 const highlightedId = ref(null)
+let highlightTimer = null
 const newMessageIds = ref(new Set())
 const busy = ref(false)
 const error = ref('')
@@ -2881,8 +2887,14 @@ async function jumpToMessage(id) {
   const el = document.getElementById(`msg-${id}`)
   if (!el) return
   el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  // Cancel pending clear and force-restart animation even for repeated jumps to same message
+  if (highlightTimer !== null) { clearTimeout(highlightTimer); highlightTimer = null }
+  if (highlightedId.value === id) {
+    highlightedId.value = null
+    await nextTick()
+  }
   highlightedId.value = id
-  setTimeout(() => { highlightedId.value = null }, 1800)
+  highlightTimer = setTimeout(() => { highlightedId.value = null; highlightTimer = null }, 1800)
 }
 
 async function maybeJumpFromQuery() {

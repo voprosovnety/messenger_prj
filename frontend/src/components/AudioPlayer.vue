@@ -38,18 +38,7 @@
       <div class="ap-fill" :style="{ width: duration ? (current / duration * 100) + '%' : '0%' }" />
     </div>
 
-    <span class="ap-time">{{ fmt(current) }}<span style="color:var(--text-3)">/{{ fmt(duration) }}</span></span>
-
-    <div class="ap-vol" title="Volume">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-        <path v-if="vol > 0" d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-        <line v-if="vol === 0" x1="23" y1="9" x2="17" y2="15"/>
-        <line v-if="vol === 0" x1="17" y1="9" x2="23" y2="15"/>
-      </svg>
-      <input type="range" class="ap-volume" v-model="vol" min="0" max="1" step="0.05" @input="applyVol" />
-    </div>
-    <button class="audio-speed-btn" @click="cycleSpeed">{{ speed }}×</button>
+    <span class="ap-time">{{ playing ? fmt(current) : fmt(duration) }}</span>
   </div>
 </template>
 
@@ -60,11 +49,14 @@ const _active = { stop: null }
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { voiceStore, SPEEDS } from '../voiceStore.js'
 
-const props = defineProps({ src: { type: String, required: true } })
+const props = defineProps({
+  src: { type: String, required: true },
+  sender: { type: String, default: '' },
+})
 const emit = defineEmits(['ended'])
 
-const SPEEDS = [1, 1.5, 2, 0.5]
 const _storedSpeed = parseFloat(localStorage.getItem('audioSpeed') || '1')
 const speed = ref(SPEEDS.includes(_storedSpeed) ? _storedSpeed : 1)
 
@@ -73,7 +65,7 @@ const canvasEl = ref(null)
 const playing = ref(false)
 const current = ref(0)
 const duration = ref(0)
-const vol = ref(1)
+const vol = ref(voiceStore.vol)
 let seeking = false
 
 // Waveform state
@@ -181,10 +173,48 @@ function _stopSelf() {
   if (a && !a.paused) a.pause()
   playing.value = false
   if (_active.stop === _stopSelf) _active.stop = null
+  if (voiceStore.src === props.src) voiceStore.playing = false
 }
 
 function _resumeCtx() {
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {})
+}
+
+function _registerWithStore() {
+  voiceStore.src = props.src
+  voiceStore.sender = props.sender || ''
+  voiceStore.playing = true
+  voiceStore.current = current.value
+  voiceStore.duration = duration.value
+  voiceStore.speed = speed.value
+  voiceStore.vol = vol.value
+  voiceStore._play = play
+  voiceStore._pause = _stopSelf
+  voiceStore._seek = (t) => {
+    current.value = t
+    if (audioEl.value) audioEl.value.currentTime = t
+  }
+  voiceStore._setSpeed = (s) => {
+    const next = SPEEDS.includes(s) ? s : 1
+    speed.value = next
+    voiceStore.speed = next
+    if (audioEl.value) audioEl.value.playbackRate = next
+    localStorage.setItem('audioSpeed', String(next))
+  }
+  voiceStore._setVol = (v) => {
+    vol.value = v
+    voiceStore.vol = v
+    if (audioEl.value) audioEl.value.volume = v
+  }
+  voiceStore._stop = () => {
+    _stopSelf()
+    if (voiceStore.src === props.src) {
+      voiceStore.src = null
+      voiceStore.sender = ''
+      voiceStore._play = voiceStore._pause = voiceStore._seek =
+        voiceStore._setSpeed = voiceStore._setVol = voiceStore._stop = null
+    }
+  }
 }
 
 function toggle() {
@@ -192,10 +222,11 @@ function toggle() {
   if (!a) return
   _resumeCtx()
   if (a.paused) {
-    _active.stop?.()        // stop whatever is playing
+    _active.stop?.()
     _active.stop = _stopSelf
     a.play()
     playing.value = true
+    _registerWithStore()
   } else {
     _stopSelf()
   }
@@ -210,6 +241,7 @@ function play() {
   _active.stop = _stopSelf
   a.play()
   playing.value = true
+  _registerWithStore()
 }
 
 function onMeta() {
@@ -225,18 +257,12 @@ function onMeta() {
   }
 }
 
-function cycleSpeed() {
-  const idx = SPEEDS.indexOf(speed.value)
-  const next = SPEEDS[(idx + 1) % SPEEDS.length]
-  speed.value = next
-  if (audioEl.value) audioEl.value.playbackRate = next
-  localStorage.setItem('audioSpeed', String(next))
-}
 
 function onDurationChange() {
   const a = audioEl.value
   if (!a || !isFinite(a.duration)) return
   duration.value = a.duration
+  if (voiceStore.src === props.src) voiceStore.duration = a.duration
   a.currentTime = 0
 }
 
@@ -245,11 +271,18 @@ function onEnded() {
   if (_active.stop === _stopSelf) _active.stop = null
   playing.value = false
   emit('ended')
+  if (voiceStore.src === props.src) {
+    voiceStore.src = null
+    voiceStore.sender = ''
+    voiceStore._play = voiceStore._pause = voiceStore._seek =
+      voiceStore._setSpeed = voiceStore._setVol = voiceStore._stop = null
+  }
 }
 
 function onTimeUpdate() {
   if (!seeking) {
     current.value = audioEl.value?.currentTime ?? 0
+    if (voiceStore.src === props.src) voiceStore.current = current.value
     if (!waveformFailed.value && peaks.length) drawWaveform()
   }
 }
@@ -265,9 +298,6 @@ function seek(e) {
   if (audioEl.value) audioEl.value.currentTime = t
 }
 
-function applyVol() {
-  if (audioEl.value) audioEl.value.volume = vol.value
-}
 
 function fmt(s) {
   if (!s || !isFinite(s)) return '0:00'
@@ -286,6 +316,13 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (_active.stop === _stopSelf) _active.stop = null
   audioEl.value?.pause()
+  if (voiceStore.src === props.src) {
+    voiceStore.src = null
+    voiceStore.sender = ''
+    voiceStore.playing = false
+    voiceStore._play = voiceStore._pause = voiceStore._seek =
+      voiceStore._setSpeed = voiceStore._setVol = voiceStore._stop = null
+  }
   if (audioCtx) {
     audioCtx.close().catch(() => {})
     audioCtx = null
