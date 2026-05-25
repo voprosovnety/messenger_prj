@@ -216,6 +216,13 @@ function _registerWithStore() {
   }
 }
 
+function _syncFromStore(a) {
+  speed.value = voiceStore.speed
+  vol.value = voiceStore.vol
+  a.playbackRate = speed.value
+  a.volume = vol.value
+}
+
 function _startPlay(a) {
   const p = a.play()
   // Catch AbortError: browser rejects play() if currentTime changes mid-start
@@ -229,6 +236,7 @@ function toggle() {
   if (a.paused) {
     _active.stop?.()
     _active.stop = _stopSelf
+    _syncFromStore(a)
     _startPlay(a)
     playing.value = true
     _registerWithStore()
@@ -243,6 +251,7 @@ function play() {
   if (!a || !a.paused) return
   _active.stop?.()
   _active.stop = _stopSelf
+  _syncFromStore(a)
   _startPlay(a)
   playing.value = true
   _registerWithStore()
@@ -274,6 +283,10 @@ function onDurationChange() {
 
 function onEnded() {
   if (probingDuration) { probingDuration = false; return } // spurious ended from 1e10 probe
+  // Guard: if onDurationChange fired first (cleared probingDuration, reset currentTime=0),
+  // then play() was called, a delayed 'ended' from the probe arrives here with currentTime≈0.
+  const a = audioEl.value
+  if (a && duration.value > 0.5 && a.currentTime < 0.5) return
   if (!playing.value) return
   if (_active.stop === _stopSelf) _active.stop = null
   playing.value = false
