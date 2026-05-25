@@ -402,7 +402,7 @@
                                 <AudioPlayer
                                   v-else-if="a.type === 'audio'"
                                   :src="a.url"
-                                  :sender="m.sender?.username || ''"
+                                  :sender="m.sender || ''"
                                   :ref="el => { if (el) audioPlayerRefs[m.id] = el; else delete audioPlayerRefs[m.id] }"
                                   @ended="onAudioEnded(m.id)"
                                 />
