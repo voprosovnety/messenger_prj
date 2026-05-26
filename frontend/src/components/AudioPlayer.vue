@@ -237,9 +237,9 @@ function toggle() {
     _active.stop?.()
     _active.stop = _stopSelf
     _syncFromStore(a)
-    _startPlay(a)
     playing.value = true
     _registerWithStore()
+    _startPlay(a)
   } else {
     _stopSelf()
   }
@@ -252,9 +252,9 @@ function play() {
   _active.stop?.()
   _active.stop = _stopSelf
   _syncFromStore(a)
-  _startPlay(a)
   playing.value = true
   _registerWithStore()
+  _startPlay(a)
 }
 
 function onMeta() {
