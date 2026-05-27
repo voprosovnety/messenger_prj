@@ -60,6 +60,8 @@ jobs:
           git reset --hard origin/dev
           docker compose -f docker-compose.yml down --remove-orphans 2>/dev/null || true
           docker ps -aq --filter "name=messenger-dev" | xargs -r docker rm -f 2>/dev/null || true
+          COMMIT_SHA=$(git rev-parse HEAD)
+          docker compose -f docker-compose.yml build --build-arg CACHE_BUST=$COMMIT_SHA nginx
           DOCKER_BUILDKIT=0 docker compose -f docker-compose.yml up --build -d --remove-orphans 2>/dev/null || \
           docker compose -f docker-compose.yml up -d --remove-orphans
           timeout 60 sh -c 'until docker compose -f docker-compose.yml exec -T php php bin/console about > /dev/null 2>&1; do sleep 3; done'
