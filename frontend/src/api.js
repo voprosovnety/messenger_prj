@@ -210,7 +210,7 @@ export const api = {
     },
 
     uploadFile: (file, onProgress) => {
-        return new Promise((resolve, reject) => {
+        const attemptUpload = (token) => new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest()
             const fd = new FormData()
             fd.append('file', file)
@@ -219,20 +219,35 @@ export const api = {
             }
             xhr.onload = () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                    try { resolve(JSON.parse(xhr.responseText)) }
+                    try { resolve({ ok: true, data: JSON.parse(xhr.responseText) }) }
                     catch { reject(new Error('Invalid server response')) }
                 } else {
-                    let msg = 'Upload failed'
-                    try { msg = JSON.parse(xhr.responseText).error || msg } catch {}
-                    reject(new Error(msg))
+                    resolve({ ok: false, status: xhr.status, body: xhr.responseText })
                 }
             }
             xhr.onerror = () => reject(new Error('Network error'))
             xhr.open('POST', '/api/upload')
-            const token = localStorage.getItem('access_token')
             if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
             xhr.send(fd)
         })
+
+        return (async () => {
+            const res = await attemptUpload(localStorage.getItem('access_token'))
+            if (res.ok) return res.data
+            if (res.status === 401) {
+                const refreshed = await tryRefresh()
+                if (refreshed) {
+                    const res2 = await attemptUpload(localStorage.getItem('access_token'))
+                    if (res2.ok) return res2.data
+                    let msg = 'Upload failed'
+                    try { msg = JSON.parse(res2.body).error || msg } catch {}
+                    throw new Error(msg)
+                }
+            }
+            let msg = 'Upload failed'
+            try { msg = JSON.parse(res.body).error || msg } catch {}
+            throw new Error(msg)
+        })()
     },
 
     sendMessage: async (chatId, content, replyToId = null, attachments = []) => {

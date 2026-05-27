@@ -1427,7 +1427,7 @@ function renderContent(text) {
   div.textContent = text
   let safe = div.innerHTML
   // Linkify URLs
-  safe = safe.replace(/https?:\/\/[^\s<>"&]+/g, url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`)
+  safe = safe.replace(/https?:\/\/[^\s<>"]+/g, url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`)
   // Bold: **text**
   safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
   // Italic: _text_ (not preceded or followed by word char)
