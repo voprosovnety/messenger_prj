@@ -10,6 +10,7 @@ services:
       - mercure
     volumes:
       - uploads:/var/www/uploads
+    restart: unless-stopped
 
   php:
     build:
@@ -25,6 +26,7 @@ services:
       MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:-http://localhost/.well-known/mercure}
       MERCURE_JWT_SECRET: $MERCURE_JWT_SECRET
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    restart: unless-stopped
 
   postgres:
     image: postgres:16-alpine
@@ -34,6 +36,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-messenger}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
 
   mercure:
     image: dunglas/mercure:latest
@@ -43,6 +46,7 @@ services:
       MERCURE_SUBSCRIBER_JWT_KEY: $MERCURE_JWT_SECRET
       MERCURE_EXTRA_DIRECTIVES: |
         cors_origins ${CORS_ORIGINS:-*}
+    restart: unless-stopped
 
   scheduler:
     build:
