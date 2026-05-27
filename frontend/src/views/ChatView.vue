@@ -285,6 +285,16 @@
               <div class="skeleton-row"><div class="skeleton-bubble" style="width:65%"></div></div>
             </template>
 
+            <!-- Chat load failure guard: show a retry prompt instead of blank area.
+                 Only shown on fresh-load failure (chat is null, not loading, chatId set). -->
+            <div
+              v-else-if="!chat && !chatLoading && chatId && !isAiChat"
+              class="chat-load-error"
+            >
+              <span class="chat-load-error-text">Could not load chat</span>
+              <button class="btn btn-ghost" style="margin-top:10px" @click="load()">Retry</button>
+            </div>
+
             <div class="message-group" v-else v-for="g in grouped" :key="g.key">
               <div class="date-separator">
                 <span class="date-separator-text">{{ g.title }}</span>
@@ -1419,6 +1429,15 @@ function onAudioEnded(msgId) {
   }
 }
 
+// ─── sortReactions helper ─────────────────────────────────────────
+// Backend sorts at source but SSE patches and initial loads may arrive
+// out of order. Sort descending by count, then alphabetically by emoji
+// so the most-popular reaction always appears first.
+function sortReactions(arr) {
+  if (!arr) return []
+  return [...arr].sort((a, b) => b.count - a.count || a.emoji.localeCompare(b.emoji))
+}
+
 // ─── renderContent (linkify + markdown-lite) ──────────────────────
 function renderContent(text) {
   if (!text) return ''
@@ -1857,14 +1876,16 @@ async function load() {
     participants.value = chatData.participants || []
     pinnedMessages.value = chatData.pinned_messages || []
     pinnedIndex.value = Math.max(0, (chatData.pinned_messages || []).length - 1)
-    messages.value = msgData.items || []
+    messages.value = (msgData.items || []).map(m => ({
+      ...m, reactions: sortReactions(m.reactions)
+    }))
     nextCursor.value = msgData.next_cursor || null
     hasMore.value = !!msgData.next_cursor
     peerDeliveredId.value = msgData.peer_delivered_message_id || null
     peerReadId.value = msgData.peer_read_message_id || null
   } catch {
     chatLoading.value = false
-    router.push('/')
+    if (!chat.value) router.push('/')  // only redirect on truly fresh load failure
     return
   }
   chatLoading.value = false
@@ -2224,7 +2245,7 @@ async function connectSse() {
         }
         if (payload.type === 'message.reaction') {
           const i = messages.value.findIndex(m => m.id === d.message_id)
-          if (i !== -1) messages.value[i].reactions = d.reactions
+          if (i !== -1) messages.value[i].reactions = sortReactions(d.reactions)
           return
         }
         if (payload.type === 'message.pinned') {
@@ -2451,7 +2472,11 @@ async function submitPoll(pollData) {
   showPollForm.value = false
   try {
     await api.sendPoll(chatId.value, pollData)
-  } catch (e) { composerError.value = e.message }
+  } catch (e) {
+    composerError.value = e.message
+    // Re-open the form so the user can retry without losing their poll data
+    showPollForm.value = true
+  }
 }
 
 async function doVotePoll(messageId, optionId) {
@@ -2538,6 +2563,15 @@ async function send() {
   const text = input.value.trim()
   const atts = pendingFiles.value.slice()
   if (!text && !atts.length) return
+  // Guard: don't send if any attachment upload hasn't resolved a URL yet
+  const stillUploading = atts.some(f => f.url === null)
+  if (stillUploading) {
+    composerError.value = 'Please wait for uploads to finish'
+    return
+  }
+  // Capture scroll position BEFORE clearing the composer so optimistic scroll
+  // only kicks in when the user was already near the bottom (reading mode preserved).
+  const wasNearBottom = isNearBottom()
   const replyId = replyingTo.value?.id ?? null
   input.value = ''
   replyingTo.value = null
@@ -2550,6 +2584,9 @@ async function send() {
   navigator.vibrate?.(10)
   try {
     await api.sendMessage(chatId.value, text, replyId, atts)
+    // Optimistically scroll to bottom after a successful send only when
+    // the user was already near the bottom before they sent the message.
+    if (wasNearBottom) await scrollToBottom()
   } catch (e) {
     showToast(e.message || 'Failed to send message', 'error')
   }
@@ -2763,6 +2800,9 @@ async function sendRecording() {
 
   if (blob.size === 0) return
 
+  // Capture scroll position before the async upload so optimistic scroll
+  // only fires when the user was already at the bottom.
+  const wasNearBottom = isNearBottom()
   uploading.value = true
   try {
     const type = blob.type || 'audio/webm'
@@ -2770,6 +2810,7 @@ async function sendRecording() {
     const file = new File([blob], `voice-${Date.now()}.${ext}`, { type })
     const result = await api.uploadFile(file)
     await api.sendMessage(chatId.value, '', null, [{ url: result.url, type: 'audio', name: 'Voice message' }])
+    if (wasNearBottom) await scrollToBottom()
   } catch (err) {
     error.value = err.message
   } finally {
@@ -3589,6 +3630,16 @@ function onWindowResize() {
 // messages list to the bottom (after layout recalculates with new height)
 // so the last message stays visible above the composer.
 let _vvhRafId = null
+
+// Proactive VVH update fired when the composer textarea gains focus on mobile.
+// Sets --vvh immediately so the shell starts shrinking before the keyboard is
+// fully rendered, reducing the visible layout jump.
+function _onComposerFocusIn() {
+  if (window.innerWidth <= 640 && window.visualViewport) {
+    document.documentElement.style.setProperty('--vvh', window.visualViewport.height + 'px')
+  }
+}
+
 function updateVVH() {
   // Capture scroll state now, before the rAF changes clientHeight.
   const wasAtBottom = isNearBottom(200)
@@ -3642,6 +3693,9 @@ onMounted(async () => {
   window.visualViewport?.addEventListener('scroll', updateVVH)
   document.addEventListener('touchmove', _swipeTouchMove, { passive: false })
   if (listEl.value) listEl.value.addEventListener('touchmove', _msgAreaTouchMove, { passive: false })
+  // Proactively set --vvh when the composer is focused on mobile so the shell
+  // resizes before the keyboard finishes appearing, reducing the layout jump.
+  if (composerEl.value) composerEl.value.addEventListener('focusin', _onComposerFocusIn)
   updateVVH()
   api.ping().catch(() => {})
   loadOnlineUsers()
@@ -3665,6 +3719,7 @@ onBeforeUnmount(() => {
   window.visualViewport?.removeEventListener('scroll', updateVVH)
   document.removeEventListener('touchmove', _swipeTouchMove)
   if (listEl.value) listEl.value.removeEventListener('touchmove', _msgAreaTouchMove)
+  if (composerEl.value) composerEl.value.removeEventListener('focusin', _onComposerFocusIn)
   clearTimeout(_msgLongPressTimer)
   if (_vvhRafId) cancelAnimationFrame(_vvhRafId)
   // Restore default viewport so other routes can zoom normally.
@@ -3759,5 +3814,21 @@ onBeforeUnmount(() => {
   font-weight: 600;
   color: var(--danger);
   white-space: nowrap;
+}
+
+/* ─── Chat load failure state ─────────────────────────────────── */
+.chat-load-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 40px 20px;
+  gap: 4px;
+}
+.chat-load-error-text {
+  font-size: 14px;
+  color: var(--text-3);
+  text-align: center;
 }
 </style>

@@ -1139,7 +1139,12 @@ textarea.input {
   background: var(--surface);
 }
 
-/* #16: time floated inside bubble (Telegram-style) */
+/* #16: time floated inside bubble (Telegram-style).
+   float:right pulls the meta to the right edge of its line box.
+   The clearfix ::after on .message-bubble clears the float so the bubble
+   grows tall enough to contain it. For short single-line messages the meta
+   shares the same line as the text (right side); for wrapping text it drops
+   to the bottom-right — both are correct Telegram-style behaviour. */
 .message-meta {
   float: right;
   display: inline-flex;
@@ -1147,8 +1152,6 @@ textarea.input {
   gap: 4px;
   margin-left: 8px;
   margin-top: 4px;
-  margin-bottom: -1px;
-  padding: 0;
   line-height: 1;
   pointer-events: none;
   user-select: none;
@@ -1313,6 +1316,12 @@ textarea.input {
 }
 .composer-send:hover { background: var(--accent-hover); box-shadow: 0 4px 16px rgba(91, 141, 238, 0.45); }
 .composer-send:active { transform: scale(0.93); box-shadow: none; }
+/* When the send button is inside .composer-action-btn (which uses translate(-50%,-50%)
+   for centering), the bare scale(0.93) above replaces the translate and causes a jump.
+   This more-specific rule preserves the centering translate while keeping the scale. */
+.composer-action-btn.composer-send:active {
+  transform: translate(-50%, -50%) scale(0.93);
+}
 .composer-send:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ─── User Avatar ────────────────────────────────────────────── */
@@ -3215,7 +3224,11 @@ textarea.input {
      to visualViewport.height, which shrinks when the iOS keyboard opens.
      bottom:auto + explicit height (not inset) is necessary because
      position:fixed bottom:0 anchors to the layout viewport (behind the
-     keyboard), not the visual viewport — so the composer would be hidden. */
+     keyboard), not the visual viewport — so the composer would be hidden.
+     No transition on height: height is not GPU-composited, so animating it
+     triggers layout on every frame and causes visible jank on mid-range
+     devices. _onComposerFocusIn already fires --vvh proactively to reduce
+     the perceived jump without needing a CSS transition. */
   .app-shell {
     position: fixed;
     top: 0;
