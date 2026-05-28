@@ -1,116 +1,207 @@
 # RealtimeChat
 
-Браузерный мессенджер с доставкой сообщений в реальном времени.
+Браузерный мессенджер с доставкой сообщений в реальном времени — личные и групповые чаты, голосовые сообщения, опросы, отложенные сообщения, медиа-вложения и AI-ассистент. Построен на Symfony 7 и Vue 3 с realtime-слоем на Mercure (SSE).
 
-## Стек
+```
+Vue 3 SPA  ──HTTP/JSON──▶  Nginx  ──▶  Symfony 7 / PHP-FPM  ──▶  PostgreSQL 16
+     ▲                       │
+     └──────SSE──────────────┴──▶  Mercure hub  (push-обновления чатов)
+```
 
 | Слой | Технология |
 |---|---|
-| Backend | Symfony 7 / PHP 8.3 |
-| Frontend | Vue 3 + Vite |
-| Realtime | Mercure (SSE) |
+| Backend | Symfony 7 · PHP 8.3 |
+| Frontend | Vue 3 · Vite |
+| Realtime | Mercure (Server-Sent Events) |
 | База данных | PostgreSQL 16 |
-| Авторизация | JWT + Refresh Token |
+| Авторизация | JWT + refresh-токены (ротация) |
 | AI | Claude API (Anthropic) |
 | Прокси | Nginx |
-| Контейнеризация | Docker Compose |
+| Инфраструктура | Docker Compose |
+
+---
+
+## Возможности
+
+**Сообщения**
+- Личные и групповые чаты с ролями (владелец / участник)
+- Realtime-доставка через SSE без перезагрузки страницы
+- Статусы доставки и прочтения (✓ / ✓✓), индикатор печати, онлайн-статус
+- Ответы с цитированием (клик по цитате — переход к оригиналу), редактирование, мягкое удаление
+- Emoji-реакции, закрепление нескольких сообщений (multi-pin), пересылка
+- Поиск: глобальный по всем чатам и внутри чата
+- Cursor-based пагинация истории
+
+**Богатый контент**
+- Вложения: несколько файлов на сообщение — изображения, видео, аудио, документы (до 50 МБ)
+- Перетаскивание файлов в окно чата, вставка изображений из буфера
+- Полноэкранный лайтбокс с галереей, зумом и панорамированием
+- Запись и воспроизведение голосовых сообщений (MediaRecorder + кастомный плеер с waveform)
+- Опросы: одиночный / множественный выбор, анонимные и именные, отзыв голоса
+- Отложенные сообщения с фоновой отправкой
+
+**Платформа**
+- AI-ассистент на базе Claude Haiku
+- Аватары профиля и групп с историей версий
+- Адаптивная вёрстка, mobile-жесты (swipe-to-reply, long-press меню), тёмная тема
+- JWT-авторизация с автоматическим обновлением токенов
+
+---
 
 ## Быстрый старт
 
-Создай `.env` в корне проекта:
+### Требования
+- Docker и Docker Compose
+
+### 1. Настройте окружение
+
+Создайте `.env` в корне проекта:
 
 ```env
-MERCURE_JWT_SECRET=минимум_32_символа_любая_случайная_строка
+# Обязательно
+MERCURE_JWT_SECRET=минимум_32_символа_случайной_строки
 MERCURE_PUBLIC_URL=http://<домен-или-ip>/.well-known/mercure
-ANTHROPIC_API_KEY=sk-ant-...   # опционально, для AI-ассистента
 
-# Переопредели перед первым деплоем в продакшн:
-POSTGRES_PASSWORD=смени_в_продакшн   # по умолчанию "messenger"
-CORS_ORIGINS=https://<твой-домен>    # по умолчанию "*" (только dev)
+# Опционально — для AI-ассистента
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Обязательно переопределить перед продакшн-деплоем
+POSTGRES_PASSWORD=смените_в_продакшн     # по умолчанию "messenger"
+CORS_ORIGINS=https://<ваш-домен>          # по умолчанию "*" (только для dev)
 ```
 
-Запусти:
+### 2. Запустите
 
 ```bash
 docker compose up -d --build
 ```
 
-При первом запуске Docker соберёт образы, установит зависимости, сгенерирует JWT-ключи и применит миграции. Занимает 3–5 минут. Открывай `http://localhost`.
+Первый запуск собирает образы, ставит зависимости, генерирует JWT-ключи и применяет миграции (~3-5 минут). Откройте `http://localhost`.
 
-## Возможности
+---
 
-**Чаты и сообщения**
-- Личные и групповые чаты с ролями (владелец / участник)
-- Реал-тайм доставка сообщений через SSE без перезагрузки страницы
-- Статусы доставки и прочтения (✓ / ✓✓), индикатор печати, онлайн-статус
-- Ответы на сообщения с цитированием, клик по цитате прыгает к оригиналу
-- Редактирование сообщений в стиле Telegram (бар редактирования над полем ввода)
-- Мягкое удаление сообщений (placeholder "message deleted")
-- Emoji-реакции на сообщения с Mercure-обновлением в реальном времени
-- Закреп нескольких сообщений (multi-pin, Telegram-style) с навигационной панелью
-- Опросы (polls) в чате: одиночный и множественный выбор, анонимные и именные
-- Отложенные сообщения (Telegram-style): выбор даты/времени, управление очередью, фоновая отправка каждые 30 с
-- Поиск сообщений: глобальный по всем чатам (`GET /api/messages/search`) и внутри чата
+## Локальная разработка
 
-**Медиа и файлы**
-- Вложения: несколько файлов на одно сообщение (изображения, видео, аудио, документы до 50 МБ)
-- Перетаскивание файлов в окно чата (drag-and-drop)
-- Полноэкранный просмотр изображений (лайтбокс) со слайдером между всеми фото в чате, зумом и панорамированием
-- Запись и воспроизведение голосовых сообщений (MediaRecorder API + кастомный плеер)
+Frontend поднимается отдельно с hot-reload, проксируя API и Mercure на backend в Docker:
 
-**Профили и UI**
-- Аватарки профиля и групп с историей (можно вернуть прошлый аватар)
-- Просмотр профиля пользователя по клику на аватарку или имя
-- Панель онлайн-пользователей
-- Скрываемая боковая панель, адаптивная вёрстка для узких экранов
+```bash
+# backend в Docker
+docker compose up -d
 
-**Прочее**
-- AI-ассистент на базе Claude Haiku (Anthropic)
-- JWT-авторизация с автоматическим обновлением токенов
-- Cursor-based пагинация истории сообщений
+# frontend с hot-reload
+cd frontend
+npm install
+npm run dev        # http://localhost:5173
+```
+
+`npm run dev` проксирует `/api` → localhost и `/.well-known/mercure` → localhost:3000.
+`npm run build` собирает SPA в `frontend/dist/` (в продакшн раздаётся через Nginx).
+
+---
+
+## Тестирование
+
+Интеграционные тесты (PHPUnit) гоняются против реальной SQLite-базы; Mercure заменяется на `NullHub`.
+
+```bash
+docker compose exec php php bin/phpunit                          # весь набор
+docker compose exec php php bin/phpunit tests/Api/MessageApiTest.php
+docker compose exec php php bin/phpunit --filter testAuthorCanEditOwnMessage
+```
+
+---
+
+## Структура проекта
+
+```
+.
+├── backend/app/
+│   ├── src/
+│   │   ├── Controller/      # один контроллер = один эндпоинт (invokable)
+│   │   ├── Entity/          # User, Chat, Message, Poll, RefreshToken, …
+│   │   ├── Service/         # LinkPreview, PollHelper, ReactionHelper, ScheduledMessageDispatcher
+│   │   ├── Security/        # JWT login success handler, user providers
+│   │   └── Command/         # app:scheduled-messages:dispatch
+│   ├── config/              # security.yaml, packages/, routes/
+│   └── tests/Api/           # интеграционные тесты
+├── frontend/src/
+│   ├── views/               # ChatView (основной экран), Login, Register, Profile
+│   ├── components/          # AudioPlayer, ImageLightbox, PollMessage, EmojiPicker, …
+│   ├── composables/         # useFocusTrap
+│   ├── api.js               # единый HTTP-слой с авто-refresh токена
+│   └── style.css            # дизайн-система (CSS-токены)
+├── docker/nginx/            # конфиг reverse-proxy
+└── docker-compose.yml
+```
+
+### Сервисы (docker-compose)
+
+| Сервис | Порт | Роль |
+|---|---|---|
+| nginx | 80 | Reverse-proxy: SPA, PHP-FPM, Mercure SSE |
+| php | — | Symfony 7 / PHP-FPM |
+| postgres | 5432 | Основная БД |
+| mercure | 3000 | SSE-хаб |
+| scheduler | — | Фоновая отправка отложенных сообщений (каждые 30 с) |
+
+---
+
+## Архитектурные детали
+
+- **Один контроллер = один файл = один эндпоинт.** Каждый эндпоинт — отдельный `final class` с единственным `#[Route]` и `__invoke`.
+- **Realtime.** Контроллеры публикуют события в Mercure на топики `/chats/{id}/messages` и `/users/{id}` (private). Клиент подписывается через `EventSource` и получает cookie-подписку на свои чаты. Типы событий: `message.created/edited/deleted`, `message.reaction`, `message.pinned`, `poll.voted`, `user.typing`, `chat.read/delivered/created/updated`.
+- **Авторизация.** Stateless JWT в заголовке `Authorization: Bearer`; refresh-токены хранятся в PostgreSQL с ротацией. Логин принимает username или email.
+- **Пагинация.** Keyset-курсор `{created_at}|{uuid}`, выборка `limit+1` строк для определения `hasMore`.
+
+---
 
 ## API
+
+<details>
+<summary>Полная таблица эндпоинтов</summary>
 
 | Метод | URL | Описание |
 |---|---|---|
 | POST | `/api/auth/register` | Регистрация |
-| POST | `/api/auth/login` | Логин |
+| POST | `/api/auth/login` | Логин (username или email) |
 | POST | `/api/auth/refresh` | Обновить токен |
 | POST | `/api/auth/logout` | Логаут |
 | GET | `/api/me` | Текущий пользователь |
 | PATCH | `/api/me` | Изменить профиль |
+| POST | `/api/me/ping` | Обновить онлайн-статус |
+| GET | `/api/me/avatar-history` | История аватаров профиля |
+| DELETE | `/api/me/avatar-history/{id}` | Удалить запись истории |
 | GET | `/api/chats` | Список чатов |
 | POST | `/api/chats` | Создать чат |
+| GET | `/api/chats/{id}` | Детали чата (пины, аватар, участники) |
+| PATCH | `/api/chats/{id}` | Переименовать / сменить аватар |
 | DELETE | `/api/chats/{id}` | Удалить чат |
 | POST | `/api/chats/{id}/members` | Добавить участника |
 | DELETE | `/api/chats/{id}/members/{uid}` | Удалить участника |
 | POST | `/api/chats/{id}/leave` | Покинуть чат |
-| GET | `/api/users/{username}` | Профиль пользователя |
-| PATCH | `/api/chats/{id}` | Переименовать чат / сменить аватарку |
 | GET | `/api/chats/{id}/messages` | История сообщений |
 | POST | `/api/chats/{id}/messages` | Отправить сообщение |
-| PATCH | `/api/chats/{id}/messages/{mid}` | Редактировать сообщение |
-| DELETE | `/api/chats/{id}/messages/{mid}` | Удалить сообщение |
+| PATCH | `/api/chats/{id}/messages/{mid}` | Редактировать |
+| DELETE | `/api/chats/{id}/messages/{mid}` | Удалить |
 | POST | `/api/chats/{id}/typing` | Индикатор печати |
-| POST | `/api/chats/{id}/pin` | Закрепить / открепить сообщение |
-| POST | `/api/chats/{id}/messages/{mid}/reactions` | Поставить / убрать реакцию |
-| POST | `/api/chats/mercure-subscribe` | Подписка на SSE (все чаты) |
-| GET | `/api/users/online` | Список онлайн-пользователей |
-| GET | `/api/me/avatar-history` | История аватаров профиля |
-| DELETE | `/api/me/avatar-history/{id}` | Удалить запись истории аватара |
+| POST | `/api/chats/{id}/pin` | Закрепить / открепить |
+| POST | `/api/chats/{id}/messages/{mid}/reactions` | Реакция |
+| GET | `/api/chats/{id}/messages/{mid}/read-by` | Кто прочитал (группа) |
+| GET | `/api/chats/{id}/media` | Медиагалерея чата |
+| GET | `/api/chats/{id}/messages/search` | Поиск внутри чата |
 | GET | `/api/chats/{id}/avatar-history` | История аватаров группы |
-| DELETE | `/api/chats/{id}/avatar-history/{id}` | Удалить запись истории аватара группы |
-| GET | `/api/chats/{id}` | Детали чата (пины, аватар, участники) |
-| GET | `/api/chats/{id}/media` | Медиагалерея чата (изображения и видео) |
-| GET | `/api/chats/{id}/messages/{mid}/read-by` | Кто прочитал сообщение (группа) |
+| DELETE | `/api/chats/{id}/avatar-history/{aid}` | Удалить запись |
+| POST | `/api/chats/mercure-subscribe` | Подписка на SSE |
+| POST | `/api/chats/{id}/messages/poll` | Создать опрос |
+| POST | `/api/chats/{id}/messages/{mid}/poll/vote` | Проголосовать / снять голос |
+| GET | `/api/chats/{id}/scheduled-messages` | Список отложенных |
+| POST | `/api/chats/{id}/scheduled-messages` | Запланировать |
+| PATCH | `/api/scheduled-messages/{id}` | Изменить отложенное |
+| DELETE | `/api/scheduled-messages/{id}` | Отменить отложенное |
+| GET | `/api/messages/search` | Глобальный поиск |
+| GET | `/api/users/{username}` | Профиль пользователя |
+| GET | `/api/users/online` | Онлайн-пользователи |
 | POST | `/api/upload` | Загрузить файл (до 50 МБ) |
-| POST | `/api/me/ping` | Обновить онлайн-статус (раз в ~60 с) |
 | POST | `/api/ai/chat` | AI-ассистент (Claude Haiku) |
-| GET | `/api/chats/{id}/messages/search` | Поиск сообщений внутри чата |
-| GET | `/api/messages/search` | Глобальный поиск по всем чатам |
-| POST | `/api/chats/{chatId}/messages/poll` | Создать опрос |
-| POST | `/api/chats/{chatId}/messages/{mid}/poll/vote` | Проголосовать / снять голос |
-| GET | `/api/chats/{chatId}/scheduled-messages` | Список отложенных сообщений |
-| POST | `/api/chats/{chatId}/scheduled-messages` | Запланировать сообщение |
-| PATCH | `/api/scheduled-messages/{id}` | Изменить отложенное сообщение |
-| DELETE | `/api/scheduled-messages/{id}` | Отменить отложенное сообщение |
+
+</details>

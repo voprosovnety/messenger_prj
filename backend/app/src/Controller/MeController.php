@@ -7,6 +7,8 @@ use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Mercure\HubInterface;
+use Symfony\Component\Mercure\Update;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -28,10 +30,12 @@ final class MeController
         Request $request,
         UserInterface $user,
         EntityManagerInterface $em,
+        HubInterface $hub,
     ): JsonResponse {
         /** @var User $user */
         $data = json_decode($request->getContent(), true) ?? [];
 
+        $avatarChanged = false;
         if (array_key_exists('avatar_url', $data)) {
             $newUrl = $data['avatar_url'] !== '' ? $data['avatar_url'] : null;
             if ($newUrl && $newUrl !== $user->getAvatarUrl()) {
@@ -44,9 +48,22 @@ final class MeController
                 }
             }
             $user->setAvatarUrl($newUrl);
+            $avatarChanged = true;
         }
 
         $em->flush();
+
+        if ($avatarChanged) {
+            $userId = (string) $user->getId();
+            $hub->publish(new Update(
+                sprintf('/users/%s', $userId),
+                json_encode([
+                    'type' => 'user.updated',
+                    'data' => ['user_id' => $userId, 'avatar_url' => $user->getAvatarUrl()],
+                ], JSON_UNESCAPED_SLASHES),
+                true
+            ));
+        }
 
         return new JsonResponse($this->serialize($user));
     }

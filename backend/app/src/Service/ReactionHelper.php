@@ -37,7 +37,9 @@ class ReactionHelper
             $grouped[$mid][$e]['users'][] = $r->getUser()?->getUsername();
         }
         foreach ($grouped as $mid => $emojis) {
-            $result[$mid] = array_values($emojis);
+            $arr = array_values($emojis);
+            usort($arr, fn($a, $b) => $b['count'] <=> $a['count'] ?: strcmp($a['emoji'], $b['emoji']));
+            $result[$mid] = $arr;
         }
         return $result;
     }
@@ -53,6 +55,8 @@ class ReactionHelper
             $grouped[$e]['count']++;
             $grouped[$e]['users'][] = $r->getUser()?->getUsername();
         }
-        return array_values($grouped);
+        $arr = array_values($grouped);
+        usort($arr, fn($a, $b) => $b['count'] <=> $a['count'] ?: strcmp($a['emoji'], $b['emoji']));
+        return $arr;
     }
 }

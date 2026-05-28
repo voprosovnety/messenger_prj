@@ -54,7 +54,7 @@ final class CreateChatController
                 ?? $em->getRepository(User::class)->findOneBy(['email' => $ident]);
 
             if (!$peer) {
-                return new JsonResponse(['error' => "user not found: $ident"], 404);
+                return new JsonResponse(['error' => 'participant not found'], 404);
             }
 
             if ((string)$peer->getId() === (string)$me->getId()) {
@@ -86,46 +86,50 @@ final class CreateChatController
             }
         }
 
-        $chat = new Chat();
-        $chat->setIsGroup($isGroup);
-        $chat->setTitle($isGroup ? $title : null);
-        $chat->setDescription($description !== '' ? $description : null);
-        $em->persist($chat);
-
-        // creator = OWNER
-        $owner = new ChatMember();
-        $owner->setChat($chat);
-        $owner->setMember($me);
-        $owner->setRole('OWNER');
-        $em->persist($owner);
-
+        // Pre-validate all participants before opening the transaction.
+        $resolvedParticipants = [];
         foreach ($participants as $ident) {
             if (!is_string($ident) || trim($ident) === '') {
                 continue;
             }
-
             $ident = trim($ident);
-
-
             if ($ident === $me->getEmail() || $ident === $me->getUsername()) {
                 continue;
             }
-
             $u = $em->getRepository(User::class)->findOneBy(['username' => $ident])
                 ?? $em->getRepository(User::class)->findOneBy(['email' => $ident]);
-
             if (!$u) {
-                return new JsonResponse(['error' => "user not found: $ident"], 404);
+                return new JsonResponse(['error' => 'participant not found'], 404);
             }
-
-            $m = new ChatMember();
-            $m->setChat($chat);
-            $m->setMember($u);
-            $m->setRole('MEMBER');
-            $em->persist($m);
+            $resolvedParticipants[] = $u;
         }
 
-        $em->flush();
+        $chat = new Chat();
+        $chat->setIsGroup($isGroup);
+        $chat->setTitle($isGroup ? $title : null);
+        $chat->setDescription($description !== '' ? $description : null);
+
+        // Wrap all persists + flush in a single transaction.
+        $em->wrapInTransaction(function () use ($em, $chat, $me, $resolvedParticipants): void {
+            $em->persist($chat);
+
+            // creator = OWNER
+            $owner = new ChatMember();
+            $owner->setChat($chat);
+            $owner->setMember($me);
+            $owner->setRole('OWNER');
+            $em->persist($owner);
+
+            foreach ($resolvedParticipants as $u) {
+                $m = new ChatMember();
+                $m->setChat($chat);
+                $m->setMember($u);
+                $m->setRole('MEMBER');
+                $em->persist($m);
+            }
+
+            $em->flush();
+        });
 
         $chatPayload = json_encode([
             'type' => 'chat.created',

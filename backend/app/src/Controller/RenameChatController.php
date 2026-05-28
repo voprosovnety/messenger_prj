@@ -101,6 +101,14 @@ final class RenameChatController
             }
             $chat->setAvatarUrl($newUrl);
             $em->flush();
+
+            $avatarPayload = json_encode([
+                'type' => 'chat.updated',
+                'data' => ['chat_id' => $chatId, 'avatar_url' => $newUrl],
+            ], JSON_UNESCAPED_SLASHES);
+            foreach ($members as $member) {
+                $hub->publish(new Update(sprintf('/users/%s', (string) $member->getMember()->getId()), $avatarPayload, true));
+            }
         }
 
         return new JsonResponse([

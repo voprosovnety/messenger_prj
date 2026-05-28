@@ -17,10 +17,10 @@
         <button class="online-indicator" :class="{ active: showOnlinePanel }" :title="showOnlinePanel ? 'Close' : 'Online users'" @click="showOnlinePanel = !showOnlinePanel">
           <span class="online-indicator-dot"></span>{{ onlineUsers.length }} online
         </button>
-        <button class="btn-icon" :class="{ active: globalSearchOpen }" title="Search all messages" @click="showOnlinePanel = false; globalSearchOpen = !globalSearchOpen">
+        <button class="btn-icon" :class="{ active: globalSearchOpen }" title="Search all messages" aria-label="Search all messages" @click="showOnlinePanel = false; globalSearchOpen = !globalSearchOpen">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
-        <button class="btn-icon" title="New chat" @click="openCreate">
+        <button class="btn-icon" title="New chat" aria-label="New chat" @click="openCreate">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </div>
@@ -115,7 +115,7 @@
           <div class="sidebar-footer-name">{{ me?.username || '…' }}</div>
           <div class="sidebar-footer-status">{{ me?.email }}</div>
         </div>
-        <button class="btn-icon" title="Logout" @click="logout">
+        <button class="btn-icon" title="Logout" aria-label="Logout" @click="logout">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         </button>
       </div>
@@ -170,7 +170,7 @@
           </div>
         </div>
         <div class="chat-header-actions">
-          <button v-if="!isAiChat" class="btn-icon" :title="showMediaGallery ? 'Close gallery' : 'Media gallery'" :class="{ active: showMediaGallery }" @click="showMediaGallery = !showMediaGallery">
+          <button v-if="!isAiChat" class="btn-icon" :title="showMediaGallery ? 'Close gallery' : 'Media gallery'" :aria-label="showMediaGallery ? 'Close gallery' : 'Media gallery'" :class="{ active: showMediaGallery }" @click="showMediaGallery = !showMediaGallery">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="7" rx="1"/>
               <rect x="14" y="3" width="7" height="7" rx="1"/>
@@ -178,10 +178,10 @@
               <rect x="14" y="14" width="7" height="7" rx="1"/>
             </svg>
           </button>
-          <button v-if="!isAiChat" class="btn-icon" :title="searchOpen ? 'Close search' : 'Search messages'" :style="searchOpen ? 'color:var(--accent)' : ''" @click="toggleSearch">
+          <button v-if="!isAiChat" class="btn-icon" :title="searchOpen ? 'Close search' : 'Search messages'" :aria-label="searchOpen ? 'Close search' : 'Search messages'" :style="searchOpen ? 'color:var(--accent)' : ''" @click="toggleSearch">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </button>
-          <button v-if="!isAiChat" class="btn-icon" :title="isMuted(chatId) ? 'Unmute' : 'Mute'" :style="isMuted(chatId) ? 'color:var(--text-3)' : ''" @click="toggleMute(chatId)">
+          <button v-if="!isAiChat" class="btn-icon" :title="isMuted(chatId) ? 'Unmute' : 'Mute'" :aria-label="isMuted(chatId) ? 'Unmute notifications' : 'Mute notifications'" :style="isMuted(chatId) ? 'color:var(--text-3)' : ''" @click="toggleMute(chatId)">
             <svg v-if="isMuted(chatId)" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           </button>
@@ -258,14 +258,14 @@
           <span class="pinned-bar-content">{{ pinnedPreview(currentPinned) }}</span>
         </div>
         <div v-if="pinnedMessages.length > 1" class="pinned-nav-row">
-          <button class="btn-icon pinned-nav-btn" title="Newer pinned" @click.stop="navigatePin(1)">
+          <button class="btn-icon pinned-nav-btn" title="Newer pinned" aria-label="Next pinned message" @click.stop="navigatePin(1)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <button class="btn-icon pinned-nav-btn" title="Older pinned" @click.stop="navigatePin(-1)">
+          <button class="btn-icon pinned-nav-btn" title="Older pinned" aria-label="Previous pinned message" @click.stop="navigatePin(-1)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
           </button>
         </div>
-        <button v-if="canPin" class="btn-icon pinned-nav-btn" style="flex-shrink:0" title="Unpin" @click.stop="doPin(currentPinned.id)">
+        <button v-if="canPin" class="btn-icon pinned-nav-btn" style="flex-shrink:0" title="Unpin" aria-label="Unpin message" @click.stop="doPin(currentPinned.id)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
@@ -284,6 +284,16 @@
               <div class="skeleton-row own"><div class="skeleton-bubble" style="width:50%"></div></div>
               <div class="skeleton-row"><div class="skeleton-bubble" style="width:65%"></div></div>
             </template>
+
+            <!-- Chat load failure guard: show a retry prompt instead of blank area.
+                 Only shown on fresh-load failure (chat is null, not loading, chatId set). -->
+            <div
+              v-else-if="!chat && !chatLoading && chatId && !isAiChat"
+              class="chat-load-error"
+            >
+              <span class="chat-load-error-text">Could not load chat</span>
+              <button class="btn btn-ghost" style="margin-top:10px" @click="load()">Retry</button>
+            </div>
 
             <div class="message-group" v-else v-for="g in grouped" :key="g.key">
               <div class="date-separator">
@@ -441,7 +451,7 @@
                         :title="r.users.join(', ')"
                         @click.stop="handleReactionClick(m, r.emoji, $event)"
                       >{{ r.emoji }} {{ r.count }}</button>
-                      <button v-if="!isAiChat && !m.deleted_at" class="reaction-add-btn" title="Add reaction" @click.stop="openReactionPicker(m.id, $event)">+</button>
+                      <button v-if="!isAiChat && !m.deleted_at" class="reaction-add-btn" title="Add reaction" aria-label="Add reaction" @click.stop="openReactionPicker(m.id, $event)">+</button>
                     </div>
                   </div>
 
@@ -795,7 +805,8 @@
                   ref="attachBtnEl"
                   class="btn-icon composer-attach"
                   :class="{ active: showAttachMenu }"
-                  title="Attach"
+                  title="Attach file"
+                  aria-label="Attach file"
                   :disabled="uploading"
                   @click.stop="toggleAttachMenu()"
                 >
@@ -826,6 +837,7 @@
                 class="btn-icon composer-emoji"
                 :class="{ active: showEmojiPicker }"
                 title="Emoji"
+                aria-label="Open emoji picker"
                 @click.stop="toggleEmojiPicker"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -849,6 +861,7 @@
                   class="composer-mic composer-action-btn btn-icon"
                   :class="{ 'btn-hidden': input.trim() || pendingFiles.length }"
                   title="Record voice message"
+                  aria-label="Record voice message"
                   :disabled="uploading"
                   @click="startRecording"
                 >
@@ -859,6 +872,7 @@
                   class="composer-send composer-action-btn"
                   :class="{ 'btn-hidden': !input.trim() && !pendingFiles.length }"
                   :disabled="!input.trim() && !pendingFiles.length"
+                  aria-label="Send message"
                   @click="send"
                   @contextmenu.prevent="openSendMenu()"
                   @touchstart="onSendTouchStart"
@@ -947,10 +961,10 @@
 
     <!-- Forward modal -->
     <div v-if="showForwardModal" class="modal-overlay" @click.self="showForwardModal = false">
-      <div ref="forwardModalEl" class="modal">
+      <div ref="forwardModalEl" class="modal" role="dialog" aria-modal="true" aria-label="Forward message">
         <div class="modal-header">
           <span class="modal-title">Forward to…</span>
-          <button class="btn-icon" @click="showForwardModal = false">
+          <button class="btn-icon" aria-label="Close" @click="showForwardModal = false">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -970,10 +984,10 @@
 
     <!-- New chat modal -->
     <div v-if="showCreate" class="modal-overlay" @click.self="closeCreate">
-      <div ref="createModalEl" class="modal">
+      <div ref="createModalEl" class="modal" role="dialog" aria-modal="true" aria-label="New conversation">
         <div class="modal-header">
           <span class="modal-title">New conversation</span>
-          <button class="btn-icon" @click="closeCreate">
+          <button class="btn-icon" aria-label="Close" @click="closeCreate">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -1078,10 +1092,10 @@
     <!-- Read receipt details modal -->
     <Teleport to="body">
       <div v-if="readByMsgId" class="modal-overlay" @click.self="readByMsgId = null">
-        <div ref="readByModalEl" class="modal read-by-modal">
+        <div ref="readByModalEl" class="modal read-by-modal" role="dialog" aria-modal="true" aria-label="Read receipts">
           <div class="modal-header">
             <span class="modal-title">Read by</span>
-            <button class="btn-icon" @click="readByMsgId = null">
+            <button class="btn-icon" aria-label="Close" @click="readByMsgId = null">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
@@ -1099,10 +1113,10 @@
 
     <!-- Keyboard shortcuts modal -->
     <div v-if="showKeyboardShortcutsModal" class="modal-overlay" @click.self="showKeyboardShortcutsModal = false">
-      <div ref="kbdShortcutsModalEl" class="modal kbd-shortcuts-modal">
+      <div ref="kbdShortcutsModalEl" class="modal kbd-shortcuts-modal" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
         <div class="modal-header">
           <span class="modal-title">Keyboard Shortcuts</span>
-          <button class="btn-icon" @click="showKeyboardShortcutsModal = false">
+          <button class="btn-icon" aria-label="Close" @click="showKeyboardShortcutsModal = false">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -1243,7 +1257,6 @@ const highlightedId = ref(null)
 let highlightTimer = null
 const newMessageIds = ref(new Set())
 const busy = ref(false)
-const error = ref('')
 
 const showCreate = ref(false)
 const createIsGroup = ref(false)
@@ -1417,6 +1430,15 @@ function onAudioEnded(msgId) {
       return
     }
   }
+}
+
+// ─── sortReactions helper ─────────────────────────────────────────
+// Backend sorts at source but SSE patches and initial loads may arrive
+// out of order. Sort descending by count, then alphabetically by emoji
+// so the most-popular reaction always appears first.
+function sortReactions(arr) {
+  if (!arr) return []
+  return [...arr].sort((a, b) => b.count - a.count || a.emoji.localeCompare(b.emoji))
 }
 
 // ─── renderContent (linkify + markdown-lite) ──────────────────────
@@ -1857,14 +1879,16 @@ async function load() {
     participants.value = chatData.participants || []
     pinnedMessages.value = chatData.pinned_messages || []
     pinnedIndex.value = Math.max(0, (chatData.pinned_messages || []).length - 1)
-    messages.value = msgData.items || []
+    messages.value = (msgData.items || []).map(m => ({
+      ...m, reactions: sortReactions(m.reactions)
+    }))
     nextCursor.value = msgData.next_cursor || null
     hasMore.value = !!msgData.next_cursor
     peerDeliveredId.value = msgData.peer_delivered_message_id || null
     peerReadId.value = msgData.peer_read_message_id || null
   } catch {
     chatLoading.value = false
-    router.push('/')
+    if (!chat.value) router.push('/')  // only redirect on truly fresh load failure
     return
   }
   chatLoading.value = false
@@ -2224,7 +2248,7 @@ async function connectSse() {
         }
         if (payload.type === 'message.reaction') {
           const i = messages.value.findIndex(m => m.id === d.message_id)
-          if (i !== -1) messages.value[i].reactions = d.reactions
+          if (i !== -1) messages.value[i].reactions = sortReactions(d.reactions)
           return
         }
         if (payload.type === 'message.pinned') {
@@ -2451,7 +2475,11 @@ async function submitPoll(pollData) {
   showPollForm.value = false
   try {
     await api.sendPoll(chatId.value, pollData)
-  } catch (e) { composerError.value = e.message }
+  } catch (e) {
+    composerError.value = e.message
+    // Re-open the form so the user can retry without losing their poll data
+    showPollForm.value = true
+  }
 }
 
 async function doVotePoll(messageId, optionId) {
@@ -2538,6 +2566,15 @@ async function send() {
   const text = input.value.trim()
   const atts = pendingFiles.value.slice()
   if (!text && !atts.length) return
+  // Guard: don't send if any attachment upload hasn't resolved a URL yet
+  const stillUploading = atts.some(f => f.url === null)
+  if (stillUploading) {
+    composerError.value = 'Please wait for uploads to finish'
+    return
+  }
+  // Capture scroll position BEFORE clearing the composer so optimistic scroll
+  // only kicks in when the user was already near the bottom (reading mode preserved).
+  const wasNearBottom = isNearBottom()
   const replyId = replyingTo.value?.id ?? null
   input.value = ''
   replyingTo.value = null
@@ -2550,6 +2587,9 @@ async function send() {
   navigator.vibrate?.(10)
   try {
     await api.sendMessage(chatId.value, text, replyId, atts)
+    // Optimistically scroll to bottom after a successful send only when
+    // the user was already near the bottom before they sent the message.
+    if (wasNearBottom) await scrollToBottom()
   } catch (e) {
     showToast(e.message || 'Failed to send message', 'error')
   }
@@ -2622,7 +2662,7 @@ async function processFile(file) {
   } catch (err) {
     // Remove failed upload placeholder
     pendingFiles.value.splice(idx, 1)
-    error.value = err.message
+    showToast(err?.message || 'Upload failed', 'error')
   } finally {
     uploading.value = false
   }
@@ -2763,6 +2803,9 @@ async function sendRecording() {
 
   if (blob.size === 0) return
 
+  // Capture scroll position before the async upload so optimistic scroll
+  // only fires when the user was already at the bottom.
+  const wasNearBottom = isNearBottom()
   uploading.value = true
   try {
     const type = blob.type || 'audio/webm'
@@ -2770,8 +2813,9 @@ async function sendRecording() {
     const file = new File([blob], `voice-${Date.now()}.${ext}`, { type })
     const result = await api.uploadFile(file)
     await api.sendMessage(chatId.value, '', null, [{ url: result.url, type: 'audio', name: 'Voice message' }])
+    if (wasNearBottom) await scrollToBottom()
   } catch (err) {
-    error.value = err.message
+    showToast(err?.message || 'Failed to send recording', 'error')
   } finally {
     uploading.value = false
   }
@@ -2927,7 +2971,7 @@ async function doForward(targetChatId) {
       router.push(`/chats/${targetChatId}`)
     }
   } catch (e) {
-    error.value = e.message
+    showToast(e?.message || 'Failed to forward message', 'error')
   }
 }
 
@@ -2970,21 +3014,32 @@ async function saveEdit() {
     cancelEdit()
     if (composerEl.value) composerEl.value.style.height = 'auto'
   } catch (e) {
-    error.value = e.message
+    showToast(e?.message || 'Failed to edit message', 'error')
   } finally { busy.value = false }
 }
 
+const deletingMsgId = ref(null)
+
 async function removeMessage(m) {
-  if (!confirm('Delete this message?')) return
-  busy.value = true
-  try {
-    await api.deleteMessage(chatId.value, m.id)
-    const i = messages.value.findIndex(x => x.id === m.id)
-    if (i !== -1) messages.value[i].deleted_at = new Date().toISOString()
-    if (editingId.value === m.id) cancelEdit()
-    showToast('Message deleted', 'success')
-  } catch (e) { error.value = e.message }
-  finally { busy.value = false }
+  if (deletingMsgId.value === m.id) {
+    // Second click: confirmed — proceed with deletion
+    deletingMsgId.value = null
+    busy.value = true
+    try {
+      await api.deleteMessage(chatId.value, m.id)
+      const i = messages.value.findIndex(x => x.id === m.id)
+      if (i !== -1) messages.value[i].deleted_at = new Date().toISOString()
+      if (editingId.value === m.id) cancelEdit()
+      showToast('Message deleted', 'success')
+    } catch (e) {
+      showToast(e?.message || 'Failed to delete message', 'error')
+    } finally { busy.value = false }
+    return
+  }
+  // First click: prime confirmation
+  deletingMsgId.value = m.id
+  showToast('Click Delete again to confirm', 'warning')
+  setTimeout(() => { if (deletingMsgId.value === m.id) deletingMsgId.value = null }, 3000)
 }
 
 async function openReadBy(msgId) {
@@ -3006,7 +3061,7 @@ async function doPin(messageId) {
     const res = await api.pinMessage(chatId.value, messageId)
     pinnedMessages.value = res.pinned_messages || []
     pinnedIndex.value = stablePinnedIndex(pinnedMessages.value, currentId)
-  } catch (e) { error.value = e.message }
+  } catch (e) { showToast(e?.message || 'Failed to update pinned message', 'error') }
 }
 
 function pinnedPreview(pm) {
@@ -3274,8 +3329,8 @@ watch(chatId, async (newId, oldId) => {
   dragCounter = 0
   dragging.value = false
   lightboxOpen.value = false
-  error.value = ''
   composerError.value = ''
+  deletingMsgId.value = null
   showEmojiPicker.value = false
   closeReactionPicker()
   showGroupProfile.value = false
@@ -3589,6 +3644,16 @@ function onWindowResize() {
 // messages list to the bottom (after layout recalculates with new height)
 // so the last message stays visible above the composer.
 let _vvhRafId = null
+
+// Proactive VVH update fired when the composer textarea gains focus on mobile.
+// Sets --vvh immediately so the shell starts shrinking before the keyboard is
+// fully rendered, reducing the visible layout jump.
+function _onComposerFocusIn() {
+  if (window.innerWidth <= 640 && window.visualViewport) {
+    document.documentElement.style.setProperty('--vvh', window.visualViewport.height + 'px')
+  }
+}
+
 function updateVVH() {
   // Capture scroll state now, before the rAF changes clientHeight.
   const wasAtBottom = isNearBottom(200)
@@ -3642,6 +3707,9 @@ onMounted(async () => {
   window.visualViewport?.addEventListener('scroll', updateVVH)
   document.addEventListener('touchmove', _swipeTouchMove, { passive: false })
   if (listEl.value) listEl.value.addEventListener('touchmove', _msgAreaTouchMove, { passive: false })
+  // Proactively set --vvh when the composer is focused on mobile so the shell
+  // resizes before the keyboard finishes appearing, reducing the layout jump.
+  if (composerEl.value) composerEl.value.addEventListener('focusin', _onComposerFocusIn)
   updateVVH()
   api.ping().catch(() => {})
   loadOnlineUsers()
@@ -3665,6 +3733,7 @@ onBeforeUnmount(() => {
   window.visualViewport?.removeEventListener('scroll', updateVVH)
   document.removeEventListener('touchmove', _swipeTouchMove)
   if (listEl.value) listEl.value.removeEventListener('touchmove', _msgAreaTouchMove)
+  if (composerEl.value) composerEl.value.removeEventListener('focusin', _onComposerFocusIn)
   clearTimeout(_msgLongPressTimer)
   if (_vvhRafId) cancelAnimationFrame(_vvhRafId)
   // Restore default viewport so other routes can zoom normally.
@@ -3709,7 +3778,7 @@ onBeforeUnmount(() => {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: var(--bg-2);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.15);
@@ -3728,11 +3797,11 @@ onBeforeUnmount(() => {
   border: none;
   cursor: pointer;
   text-align: left;
-  color: var(--text-1);
+  color: var(--text);
   font-size: 14px;
   transition: background 0.12s;
 }
-.user-suggestion-item:hover { background: var(--bg-3); }
+.user-suggestion-item:hover { background: var(--surface-3); }
 .user-suggestion-avatar {
   width: 28px;
   height: 28px;
@@ -3759,5 +3828,21 @@ onBeforeUnmount(() => {
   font-weight: 600;
   color: var(--danger);
   white-space: nowrap;
+}
+
+/* ─── Chat load failure state ─────────────────────────────────── */
+.chat-load-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 40px 20px;
+  gap: 4px;
+}
+.chat-load-error-text {
+  font-size: 14px;
+  color: var(--text-3);
+  text-align: center;
 }
 </style>

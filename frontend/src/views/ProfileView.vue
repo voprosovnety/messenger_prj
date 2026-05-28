@@ -53,7 +53,7 @@
           </button>
         </div>
 
-        <div v-if="success" style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:10px 14px;font-size:13px;color:#22c55e;margin-bottom:16px">
+        <div v-if="success" class="profile-success-banner">
           Profile updated successfully
         </div>
         <div v-if="error" class="auth-error">{{ error }}</div>

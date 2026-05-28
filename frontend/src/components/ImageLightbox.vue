@@ -10,11 +10,11 @@
       @touchstart.passive="onTouchStart"
       @touchend.passive="onTouchEnd"
     >
-      <button class="lightbox-close" @click="$emit('close')">
+      <button class="lightbox-close" aria-label="Close lightbox" @click="$emit('close')">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
 
-      <button v-if="images.length > 1" class="lightbox-arrow left" @click="prev">
+      <button v-if="images.length > 1" class="lightbox-arrow left" aria-label="Previous image" @click="prev">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
 
@@ -33,7 +33,7 @@
         />
       </div>
 
-      <button v-if="images.length > 1" class="lightbox-arrow right" @click="next">
+      <button v-if="images.length > 1" class="lightbox-arrow right" aria-label="Next image" @click="next">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
 
@@ -45,11 +45,11 @@
       </div>
 
       <div class="lightbox-zoom-controls">
-        <button class="lightbox-zoom-btn" :disabled="zoom <= MIN_ZOOM" @click="zoomOut">
+        <button class="lightbox-zoom-btn" :disabled="zoom <= MIN_ZOOM" aria-label="Zoom out" @click="zoomOut">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
-        <span class="lightbox-zoom-label">{{ Math.round(zoom * 100) }}%</span>
-        <button class="lightbox-zoom-btn" :disabled="zoom >= MAX_ZOOM" @click="zoomIn">
+        <span class="lightbox-zoom-label" aria-live="polite">{{ Math.round(zoom * 100) }}%</span>
+        <button class="lightbox-zoom-btn" :disabled="zoom >= MAX_ZOOM" aria-label="Zoom in" @click="zoomIn">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </div>

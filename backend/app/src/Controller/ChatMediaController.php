@@ -48,7 +48,9 @@ final class ChatMediaController extends AbstractController
             ->setParameter('chat', $chat)
             ->setParameter('skipTypes', ['system', 'poll'])
             ->orderBy('m.createdAt', 'DESC')
-            ->addOrderBy('m.id', 'DESC');
+            ->addOrderBy('m.id', 'DESC')
+            // DB limit > item cap because one message can carry multiple attachments.
+            ->setMaxResults(500);
 
         /** @var Message[] $rows */
         $rows = $qb->getQuery()->getResult();

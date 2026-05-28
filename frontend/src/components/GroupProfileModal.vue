@@ -1,8 +1,8 @@
 <template>
   <Teleport to="body">
     <div class="modal-overlay" @click.self="$emit('close')">
-      <div class="modal group-profile-modal">
-        <button class="btn-icon modal-close-btn" @click="$emit('close')">
+      <div class="modal group-profile-modal" role="dialog" aria-modal="true" aria-label="Group settings">
+        <button class="btn-icon modal-close-btn" aria-label="Close" @click="$emit('close')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
 
@@ -127,8 +127,26 @@
 
         <!-- Danger zone -->
         <div class="gp-danger">
-          <button v-if="!isOwner" class="btn btn-danger" style="width:100%" :disabled="busy" @click="leaveChat">Leave group</button>
-          <button v-if="isOwner" class="btn btn-danger" style="width:100%" :disabled="busy" @click="deleteChat">Delete group</button>
+          <template v-if="!isOwner">
+            <button v-if="confirmAction !== 'leave'" class="btn btn-danger" style="width:100%" :disabled="busy" @click="confirmAction = 'leave'">Leave group</button>
+            <template v-else>
+              <span class="gp-confirm-label">Leave this group?</span>
+              <div class="gp-confirm-row">
+                <button class="btn btn-danger" style="flex:1" :disabled="busy" @click="leaveChat">Confirm leave</button>
+                <button class="btn btn-ghost" style="flex:1" @click="confirmAction = null">Cancel</button>
+              </div>
+            </template>
+          </template>
+          <template v-if="isOwner">
+            <button v-if="confirmAction !== 'delete'" class="btn btn-danger" style="width:100%" :disabled="busy" @click="confirmAction = 'delete'">Delete group</button>
+            <template v-else>
+              <span class="gp-confirm-label">Delete group permanently?</span>
+              <div class="gp-confirm-row">
+                <button class="btn btn-danger" style="flex:1" :disabled="busy" @click="deleteChat">Confirm delete</button>
+                <button class="btn btn-ghost" style="flex:1" @click="confirmAction = null">Cancel</button>
+              </div>
+            </template>
+          </template>
         </div>
       </div>
     </div>
@@ -196,6 +214,7 @@ const showAddMember = ref(false)
 const participantInput = ref('')
 const busy = ref(false)
 const error = ref('')
+const confirmAction = ref(null) // 'leave' | 'delete' | null
 
 onMounted(async () => {
   try {
@@ -317,8 +336,8 @@ async function removeParticipant(userId) {
 }
 
 async function leaveChat() {
-  if (!confirm('Leave this group?')) return
   busy.value = true
+  confirmAction.value = null
   try {
     await api.leaveChat(props.chat.id)
     emit('left')
@@ -329,8 +348,8 @@ async function leaveChat() {
 }
 
 async function deleteChat() {
-  if (!confirm('Delete this group permanently?')) return
   busy.value = true
+  confirmAction.value = null
   try {
     await api.deleteChat(props.chat.id)
     emit('deleted')
@@ -365,10 +384,22 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
   color: var(--text-3);
 }
 .member-online {
-  color: #4caf7d;
+  color: var(--online);
   font-weight: 500;
 }
 .member-last-seen {
   color: var(--text-3);
+}
+.gp-confirm-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+  margin-bottom: 8px;
+  text-align: center;
+}
+.gp-confirm-row {
+  display: flex;
+  gap: 8px;
 }
 </style>
