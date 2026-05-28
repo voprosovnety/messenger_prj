@@ -13,7 +13,7 @@ WORKDIR /var/www/backend/app
 
 COPY app/ .
 
-RUN composer install --optimize-autoloader --no-interaction --no-scripts
+RUN composer install --no-dev --classmap-authoritative --no-interaction --no-scripts
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

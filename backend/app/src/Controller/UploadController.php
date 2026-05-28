@@ -28,6 +28,19 @@ final class UploadController
         }
 
         $mime = $file->getMimeType() ?? $file->getClientMimeType();
+
+        // Exact-match allowlist — svg, html, javascript etc. are excluded intentionally.
+        $allowedMimes = [
+            'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+            'video/mp4', 'video/webm',
+            'audio/mpeg', 'audio/ogg', 'audio/webm', 'audio/mp4',
+            'application/pdf', 'text/plain',
+        ];
+        if (!in_array($mime, $allowedMimes, true)) {
+            return new JsonResponse(['error' => 'file type not allowed'], 415);
+        }
+
+        // Classification uses prefix matching; svg/html are already blocked above.
         $attachmentType = match (true) {
             str_starts_with($mime, 'image/') => 'image',
             str_starts_with($mime, 'video/') => 'video',

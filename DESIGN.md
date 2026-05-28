@@ -6,7 +6,7 @@ Single source of truth for all visual decisions. Keep this file in sync whenever
 
 ## Principles
 
-- **Dark only.** No light mode — one polished surface beats two mediocre ones.
+- **Dual-theme: dark (default) + light.** Toggle in Profile settings. All colors MUST use CSS custom properties — no hardcoded hex values anywhere in components or scoped styles.
 - **Neutral grays.** Backgrounds are pure near-blacks with no color tint. Color lives in the accent and status indicators only.
 - **Single accent.** One blue (`--accent`). No secondary accent, no rainbow states.
 - **Functional beauty.** Every pixel serves communication. No decorative gradients, no heavy drop shadows, no animations beyond micro-transitions.
@@ -36,8 +36,11 @@ All tokens live in the `:root` block at the top of `frontend/src/style.css`.
 | `--danger` | `#ff4757` | Destructive actions, error states |
 | `--danger-dim` | `rgba(255,71,87,0.12)` | Danger tinted backgrounds |
 | `--online` | `#22c55e` | Online status dot |
+| `--online-dim` | `rgba(34,197,94,0.15)` | Green-tinted backgrounds (success banners, online indicators) |
 
 **Rule:** Never introduce a color outside this palette. Need a new shade? Derive it from an existing token with opacity.
+
+**Light theme:** A `[data-theme="light"]` override block at the bottom of `style.css` re-maps all tokens to light values. The toggle lives in ProfileView. Every component reads tokens — nothing hardcoded — so both themes work automatically.
 
 ---
 
@@ -230,9 +233,15 @@ background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, v
 ## What NOT to do
 
 - No new colors outside the palette above
-- No gradients except the AI icon
-- No `font-weight: 700` or `bold`
+- No hardcoded hex, rgb(), or hsl() in component or scoped styles — only `var(--token)` references
+- No gradients except the AI icon (and the skeleton shimmer pattern)
+- No `font-weight: 700` or `bold` — maximum weight is 600
 - No shadows heavier than `--shadow`
 - No border-radius values outside `--radius-sm / --radius / --radius-lg / 50%`
 - No external CSS frameworks, Tailwind, or component libraries
-- No light-mode styles
+
+---
+
+### UserAvatar color palette
+
+`UserAvatar.vue` generates a deterministic background color from the first character of the username. The palette is a fixed array of 8 hue-rotated colors defined directly in the component. This is intentional and acceptable — the values are self-contained presentation logic, not design tokens, and they adapt visually across both themes because they are saturated mid-tones.

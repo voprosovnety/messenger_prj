@@ -53,7 +53,7 @@ final class AddChatMemberController
         $user = $em->getRepository(User::class)->findOneBy(['username' => $ident])
             ?? $em->getRepository(User::class)->findOneBy(['email' => $ident]);
         if (!$user) {
-            return new JsonResponse(['error' => "user not found: $ident"], 404);
+            return new JsonResponse(['error' => 'user not found'], 404);
         }
 
         $existing = $em->getRepository(ChatMember::class)->findOneBy([

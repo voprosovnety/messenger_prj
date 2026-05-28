@@ -1,8 +1,8 @@
 <template>
   <Teleport to="body">
     <div class="modal-overlay" @click.self="$emit('close')">
-      <div class="modal user-profile-modal">
-        <button class="btn-icon modal-close-btn" @click="$emit('close')">
+      <div class="modal user-profile-modal" role="dialog" aria-modal="true" aria-label="User profile">
+        <button class="btn-icon modal-close-btn" aria-label="Close" @click="$emit('close')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
 

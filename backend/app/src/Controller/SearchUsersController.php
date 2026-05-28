@@ -23,10 +23,13 @@ final class SearchUsersController
             return new JsonResponse([]);
         }
 
+        // Escape wildcards (including backslash) before building the LIKE param.
+        $q = addcslashes($q, '%_\\');
+
         $users = $em->createQueryBuilder()
             ->select('u')
             ->from(User::class, 'u')
-            ->where('u.username LIKE :q OR u.email LIKE :q')
+            ->where('u.username LIKE :q')
             ->andWhere('u.id != :me')
             ->setParameter('q', '%' . $q . '%')
             ->setParameter('me', $me->getId())

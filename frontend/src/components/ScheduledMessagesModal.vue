@@ -1,13 +1,14 @@
 <template>
   <div class="modal-overlay" @click.self="$emit('close')">
-    <div class="modal scheduled-modal">
+    <div class="modal scheduled-modal" role="dialog" aria-modal="true" aria-label="Scheduled messages">
       <div class="modal-header">
         <span class="modal-title">Scheduled messages</span>
-        <button class="btn-icon" @click="$emit('close')">
+        <button class="btn-icon" aria-label="Close" @click="$emit('close')">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
       <div class="modal-body scheduled-body">
+        <div v-if="deleteError" class="auth-error" style="margin:0 0 8px">{{ deleteError }}</div>
         <div v-if="!items.length" class="scheduled-empty">
           No scheduled messages.
         </div>
@@ -44,7 +45,11 @@
               </div>
               <div class="scheduled-item-actions">
                 <button class="btn btn-ghost" @click="startEdit(item)">Edit</button>
-                <button class="btn btn-ghost danger" :disabled="busyId === item.id" @click="remove(item)">Delete</button>
+                <template v-if="confirmDeleteId === item.id">
+                  <button class="btn btn-danger" :disabled="busyId === item.id" @click="remove(item)">Confirm</button>
+                  <button class="btn btn-ghost" @click="confirmDeleteId = null">Cancel</button>
+                </template>
+                <button v-else class="btn btn-ghost danger" :disabled="busyId === item.id" @click="confirmDeleteId = item.id">Delete</button>
               </div>
             </template>
           </li>
@@ -69,6 +74,8 @@ const editWhen = ref('')
 const editError = ref('')
 const saving = ref(false)
 const busyId = ref(null)
+const confirmDeleteId = ref(null)
+const deleteError = ref('')
 
 function toLocalInput(iso) {
   const d = new Date(iso)
@@ -136,13 +143,14 @@ async function saveEdit(item) {
 }
 
 async function remove(item) {
-  if (!confirm('Delete this scheduled message?')) return
+  confirmDeleteId.value = null
+  deleteError.value = ''
   busyId.value = item.id
   try {
     await api.deleteScheduledMessage(item.id)
     emit('deleted', item.id)
   } catch (e) {
-    alert(e.message)
+    deleteError.value = e.message || 'Failed to delete scheduled message'
   } finally {
     busyId.value = null
   }

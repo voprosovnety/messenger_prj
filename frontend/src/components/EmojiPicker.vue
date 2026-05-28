@@ -64,6 +64,70 @@ const searchQuery = ref('')
 
 const emit = defineEmits(['select'])
 
+// Keywords for ~60 common/reaction emojis — enables text-based search
+const EMOJI_KEYWORDS = {
+  '👍': ['thumbs up', 'like', 'good', 'yes', 'approve', 'ok'],
+  '👎': ['thumbs down', 'dislike', 'no', 'bad', 'reject'],
+  '❤️': ['heart', 'love', 'like', 'red heart'],
+  '😂': ['laugh', 'lol', 'crying laughing', 'funny', 'haha'],
+  '🔥': ['fire', 'hot', 'flame', 'lit'],
+  '😀': ['grin', 'happy', 'smile', 'grinning'],
+  '😊': ['smile', 'happy', 'blush', 'pleased'],
+  '😍': ['heart eyes', 'love', 'adore', 'amazing'],
+  '🥰': ['smiling hearts', 'love', 'adore'],
+  '😘': ['kiss', 'love', 'blowing kiss'],
+  '🎉': ['party', 'celebrate', 'celebration', 'tada', 'confetti'],
+  '😢': ['sad', 'cry', 'tears', 'upset'],
+  '😭': ['crying', 'sob', 'sad', 'tears'],
+  '😡': ['angry', 'mad', 'rage', 'furious'],
+  '🤬': ['swearing', 'cursing', 'angry', 'mad', 'rage'],
+  '👏': ['clap', 'applause', 'congrats', 'bravo'],
+  '🙏': ['pray', 'thanks', 'please', 'namaste', 'hands'],
+  '✅': ['check', 'done', 'yes', 'ok', 'correct', 'green tick'],
+  '❌': ['cross', 'no', 'wrong', 'error', 'x mark'],
+  '💯': ['hundred', 'perfect', '100', 'score'],
+  '🤔': ['thinking', 'hmm', 'consider', 'curious'],
+  '😅': ['sweat smile', 'nervous', 'awkward'],
+  '😎': ['cool', 'sunglasses', 'awesome'],
+  '🙄': ['eye roll', 'whatever', 'annoyed'],
+  '😏': ['smirk', 'smug', 'sly'],
+  '😜': ['wink', 'playful', 'tongue', 'joke'],
+  '🥺': ['pleading', 'begging', 'puppy eyes', 'sad'],
+  '😳': ['flushed', 'embarrassed', 'shocked', 'surprised'],
+  '🤣': ['rolling floor laughing', 'lol', 'funny', 'rofl'],
+  '😤': ['triumph', 'steam', 'angry', 'huff'],
+  '💪': ['muscle', 'strong', 'flex', 'power'],
+  '🤝': ['handshake', 'deal', 'agree', 'partnership'],
+  '👋': ['wave', 'hello', 'hi', 'bye', 'goodbye'],
+  '🫶': ['heart hands', 'love', 'caring'],
+  '🙌': ['raised hands', 'celebrate', 'praise', 'hooray'],
+  '🤦': ['facepalm', 'frustrated', 'duh'],
+  '🤷': ['shrug', 'idk', 'dunno', 'whatever'],
+  '💀': ['skull', 'dead', 'lol', 'dying', 'bones'],
+  '👀': ['eyes', 'looking', 'watching', 'see'],
+  '💩': ['poop', 'poo', 'crap', 'funny'],
+  '🚀': ['rocket', 'launch', 'space', 'fast'],
+  '⭐': ['star', 'favorite', 'rate'],
+  '🌟': ['glowing star', 'amazing', 'excellent'],
+  '✨': ['sparkles', 'magic', 'shine', 'special'],
+  '💥': ['explosion', 'boom', 'impact'],
+  '❓': ['question', 'ask', 'what', 'confused'],
+  '❗': ['exclamation', 'important', 'alert'],
+  '💬': ['speech bubble', 'chat', 'message', 'comment'],
+  '💡': ['idea', 'lightbulb', 'tip', 'smart'],
+  '🎊': ['confetti ball', 'celebrate', 'party'],
+  '🎁': ['gift', 'present', 'birthday'],
+  '🎂': ['birthday cake', 'cake', 'birthday'],
+  '🏆': ['trophy', 'winner', 'champion', 'award'],
+  '💎': ['gem', 'diamond', 'precious', 'jewel'],
+  '💔': ['broken heart', 'heartbreak', 'sad', 'love'],
+  '😇': ['angel', 'innocent', 'halo', 'good'],
+  '🤩': ['star struck', 'wow', 'excited', 'amazing'],
+  '😈': ['devil', 'evil', 'smirk', 'mischief'],
+  '👻': ['ghost', 'spooky', 'halloween', 'boo'],
+  '🌈': ['rainbow', 'colorful', 'pride', 'hope'],
+}
+
 const RECENT_KEY = 'emoji_recent'
 const MAX_RECENT = 10
 
@@ -116,9 +180,10 @@ const allEmojis = computed(() => {
 const filteredEmojis = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!q) return allEmojis.value
-  // Simple filter: check if the query matches the emoji itself or any substring
-  // (emoji have no text names here, so show all if no match by character)
-  return allEmojis.value.filter(e => e.includes(q))
+  return allEmojis.value.filter(e => {
+    const kws = EMOJI_KEYWORDS[e] || []
+    return kws.some(k => k.includes(q))
+  })
 })
 
 const activeCat = ref('smileys')

@@ -2,7 +2,7 @@
 set -e
 
 echo "[entrypoint] Clearing and warming up cache..."
-php bin/console cache:clear
+php bin/console cache:clear --env=${APP_ENV:-prod}
 mkdir -p /var/www/uploads
 chown -R www-data:www-data var/ /var/www/uploads
 
