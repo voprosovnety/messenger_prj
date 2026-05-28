@@ -1118,7 +1118,7 @@ textarea.input {
 
 .message-bubble {
   position: relative;
-  padding: 10px 14px;
+  padding: 8px 12px 7px;
   border-radius: var(--radius-lg);
   font-size: 14px;
   line-height: 1.5;
@@ -1130,12 +1130,14 @@ textarea.input {
   border-bottom-left-radius: 4px;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.04);
   transition: box-shadow var(--transition);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 2px 4px;
 }
-/* #16: contain the floated .message-meta inside */
-.message-bubble::after {
-  content: '';
-  display: table;
-  clear: both;
+.message-body {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .message-bubble-outer:hover .message-bubble {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255, 255, 255, 0.06);
@@ -1153,19 +1155,12 @@ textarea.input {
   background: var(--surface);
 }
 
-/* #16: time floated inside bubble (Telegram-style).
-   float:right pulls the meta to the right edge of its line box.
-   The clearfix ::after on .message-bubble clears the float so the bubble
-   grows tall enough to contain it. For short single-line messages the meta
-   shares the same line as the text (right side); for wrapping text it drops
-   to the bottom-right — both are correct Telegram-style behaviour. */
 .message-meta {
-  float: right;
+  flex: 0 0 auto;
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: 8px;
-  margin-top: 4px;
   line-height: 1;
   pointer-events: none;
   user-select: none;
