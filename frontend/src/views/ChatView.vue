@@ -365,6 +365,7 @@
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
                       </div>
                         <div class="message-bubble" :class="{ deleted: !!m.deleted_at }">
+                          <div class="message-body">
                           <div v-if="m.forwarded_from" class="forwarded-badge">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
                             Forwarded from <strong>{{ m.forwarded_from }}</strong>
@@ -425,6 +426,7 @@
                             <LinkPreview v-if="m.link_preview && !m.deleted_at" :preview="m.link_preview" />
                             </template><!-- end v-else (non-poll) -->
                           </template>
+                          </div><!-- end message-body -->
                           <div class="message-meta">
                             <span class="message-time">{{ formatTime(m.created_at) }}</span>
                             <span v-if="m.edited_at && !m.deleted_at" class="message-edited">edited</span>
