@@ -3331,7 +3331,6 @@ watch(chatId, async (newId, oldId) => {
   lightboxOpen.value = false
   composerError.value = ''
   deletingMsgId.value = null
-  if (deletingResetTimer) { clearTimeout(deletingResetTimer); deletingResetTimer = null }
   showEmojiPicker.value = false
   closeReactionPicker()
   showGroupProfile.value = false
