@@ -36,10 +36,11 @@
         <div v-if="showResults && !poll.anonymous && opt.voters?.length" class="poll-option-voters">
           <UserAvatar
             v-for="voter in opt.voters.slice(0, 6)"
-            :key="voter"
-            :username="voter"
+            :key="voter.username"
+            :username="voter.username"
+            :avatar_url="voter.avatar_url"
             size="xs"
-            :title="voter"
+            :title="voter.username"
             class="poll-voter-avatar"
           />
           <span v-if="opt.voters.length > 6" class="poll-voter-more">+{{ opt.voters.length - 6 }}</span>

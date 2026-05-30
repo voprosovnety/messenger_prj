@@ -18,8 +18,8 @@
           </div>
           <div v-if="!poll.anonymous && opt.voters?.length" class="prd-voters">
             <div v-for="(voter, i) in opt.voters" :key="i" class="prd-voter">
-              <UserAvatar :username="voter" size="xs" />
-              <span>{{ voter }}</span>
+              <UserAvatar :username="voter.username" :avatar_url="voter.avatar_url" size="xs" />
+              <span>{{ voter.username }}</span>
             </div>
           </div>
         </div>
