@@ -22,7 +22,10 @@ class PollHelper
             if (isset($counts[$idx])) {
                 $counts[$idx]++;
                 if (!$poll->isAnonymous()) {
-                    $voters[$idx][] = $vote->getUser()?->getUsername();
+                    $voters[$idx][] = [
+                        'username'   => $vote->getUser()?->getUsername(),
+                        'avatar_url' => $vote->getUser()?->getAvatarUrl(),
+                    ];
                 }
             }
         }

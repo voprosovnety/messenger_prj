@@ -255,7 +255,8 @@ final class PollApiTest extends ApiTestCase
         $client->jsonRequest('POST', $voteUrl, ['options' => [0]]);
 
         $poll = json_decode($client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR)['poll'];
-        self::assertContains('pubvoter', $poll['options'][0]['voters']);
+        $voterUsernames = array_column($poll['options'][0]['voters'], 'username');
+        self::assertContains('pubvoter', $voterUsernames);
     }
 
     // -------------------------------------------------------------------------
