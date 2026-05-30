@@ -38,7 +38,7 @@
             v-for="voter in opt.voters.slice(0, 6)"
             :key="voter.username"
             :username="voter.username"
-            :avatar_url="voter.avatar_url"
+            :avatarUrl="voter.avatar_url"
             size="xs"
             :title="voter.username"
             class="poll-voter-avatar"
