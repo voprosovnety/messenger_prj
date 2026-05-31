@@ -20,23 +20,27 @@ All tokens live in the `:root` block at the top of `frontend/src/style.css`.
 
 | Token | Value | Role |
 |---|---|---|
-| `--bg` | `#0d1117` | Page / main chat background |
+| `--bg` | `#0f1117` | Page / main chat background |
 | `--surface` | `#161b22` | Sidebar, cards, modals, composer |
-| `--surface-2` | `#1c2128` | Hover states, input backgrounds |
-| `--surface-3` | `#22272e` | Active/selected backgrounds |
-| `--border` | `#30363d` | All borders and dividers |
+| `--surface-2` / `--hover` | `#1c2128` | Hover states, input backgrounds |
+| `--surface-3` / `--active` | `#22272e` | Active/selected backgrounds |
+| `--border` | `#252b33` | All borders and dividers |
 | `--text` | `#e6edf3` | Primary text |
-| `--text-2` | `#7d8590` | Secondary text (timestamps, subtitles) |
+| `--text-2` / `--text2` | `#7d8590` | Secondary text (timestamps, subtitles) |
 | `--text-3` | `#484f58` | Placeholder, disabled, very muted |
 | `--accent` | `#5b8dee` | Buttons, links, active indicators, focus rings |
 | `--accent-hover` | `#4a7cdd` | Accent on hover |
 | `--accent-dim` | `rgba(91,141,238,0.12)` | Accent tinted backgrounds (focus ring, selection) |
-| `--sent-bg` | `#132240` | Own message bubbles |
+| `--sent-bg` / `--sent` | `#1a2d4a` | Own message bubbles |
 | `--recv-bg` | `#161b22` | Received message bubbles (matches surface) |
 | `--danger` | `#ff4757` | Destructive actions, error states |
 | `--danger-dim` | `rgba(255,71,87,0.12)` | Danger tinted backgrounds |
 | `--online` | `#22c55e` | Online status dot |
 | `--online-dim` | `rgba(34,197,94,0.15)` | Green-tinted backgrounds (success banners, online indicators) |
+| `--shadow-card` | `0 2px 12px rgba(0,0,0,.22)` | Card/bubble elevation |
+| `--shadow-pop` | `0 8px 32px rgba(0,0,0,.40)` | Modals, context menus, heavy elevation |
+
+Halo aliases (`--hover`, `--active`, `--sent`, `--text2`) are added as canonical Halo names pointing to the same values as their `--surface-*` / `--sent-bg` counterparts. All existing code using the original names continues to work unchanged.
 
 **Rule:** Never introduce a color outside this palette. Need a new shade? Derive it from an existing token with opacity.
 
@@ -106,24 +110,28 @@ Send button: 36px circle, `--accent` fill.
 
 ### Message bubbles
 
-- Received: `--recv-bg`, `border-bottom-left-radius: 4px` (tail)
-- Sent: `--sent-bg`, `border-bottom-right-radius: 4px` (tail), right-aligned
-- Padding: `10px 14px`
-- Border-radius: `--radius-lg` (18px)
-- Max width: `min(68%, 560px)` — responsive so text stays readable at any viewport width
+- Received: `--hover` bg, `1px solid --border`, `border-bottom-left-radius: 4px` (tail), box-shadow `--shadow-card`
+- Sent: `--sent` bg, no border, `color: #eef3fb`, `border-bottom-right-radius: 4px` (tail), right-aligned
+- Sent timestamp color: `#8ba3c9`; sent ticks color: `#7fa8f0`
+- Padding: `9px 13px`
+- Border-radius: `22px` (not `--radius-lg` — bubbles use 22px directly per Halo spec)
+- Grouped same-sender: top corner nearest sender = 4px instead of the tail corner
+- Max width: `min(64%, 440px)` — responsive so text stays readable at any viewport width
 - `overflow-wrap: anywhere` — prevents long URLs/strings from overflowing the bubble
 - Editing active state: `outline: 2px solid --accent; outline-offset: 2px` on the bubble being edited
+- New message entry: `msgIn` keyframe, 340ms `cubic-bezier(.22,.61,.36,1)`
 
 ### Composer
 
-- Background: `--surface`, border `--border`, `--radius-lg`
-- Focused: border becomes `--accent`
-- Margin: `0 16px 14px`
-- Box-shadow: `0 4px 20px rgba(0,0,0,0.4)`
+- Background: `--hover`, border `--border`, `border-radius: 24px`
+- Focused: border `color-mix(in oklab, --accent 60%, transparent)`, ring shadow
+- Box-shadow: `--shadow-card`
+- Padding: `5px 6px 5px 18px` (pill shape)
+- Send button: 44px circle; empty = `--hover` bg + icon; ready = `--accent` bg + glow
 
 ### Sidebar
 
-- Width: 320px (open), 0px (hidden) — CSS `width` transition `0.22s ease`
+- Width: 336px (open), 0px (hidden) — CSS `width` transition `0.22s ease`
 - Background: `--surface`
 - Right border: `1px solid --border` (removed when hidden)
 - Active chat: `--surface-3` background + left inset border `--accent`
@@ -140,9 +148,18 @@ Send button: 36px circle, `--accent` fill.
 ### Modals
 
 - Background: `--surface`
-- Border: `1px solid --border`, `--radius-lg`
+- Border: `1px solid --border`, `border-radius: 22px`
 - Max-width: 440px, padding: 28px
-- Overlay: `rgba(0,0,0,0.7)` backdrop
+- Overlay: `rgba(8,10,14,0.6)` backdrop, `scrimIn` 200ms
+- Entry animation: `modalIn` 260ms `cubic-bezier(.22,.61,.36,1)`, box-shadow `--shadow-pop`
+
+### User profile modal (Halo redesign)
+
+- Cover band (96px gradient at top), avatar overlapping by −48px with `4px solid --surface` border
+- Modal has `padding: 0; border-radius: 22px; overflow: hidden`
+- Username: 21px/600; Status: 13.5px
+- Meta card below status: username row + status row, `border: 1px solid --border; border-radius: 14px`
+- Avatar size: `avatar-2xl` (96×96px)
 
 ---
 
