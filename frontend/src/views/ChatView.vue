@@ -84,7 +84,7 @@
             @click="router.push(`/chats/${c.id}`)"
             @contextmenu.prevent="openSidebarMenu($event, c)"
           >
-          <UserAvatar :username="c.display_name || c.id" :avatarUrl="c.avatar_url || null" size="md" :shape="c.is_group ? 'square' : 'circle'" />
+          <UserAvatar :username="c.display_name || c.id" :avatarUrl="c.avatar_url || null" size="lg" shape="circle" />
           <div class="chat-item-info">
             <div class="chat-item-top">
               <span class="chat-item-name">{{ c.display_name || c.id }}</span>
