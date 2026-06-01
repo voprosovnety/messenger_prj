@@ -40,7 +40,7 @@
         <!-- AI Assistant entry -->
         <button
           class="chat-item"
-          :class="{ active: chatId.value === 'ai' }"
+          :class="{ active: chatId === 'ai' }"
           type="button"
           @click="router.push('/chats/ai')"
         >
@@ -79,7 +79,7 @@
           <div v-if="!c.is_pinned && hasPinnedChats && (idx === 0 || filteredSidebarChats[idx - 1]?.is_pinned)" class="sidebar-section-label">Chats</div>
           <button
             class="chat-item"
-            :class="{ active: c.id === chatId.value, unread: (c.unread_count || 0) > 0 }"
+            :class="{ active: c.id === chatId, unread: (c.unread_count || 0) > 0 }"
             type="button"
             @click="router.push(`/chats/${c.id}`)"
             @contextmenu.prevent="openSidebarMenu($event, c)"
