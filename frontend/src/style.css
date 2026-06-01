@@ -439,19 +439,11 @@ textarea.input {
   padding-left: 19px;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
-  background: var(--active);
-  box-shadow: none;
+  background: color-mix(in oklab, var(--accent) 9%, var(--active));
+  box-shadow: inset 3px 0 0 var(--accent);
 }
-.chat-item.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 9px;
-  bottom: 9px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--accent);
-}
+/* ::before not needed — inset box-shadow handles the accent bar */
+.chat-item.active::before { display: none; }
 
 .chat-item-info {
   flex: 1;
