@@ -2651,7 +2651,10 @@ textarea.input {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 4px;
+  margin-top: -10px;
+  padding: 4px 6px 0;
+  position: relative;
+  z-index: 2;
 }
 
 .reaction-pill {
@@ -2661,22 +2664,22 @@ textarea.input {
   padding: 3px 9px;
   border-radius: 13px;
   font-size: 12px;
-  background: var(--active);
-  border: 1px solid var(--border);
+  background: var(--surface);
+  border: 1.5px solid color-mix(in oklab, var(--text-3) 35%, var(--border));
   cursor: pointer;
   transition: transform .08s ease, background .15s ease, border-color .15s ease;
   color: var(--text-2);
   line-height: 1.4;
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .45);
 }
 .reaction-pill:active { transform: scale(.93); }
-.reaction-pill:hover { background: var(--hover); border-color: var(--text-3); transform: scale(1.06); }
+.reaction-pill:hover { background: var(--surface-2); border-color: var(--text-3); transform: scale(1.06); }
 @media (hover: none) {
-  .reaction-pill:hover { background: var(--active); border-color: var(--border); transform: none; }
+  .reaction-pill:hover { background: var(--surface); border-color: color-mix(in oklab, var(--text-3) 35%, var(--border)); transform: none; }
 }
 .reaction-pill.by-me {
-  background: color-mix(in oklab, var(--accent) 20%, var(--active));
-  border-color: color-mix(in oklab, var(--accent) 55%, transparent);
+  background: color-mix(in oklab, var(--accent) 18%, var(--surface));
+  border-color: color-mix(in oklab, var(--accent) 60%, transparent);
   color: var(--text);
 }
 
