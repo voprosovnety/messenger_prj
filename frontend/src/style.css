@@ -1231,17 +1231,20 @@ textarea.input {
   color: color-mix(in oklab, var(--text-2) 85%, transparent);
 }
 .message-row.own .message-time { color: #8ba3c9; }
-.message-row.own .message-ticks { color: #7fa8f0; }
+.message-row.own .message-ticks { color: rgba(127, 168, 240, 0.55); }
+.message-row.own .message-ticks.read { color: #7fa8f0; }
 .message-edited {
   font-size: 11px;
   color: var(--text-3);
   font-style: italic;
 }
 .message-ticks {
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
   color: var(--text-3);
   line-height: 1;
 }
+.message-ticks svg { display: block; }
 .message-ticks.read { color: var(--accent); animation: tick-appear 0.2s ease-out; }
 @keyframes tick-appear {
   from { opacity: 0; transform: scale(0.5); }
@@ -1336,7 +1339,7 @@ textarea.input {
   display: flex;
   align-items: flex-end;
   gap: 9px;
-  padding: 10px 22px 18px;
+  padding: 14px 22px 18px;
   flex-shrink: 0;
   position: relative;
 }
@@ -1366,11 +1369,11 @@ textarea.input {
   border-radius: 0;
   color: var(--text);
   font-family: var(--font);
-  font-size: 14px;
+  font-size: 14.5px;
   padding: 4px 4px;
   resize: none;
   min-height: 36px;
-  max-height: 120px;
+  max-height: 140px;
   outline: none;
   line-height: 1.45;
 }

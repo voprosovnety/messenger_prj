@@ -436,8 +436,18 @@
                               :class="{ read: peerReadId && idLE(m.id, peerReadId), 'ticks-clickable': isGroup }"
                               @click.stop="isGroup && openReadBy(m.id)"
                             >
-                              <template v-if="peerReadId && idLE(m.id, peerReadId)">✓✓</template>
-                              <template v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">✓</template>
+                              <template v-if="peerReadId && idLE(m.id, peerReadId)">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                  <path d="M2 13l3.5 3.5L13 9"/>
+                                  <path d="M11 16.5L12.5 18 22 8.5"/>
+                                </svg>
+                              </template>
+                              <template v-else-if="peerDeliveredId && idLE(m.id, peerDeliveredId)">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                  <path d="M2 13l3.5 3.5L13 9"/>
+                                  <path d="M11 16.5L12.5 18 22 8.5"/>
+                                </svg>
+                              </template>
                             </span>
                           </div>
                         </div>
