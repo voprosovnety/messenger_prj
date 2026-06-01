@@ -342,7 +342,7 @@
 
                   <div class="message-bubble-wrap">
                     <!-- Sender name (group chats, others only) -->
-                    <div v-if="isGroup && !isMine(m) && (idx === 0 || g.items[idx-1].sender !== m.sender)" class="message-sender-name" style="cursor:pointer" @click="openUserProfile(m.sender)">
+                    <div v-if="isGroup && !isMine(m) && (idx === 0 || g.items[idx-1].sender !== m.sender)" class="message-sender-name" :style="{ color: senderColor(m.sender), cursor: 'pointer' }" @click="openUserProfile(m.sender)">
                       {{ m.sender }}
                     </div>
 
@@ -816,6 +816,7 @@
                   <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                 </button>
               </div>
+              <div class="composer-pill">
               <textarea
                 ref="composerEl"
                 v-model="input"
@@ -858,6 +859,7 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 <span class="composer-clock-badge">{{ scheduledMessages.length }}</span>
               </button>
+              </div>
               <div v-if="!isAiChat" class="composer-action-wrap send-menu-wrap">
                 <button
                   class="composer-mic composer-action-btn btn-icon"
@@ -1186,6 +1188,14 @@ const chatId = computed(() => route.params.chatId)
 // App version injected at build time by Vite (see vite.config.js → define.__APP_VERSION__).
 // Source of truth is /VERSION at the project root. devops-agent bumps it per commit.
 const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
+
+const SENDER_COLORS = ['#5b8dee','#22c55e','#f59e0b','#e879a7','#36c7d6','#9b6cf0','#ff6b6b','#4ade80']
+function senderColor(username) {
+  if (!username) return SENDER_COLORS[0]
+  let h = 0
+  for (let i = 0; i < username.length; i++) h = (Math.imul(31, h) + username.charCodeAt(i)) | 0
+  return SENDER_COLORS[Math.abs(h) % SENDER_COLORS.length]
+}
 
 const me = ref(null)
 const chat = ref(null)
