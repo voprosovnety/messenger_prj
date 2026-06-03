@@ -401,7 +401,6 @@
                                   :key="ai"
                                   :src="a.url"
                                   :alt="a.name || 'Image attachment'"
-                                  loading="lazy"
                                   decoding="async"
                                   class="attachment-grid-img"
                                   @click="openLightbox(a.url)"
