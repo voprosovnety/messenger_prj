@@ -48,8 +48,7 @@ Living backlog of UX/UI ideas for the messenger. This file is maintained automat
 
 #### Documented (отложено — выше риск / больший объём)
 
-- [ ] **DD-7 · Архитектурный долг: `ChatView.vue` — 3870 строк** _(HIGH risk)_
-  Монолит держит SSE, композер, запись голоса, реакции, пины, поиск, mention, свайпы, контекст-меню. Тяжело ревьюить, легко регрессить. План: вынести composables — `useChatSse.js`, `useComposer.js`, `useVoiceRecorder.js`, `useMessageActions.js`, `useSwipeReply.js`. Делать поэтапно, по одному composable за коммит, с прогоном в браузере. Не трогать в рамках этого аудита из-за риска регрессий в realtime/скролле.
+- [x] **DD-7 · Архитектурный долг: ChatView.vue — decomposed into useChatSse, useComposer, useVoiceRecorder, useMessageActions, useSwipeReply, ChatSidebar (3884→2531 lines)** — shipped in v1.6.9
 
 - [ ] **DD-8 · Перф: нет виртуализации списка сообщений** _(HIGH risk)_
   Длинный чат рендерит все DOM-ноды. Виртуализация конфликтует со свайпом-в-ответ, `jumpToMessage` (ищет DOM до 8 страниц), sticky-датами и lightbox-галереей. Требует аккуратного проектирования. Отложено.
