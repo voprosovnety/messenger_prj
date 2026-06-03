@@ -400,6 +400,9 @@
                                   v-for="(a, ai) in getAttachments(m).filter(a => a.type === 'image').slice(0, 4)"
                                   :key="ai"
                                   :src="a.url"
+                                  :alt="a.name || 'Image attachment'"
+                                  loading="lazy"
+                                  decoding="async"
                                   class="attachment-grid-img"
                                   @click="openLightbox(a.url)"
                                 />
@@ -519,7 +522,7 @@
               :key="fi"
               style="position:relative;flex-shrink:0"
             >
-              <img v-if="f.previewUrl" :src="f.previewUrl" style="height:52px;width:52px;object-fit:cover;border-radius:6px;display:block" />
+              <img v-if="f.previewUrl" :src="f.previewUrl" :alt="f.name || 'Selected image preview'" decoding="async" style="height:52px;width:52px;object-fit:cover;border-radius:6px;display:block" />
               <div v-else style="height:52px;display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-2);max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 {{ f.name }}
@@ -1464,8 +1467,18 @@ function sortReactions(arr) {
 }
 
 // ─── renderContent (linkify + markdown-lite) ──────────────────────
+// Memoization cache: renderContent is called from the template for every message
+// on every re-render. Without caching, each render re-runs DOM escaping + 6 regex
+// passes per visible message — wasteful in long chats. Keyed by raw content; the
+// output is a pure function of the input, so the cache is always valid. Capped to
+// avoid unbounded growth across a long session.
+const _renderCache = new Map()
+const _RENDER_CACHE_MAX = 1000
+
 function renderContent(text) {
   if (!text) return ''
+  const cached = _renderCache.get(text)
+  if (cached !== undefined) return cached
   // Sanitize via DOM textContent→innerHTML to get HTML-escaped string
   const div = document.createElement('div')
   div.textContent = text
@@ -1480,6 +1493,8 @@ function renderContent(text) {
   safe = safe.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
   // @mention highlight
   safe = safe.replace(/@([a-zA-Z0-9_]+)/g, '<span class="mention-highlight">@$1</span>')
+  if (_renderCache.size >= _RENDER_CACHE_MAX) _renderCache.delete(_renderCache.keys().next().value)
+  _renderCache.set(text, safe)
   return safe
 }
 

@@ -36,6 +36,8 @@
   --text2:        #7d8590;
   --shadow-card:  0 2px 12px rgba(0,0,0,.22);
   --shadow-pop:   0 8px 32px rgba(0,0,0,.40);
+  --scrollbar-thumb:       #2a313a;
+  --scrollbar-thumb-hover: #39424d;
 }
 
 /* ─── Light theme ────────────────────────────────────────────── */
@@ -58,6 +60,8 @@
   --online:       #22c55e;
   --shadow:       0 4px 24px rgba(0, 0, 0, 0.12);
   --shadow-sm:    0 2px 8px rgba(0, 0, 0, 0.08);
+  --scrollbar-thumb:       #c4ccd6;
+  --scrollbar-thumb-hover: #aab4c1;
 }
 
 /* ─── Reset & base ───────────────────────────────────────────── */
@@ -117,8 +121,8 @@ a:hover { text-decoration: underline; }
 /* ─── Scrollbar ───────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2a313a; border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
-::-webkit-scrollbar-thumb:hover { background: #39424d; background-clip: padding-box; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); background-clip: padding-box; }
 
 /* ─── Shared animation keyframes ────────────────────────────── */
 @keyframes overlay-in {

@@ -12,6 +12,57 @@ Living backlog of UX/UI ideas for the messenger. This file is maintained automat
 
 ## Planned / In progress
 
+<!-- Audit 2026-06-03: due-diligence pass (Telegram/Discord/Linear-grade bar).
+     DD-1..DD-6 shipped in v1.6.7. DD-7..DD-11 documented (higher risk / larger scope). -->
+
+### Audit 2026-06-03 — Due diligence
+
+#### Shipped (low/medium risk) — v1.6.7
+
+- [x] **DD-1 · Race condition: параллельные 401 запускают несколько refresh, ротация токена инвалидирует сама себя → внезапный логаут** — shipped in v1.6.7
+  _Что было:_ `api.js tryRefresh()` не имел защиты от конкурентного вызова. Refresh-токен ротируется на каждый `/auth/refresh`; при двух одновременных 401 (типично: открытие чата делает много запросов сразу) каждый забирал токен и инвалидировал чужой → `!res.ok` → удаление токенов → выкидывает на /login на ровном месте.
+  _Фикс:_ единый in-flight промис (`refreshPromise`) — все конкурентные вызовы ждут один refresh; токен ротируется ровно один раз. Плюс try/catch вокруг fetch, чтобы сетевая ошибка не разлогинивала.
+  _Файлы:_ `frontend/src/api.js`
+
+- [x] **DD-2 · Перф: `renderContent()` пересчитывается для каждого сообщения на каждом ререндере** — shipped in v1.6.7
+  _Что было:_ `v-html="renderContent(m.content)"` — вызов функции в шаблоне (Vue не кэширует), а функция делает `document.createElement` + 6 regex-проходов. В длинном чате любой реактивный апдейт прогонял это по всем видимым сообщениям.
+  _Фикс:_ мемоизация по строке контента (`Map`, cap 1000, эвикт старейшего). Вывод — чистая функция входа, кэш всегда валиден.
+  _Файлы:_ `frontend/src/views/ChatView.vue`
+
+- [x] **DD-3 · Перф: изображения-вложения без `loading="lazy"` / `decoding="async"`** — shipped in v1.6.7
+  _Фикс:_ добавлены `loading="lazy"` + `decoding="async"` на сетку вложений; `decoding="async"` на превью композера и в лайтбоксе. Меньше блокировки главного потока при прокрутке истории.
+  _Файлы:_ `frontend/src/views/ChatView.vue`, `frontend/src/components/ImageLightbox.vue`
+
+- [x] **DD-4 · A11y: изображения без `alt`** — shipped in v1.6.7
+  _Фикс:_ `alt` (имя файла / fallback) на изображениях вложений, превью композера, лайтбоксе.
+  _Файлы:_ `frontend/src/views/ChatView.vue`, `frontend/src/components/ImageLightbox.vue`
+
+- [x] **DD-5 · Визуальная дешевизна: скроллбар захардкожен тёмным, не адаптируется к светлой теме** — shipped in v1.6.7
+  _Что было:_ `::-webkit-scrollbar-thumb { background: #2a313a }` — в светлой теме оставался тёмным.
+  _Фикс:_ токены `--scrollbar-thumb` / `--scrollbar-thumb-hover` в `:root` и `:root[data-theme="light"]`.
+  _Файлы:_ `frontend/src/style.css`
+
+- [x] **DD-6 · Онбординг: нет `.editorconfig`** — shipped in v1.6.7
+  _Фикс:_ добавлен корневой `.editorconfig` (2 пробела для `.vue`/css/yaml, 4 для js/php). Zero-dependency, уважается всеми IDE.
+  _Файлы:_ `.editorconfig`
+
+#### Documented (отложено — выше риск / больший объём)
+
+- [ ] **DD-7 · Архитектурный долг: `ChatView.vue` — 3870 строк** _(HIGH risk)_
+  Монолит держит SSE, композер, запись голоса, реакции, пины, поиск, mention, свайпы, контекст-меню. Тяжело ревьюить, легко регрессить. План: вынести composables — `useChatSse.js`, `useComposer.js`, `useVoiceRecorder.js`, `useMessageActions.js`, `useSwipeReply.js`. Делать поэтапно, по одному composable за коммит, с прогоном в браузере. Не трогать в рамках этого аудита из-за риска регрессий в realtime/скролле.
+
+- [ ] **DD-8 · Перф: нет виртуализации списка сообщений** _(HIGH risk)_
+  Длинный чат рендерит все DOM-ноды. Виртуализация конфликтует со свайпом-в-ответ, `jumpToMessage` (ищет DOM до 8 страниц), sticky-датами и lightbox-галереей. Требует аккуратного проектирования. Отложено.
+
+- [ ] **DD-9 · Качество/онбординг: нет ESLint + Prettier + Vitest на фронте** _(MEDIUM)_
+  `package-lock.json` закоммичен → добавление devDependencies без регенерации lock сломает `npm ci` в CI. Нужно: добавить `eslint` (flat config + `eslint-plugin-vue`), `prettier`, `vitest`, обновить lock через `npm install` локально, добавить скрипты `lint`/`format`/`test` и шаг в `deploy-dev.yml`. Сделать отдельным PR, где можно прогнать `npm install`.
+
+- [ ] **DD-10 · Тесты: нулевое покрытие фронтенда** _(MEDIUM)_
+  Бэкенд — 23 интеграционных теста; фронт — 0. Минимум: Vitest-смоук на `renderContent` (XSS/markdown), `highlightText`, утилиты времени, и логику `tryRefresh` (мьютекс). Зависит от DD-9.
+
+- [ ] **DD-11 · `request()`: повторный 401 после refresh не обрабатывается явно** _(LOW)_
+  После успешного refresh повторный запрос может снова вернуть 401 (напр. отозванный доступ) — вернётся сырой Response, вызывающий код бросит общую ошибку. Желательно при втором 401 чистить токены и редиректить на /login. Низкий приоритет (редкий кейс), задокументировано.
+
 <!-- Audit 2026-05-22: full product-polish audit. Items marked with P0–P3. -->
 
 ### P0 — Критические баги (ломают базовый UX)
