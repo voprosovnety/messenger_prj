@@ -1712,6 +1712,8 @@ let pingInterval = null
 let onlineUsersInterval = null
 let pinnedNavLock = false
 let pinnedNavLockTimer = null
+let _suppressLoadMoreTimer = null
+let _suppressLoadMore = false
 
 // ─── computed ────────────────────────────────────────────────────
 const isAiChat = computed(() => chatId.value === 'ai')
@@ -1883,6 +1885,13 @@ function isNearBottom(thresholdPx = 100) {
 async function scrollToBottom() {
   await nextTick()
   if (listEl.value) listEl.value.scrollTop = listEl.value.scrollHeight
+  // Prevent onScroll from triggering loadMore() immediately after a programmatic
+  // scroll-to-bottom: if messages barely fill the viewport, scrollTop ends up
+  // near 0 (which is < 120) and loadMore fires, prepending older messages and
+  // jumping the view away from the newest content.
+  _suppressLoadMore = true
+  clearTimeout(_suppressLoadMoreTimer)
+  _suppressLoadMoreTimer = setTimeout(() => { _suppressLoadMore = false }, 600)
 }
 
 function scrollToBottomFab() {
@@ -2030,7 +2039,7 @@ async function loadMore() {
 }
 
 function onScroll() {
-  if (listEl.value && listEl.value.scrollTop < 120 && hasMore.value && !loadingMore.value) {
+  if (!_suppressLoadMore && listEl.value && listEl.value.scrollTop < 120 && hasMore.value && !loadingMore.value) {
     loadMore()
   }
   updatePinnedIndexFromScroll()
