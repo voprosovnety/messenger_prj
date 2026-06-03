@@ -852,7 +852,7 @@
     <UserProfileModal
       v-if="profileUsername"
       :username="profileUsername"
-      :sidebarChats="chatSidebarRef?.sidebarChats?.value || []"
+      :sidebarChats="chatSidebarRef?.sidebarChats || []"
       :chatId="isAiChat ? null : chatId"
       @close="profileUsername = null"
       @open-chat="(id) => { profileUsername = null; router.push(`/chats/${id}`) }"
@@ -887,7 +887,7 @@
         </div>
         <div class="modal-body" style="padding:0;max-height:360px;overflow-y:auto">
           <button
-            v-for="c in (chatSidebarRef?.sidebarChats?.value || [])"
+            v-for="c in (chatSidebarRef?.sidebarChats || [])"
             :key="c.id"
             class="forward-chat-item"
             @click="doForward(c.id)"
@@ -1294,7 +1294,7 @@ function computeUnreadDivider() {
     m.sender !== me.value.username &&
     m.deleted_at == null
   )
-  const chatData = (chatSidebarRef.value?.sidebarChats?.value || []).find(c => c.id == chatId.value) || chat.value
+  const chatData = (chatSidebarRef.value?.sidebarChats || []).find(c => c.id == chatId.value) || chat.value
   const count = chatData?.unread_count || 0
   if (count > 0 && unread.length > 0) {
     const startIdx = unread.length - count
@@ -2269,7 +2269,7 @@ function onSwipeTouchCancel() { swipeDecided = null }
 
 // ─── Keyboard shortcuts ───────────────────────────────────────────
 function navigateChat(direction) {
-  const chats = chatSidebarRef.value?.filteredSidebarChats?.value || []
+  const chats = chatSidebarRef.value?.filteredSidebarChats || []
   if (!chats.length) return
   const idx = chats.findIndex(c => c.id === chatId.value)
   const next = chats[idx + direction]

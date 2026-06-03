@@ -120,15 +120,15 @@ export function useChatSse({
           if (payload.type === 'user.typing') {
             const tChatId = d.chatId ?? d.chat_id
             if (tChatId && d.username !== myId()) {
+              // stm is the exposed ref auto-unwrapped to its reactive value
+              // object — mutate keys directly (Proxy traps keep it reactive).
               const stm = chatSidebarRef.value?.sidebarTypingMap
               const sts = chatSidebarRef.value?.sidebarTypingTimers
               if (stm && sts) {
-                stm.value = { ...stm.value, [tChatId]: d.username }
+                stm[tChatId] = d.username
                 clearTimeout(sts[tChatId])
                 sts[tChatId] = setTimeout(() => {
-                  const m = { ...stm.value }
-                  delete m[tChatId]
-                  stm.value = m
+                  delete stm[tChatId]
                 }, 3000)
               }
               if (tChatId === chatId.value) {
@@ -145,11 +145,9 @@ export function useChatSse({
             // Clear typing for this chat since message was sent
             const stm = chatSidebarRef.value?.sidebarTypingMap
             const sts = chatSidebarRef.value?.sidebarTypingTimers
-            if (stm && sts && stm.value[d.chat_id]) {
+            if (stm && sts && stm[d.chat_id]) {
               clearTimeout(sts[d.chat_id])
-              const m = { ...stm.value }
-              delete m[d.chat_id]
-              stm.value = m
+              delete stm[d.chat_id]
             }
             if (d.chat_id === chatId.value) { typingUser.value = ''; clearTimeout(typingTimeoutRef.value) }
             const fromMe = d.sender === myId()
