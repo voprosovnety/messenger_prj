@@ -1503,9 +1503,11 @@ function scrollToBottomFab() {
   unreadWhileScrolled.value = 0
 }
 
-// Re-pin to bottom when descendant media finishes loading. `load` does not
-// bubble for <img>, so this is registered in the capture phase on listEl.
-// Only fires while _stickBottom is true and we are not prepending older history.
+// Re-pin to bottom when descendant media finishes loading and grows the
+// content. Registered in the capture phase on listEl because these events do
+// not bubble: <img> fires `load`; <video> never fires `load` and instead
+// reports its size via `loadedmetadata`. Only fires while _stickBottom is true
+// and we are not prepending older history.
 function onMediaLoadPin(e) {
   const tag = e.target && e.target.tagName
   if (tag !== 'IMG' && tag !== 'VIDEO') return
@@ -2382,8 +2384,9 @@ function updateVVH() {
 }
 
 onMounted(async () => {
-  // Capture phase: <img>/<video> load events do not bubble.
+  // Capture phase: <img> load / <video> loadedmetadata do not bubble.
   listEl.value?.addEventListener('load', onMediaLoadPin, true)
+  listEl.value?.addEventListener('loadedmetadata', onMediaLoadPin, true)
   ;[me.value] = await Promise.all([api.me()])
   await Promise.all([load(), loadSidebarChats()])
   const map = {}
@@ -2431,6 +2434,7 @@ onBeforeUnmount(() => {
   const _sidebarTypingTimers = chatSidebarRef.value?.sidebarTypingTimers
   if (_sidebarTypingTimers) Object.values(_sidebarTypingTimers).forEach(clearTimeout)
   listEl.value?.removeEventListener('load', onMediaLoadPin, true)
+  listEl.value?.removeEventListener('loadedmetadata', onMediaLoadPin, true)
   document.removeEventListener('visibilitychange', markReadIfPossible)
   document.removeEventListener('paste', onPaste)
   document.removeEventListener('keydown', onGlobalKeydown)

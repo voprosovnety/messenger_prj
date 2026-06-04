@@ -2255,6 +2255,7 @@ textarea.input {
 }
 .attachment-video {
   max-width: 260px;
+  max-height: 300px;
   border-radius: 10px;
   display: block;
 }
