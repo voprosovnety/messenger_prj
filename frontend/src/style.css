@@ -2680,6 +2680,15 @@ textarea.input {
   z-index: 2;
 }
 
+.read-receipt-time {
+  font-size: 10px;
+  color: var(--text-3);
+  text-align: right;
+  padding-right: 6px;
+  margin-top: 2px;
+  opacity: 0.75;
+}
+
 .reaction-pill {
   display: inline-flex;
   align-items: center;

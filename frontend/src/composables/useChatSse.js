@@ -33,8 +33,9 @@ export function useChatSse({
   newMessageIds,
   showScrollBtn,
   unreadWhileScrolled,
-  typingUser,
-  typingTimeoutRef,   // { value: timeoutId } — plain object so the composable can mutate
+  typingUsersMap,   // reactive({}) — username → true for current chat
+  typingUserTimers, // plain {} — username → timeoutId
+  peerReadAt,
   currentPinned,
   scheduledMessages,
   isNearBottom,
@@ -132,9 +133,11 @@ export function useChatSse({
                 }, 3000)
               }
               if (tChatId === chatId.value) {
-                typingUser.value = d.username
-                clearTimeout(typingTimeoutRef.value)
-                typingTimeoutRef.value = setTimeout(() => { typingUser.value = '' }, 3000)
+                typingUsersMap[d.username] = true
+                clearTimeout(typingUserTimers[d.username])
+                typingUserTimers[d.username] = setTimeout(() => {
+                  delete typingUsersMap[d.username]
+                }, 3000)
               }
             }
             return
@@ -149,7 +152,10 @@ export function useChatSse({
               clearTimeout(sts[d.chat_id])
               delete stm[d.chat_id]
             }
-            if (d.chat_id === chatId.value) { typingUser.value = ''; clearTimeout(typingTimeoutRef.value) }
+            if (d.chat_id === chatId.value && d.sender && typingUsersMap[d.sender]) {
+              clearTimeout(typingUserTimers[d.sender])
+              delete typingUsersMap[d.sender]
+            }
             const fromMe = d.sender === myId()
             chatSidebarRef.value?.sortAndReplaceSidebarChats(c => {
               if (c.id !== d.chat_id) return c
@@ -218,7 +224,10 @@ export function useChatSse({
           if (payload.type === 'chat.read') {
             if (d?.user && d.user !== myId()) {
               const id = d.last_read_message_id
-              if (id && (!peerReadId.value || String(id) > String(peerReadId.value))) peerReadId.value = id
+              if (id && (!peerReadId.value || String(id) > String(peerReadId.value))) {
+                peerReadId.value = id
+                if (d.at) peerReadAt.value = d.at
+              }
             }
             return
           }

@@ -14,7 +14,13 @@ async function request(path, options = {}) {
         if (refreshed) {
             const access2 = localStorage.getItem('access_token')
             const headers2 = { ...headers, Authorization: `Bearer ${access2}` }
-            return fetch(path, { ...options, headers: headers2 })
+            const res2 = await fetch(path, { ...options, headers: headers2 })
+            if (res2.status === 401) {
+                localStorage.removeItem('access_token')
+                localStorage.removeItem('refresh_token')
+                window.location.href = '/login'
+            }
+            return res2
         }
     }
 

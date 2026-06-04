@@ -368,6 +368,12 @@
                       >{{ r.emoji }} {{ r.count }}</button>
                       <button v-if="!isAiChat && !m.deleted_at" class="reaction-add-btn" title="Add reaction" aria-label="Add reaction" @click.stop="openReactionPicker(m.id, $event)">+</button>
                     </div>
+
+                    <!-- DM read receipt timestamp -->
+                    <div
+                      v-if="isMine(m) && !isGroup && peerReadAt && peerReadId && m.id === peerReadId"
+                      class="read-receipt-time"
+                    >Read {{ formatTime(peerReadAt) }}</div>
                   </div>
 
                 </div>
@@ -1055,7 +1061,7 @@
 </template>
 
 <script setup>
-import { onMounted, onBeforeUnmount, ref, nextTick, computed, watch } from 'vue'
+import { onMounted, onBeforeUnmount, ref, reactive, nextTick, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import { useFocusTrap } from '../composables/useFocusTrap'
@@ -1108,6 +1114,7 @@ function toggleMute(id) { chatSidebarRef.value?.toggleMute(id) }
 
 const peerDeliveredId = ref(null)
 const peerReadId = ref(null)
+const peerReadAt = ref(null)
 
 const messages = ref([])
 const nextCursor = ref(null)
@@ -1136,8 +1143,15 @@ const userSuggestions = ref([])
 const showSuggestions = ref(false)
 let createSearchDebounce = null
 
-const typingUser = ref('')
-const typingTimeoutRef = { value: null }
+const typingUsersMap = reactive({})  // username → true (reactive, current chat)
+const typingUserTimers = {}          // username → timeoutId (non-reactive)
+const typingUser = computed(() => {
+  const names = Object.keys(typingUsersMap)
+  if (!names.length) return ''
+  if (names.length === 1) return names[0]
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return `${names[0]}, ${names[1]} and ${names.length - 2} more`
+})
 
 const listEl = ref(null)
 const composerEl = ref(null)
@@ -1788,8 +1802,9 @@ const { sseStatus, connectSse, stopChatSse } = useChatSse({
   newMessageIds,
   showScrollBtn,
   unreadWhileScrolled,
-  typingUser,
-  typingTimeoutRef,
+  typingUsersMap,
+  typingUserTimers,
+  peerReadAt,
   currentPinned,
   scheduledMessages,
   isNearBottom,
@@ -2155,7 +2170,8 @@ watch(chatId, async (newId, oldId) => {
   if (!newId || newId === oldId) return
   if (window.innerWidth < 640) sidebarHidden.value = true
   stopChatSse()
-  clearTimeout(typingTimeoutRef.value)
+  Object.values(typingUserTimers).forEach(clearTimeout)
+  Object.keys(typingUsersMap).forEach(k => delete typingUsersMap[k])
   messages.value = []
   nextCursor.value = null
   hasMore.value = false
@@ -2169,7 +2185,7 @@ watch(chatId, async (newId, oldId) => {
   pinnedIndex.value = 0
   peerDeliveredId.value = null
   peerReadId.value = null
-  typingUser.value = ''
+  peerReadAt.value = null
   unreadDividerBeforeId.value = null
   unreadDividerCount.value = 0
   editingId.value = null
@@ -2429,7 +2445,7 @@ onBeforeUnmount(() => {
   stopChatSse()
   if (pingInterval) clearInterval(pingInterval)
   if (onlineUsersInterval) clearInterval(onlineUsersInterval)
-  clearTimeout(typingTimeoutRef.value)
+  Object.values(typingUserTimers).forEach(clearTimeout)
   // typingDebounce and linkPreviewDebounce are cleared by useComposer's onBeforeUnmount.
   const _sidebarTypingTimers = chatSidebarRef.value?.sidebarTypingTimers
   if (_sidebarTypingTimers) Object.values(_sidebarTypingTimers).forEach(clearTimeout)
