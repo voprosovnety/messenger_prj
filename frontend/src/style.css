@@ -50,19 +50,32 @@
   --text:         #1a1d23;
   --text-2:       #5a6272;
   --text-3:       #9aa3b0;
+  --text2:        #5a6272;
   --accent:       #4a7cdd;
   --accent-hover: #3a6bcc;
   --accent-dim:   rgba(74, 124, 221, 0.12);
   --sent-bg:      #d8e9ff;
   --recv-bg:      #ffffff;
+  --sent:         #d8e9ff;
+  --hover:        #eef1f5;
+  --active:       #e4e8ef;
   --danger:       #e53935;
   --danger-dim:   rgba(229, 57, 53, 0.12);
   --online:       #22c55e;
+  --online-dim:   rgba(34, 197, 94, 0.12);
   --shadow:       0 4px 24px rgba(0, 0, 0, 0.12);
   --shadow-sm:    0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-card:  0 2px 12px rgba(0, 0, 0, 0.07);
+  --shadow-pop:   0 8px 32px rgba(0, 0, 0, 0.14);
   --scrollbar-thumb:       #c4ccd6;
   --scrollbar-thumb-hover: #aab4c1;
 }
+
+/* ─── Light theme — own-message color overrides (dark theme uses hardcoded values) ── */
+:root[data-theme="light"] .message-row.own .message-bubble { color: var(--text); }
+:root[data-theme="light"] .message-row.own .message-time   { color: var(--text-2); }
+:root[data-theme="light"] .message-row.own .message-ticks  { color: var(--text-3); }
+:root[data-theme="light"] .message-row.own .message-ticks.read { color: var(--accent); }
 
 /* ─── Reset & base ───────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
