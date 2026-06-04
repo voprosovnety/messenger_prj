@@ -1356,6 +1356,12 @@ let pingInterval = null
 let onlineUsersInterval = null
 let _suppressLoadMoreTimer = null
 let _suppressLoadMore = false
+// True while the view should stay pinned to the newest message. Set when we
+// programmatically scroll to bottom (chat enter / send); cleared in onScroll
+// once the user scrolls up. While true, async media (images, link-preview
+// thumbnails) finishing load re-pins to bottom so late-loading content can't
+// push the latest messages out of view ("chat jumps up a second after enter").
+let _stickBottom = false
 
 // ─── computed ────────────────────────────────────────────────────
 const isAiChat = computed(() => chatId.value === 'ai')
@@ -1482,6 +1488,7 @@ function isNearBottom(thresholdPx = 100) {
 async function scrollToBottom() {
   await nextTick()
   if (listEl.value) listEl.value.scrollTop = listEl.value.scrollHeight
+  _stickBottom = true
   // Prevent onScroll from triggering loadMore() immediately after a programmatic
   // scroll-to-bottom: if messages barely fill the viewport, scrollTop ends up
   // near 0 (which is < 120) and loadMore fires, prepending older messages and
@@ -1494,6 +1501,16 @@ async function scrollToBottom() {
 function scrollToBottomFab() {
   scrollToBottom()
   unreadWhileScrolled.value = 0
+}
+
+// Re-pin to bottom when descendant media finishes loading. `load` does not
+// bubble for <img>, so this is registered in the capture phase on listEl.
+// Only fires while _stickBottom is true and we are not prepending older history.
+function onMediaLoadPin(e) {
+  const tag = e.target && e.target.tagName
+  if (tag !== 'IMG' && tag !== 'VIDEO') return
+  if (!_stickBottom || loadingMore.value) return
+  if (listEl.value) listEl.value.scrollTop = listEl.value.scrollHeight
 }
 
 // ─── online users ─────────────────────────────────────────────────
@@ -1576,6 +1593,7 @@ function onScroll() {
   if (listEl.value) {
     const distFromBottom = listEl.value.scrollHeight - listEl.value.scrollTop - listEl.value.clientHeight
     showScrollBtn.value = distFromBottom > 200
+    _stickBottom = distFromBottom <= 200
     if (distFromBottom <= 200) unreadWhileScrolled.value = 0
   }
 }
@@ -2364,7 +2382,9 @@ function updateVVH() {
 }
 
 onMounted(async () => {
-  [me.value] = await Promise.all([api.me()])
+  // Capture phase: <img>/<video> load events do not bubble.
+  listEl.value?.addEventListener('load', onMediaLoadPin, true)
+  ;[me.value] = await Promise.all([api.me()])
   await Promise.all([load(), loadSidebarChats()])
   const map = {}
   for (let i = 0; i < localStorage.length; i++) {
@@ -2410,6 +2430,7 @@ onBeforeUnmount(() => {
   // typingDebounce and linkPreviewDebounce are cleared by useComposer's onBeforeUnmount.
   const _sidebarTypingTimers = chatSidebarRef.value?.sidebarTypingTimers
   if (_sidebarTypingTimers) Object.values(_sidebarTypingTimers).forEach(clearTimeout)
+  listEl.value?.removeEventListener('load', onMediaLoadPin, true)
   document.removeEventListener('visibilitychange', markReadIfPossible)
   document.removeEventListener('paste', onPaste)
   document.removeEventListener('keydown', onGlobalKeydown)
