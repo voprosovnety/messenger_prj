@@ -82,6 +82,13 @@
           </button>
         </div>
 
+        <div class="profile-theme-row">
+          <span class="profile-theme-label">Density</span>
+          <button class="btn btn-secondary profile-theme-btn" @click="toggleDensity">
+            {{ isCompact ? '↕️ Comfortable' : '☰ Compact' }}
+          </button>
+        </div>
+
         <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
           <button class="btn btn-danger" style="width:100%" @click="logout">Sign out</button>
         </div>
@@ -122,6 +129,19 @@ function toggleTheme() {
   const theme = isDark.value ? 'dark' : 'light'
   document.documentElement.setAttribute('data-theme', theme)
   localStorage.setItem('theme', theme)
+}
+
+const isCompact = ref(document.documentElement.getAttribute('data-density') === 'compact')
+
+function toggleDensity() {
+  isCompact.value = !isCompact.value
+  if (isCompact.value) {
+    document.documentElement.setAttribute('data-density', 'compact')
+    localStorage.setItem('density', 'compact')
+  } else {
+    document.documentElement.removeAttribute('data-density')
+    localStorage.removeItem('density')
+  }
 }
 
 const username = ref('')

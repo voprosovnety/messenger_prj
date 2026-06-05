@@ -12,6 +12,11 @@ if (savedTheme) {
   document.documentElement.setAttribute('data-theme', 'light')
 }
 
+// Apply message density: opt-in compact mode persists as `density` in localStorage.
+if (localStorage.getItem('density') === 'compact') {
+  document.documentElement.setAttribute('data-density', 'compact')
+}
+
 const app = createApp(App)
 app.use(router)
 

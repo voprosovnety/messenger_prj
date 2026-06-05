@@ -1268,6 +1268,25 @@ textarea.input {
   to   { opacity: 1; transform: scale(1); }
 }
 
+/* Compact density — opt-in dense layout (toggled in ProfileView, persisted as
+   localStorage `density`, applied as data-density on :root in main.js). Tightens
+   bubble padding, type size and inter-message spacing for information-dense chats. */
+:root[data-density="compact"] .messages-area { padding: 12px; gap: 1px; }
+:root[data-density="compact"] .message-group { gap: 1px; }
+:root[data-density="compact"] .message-bubble {
+  padding: 5px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+:root[data-density="compact"] .message-row + .message-row:not(.same-sender) {
+  margin-top: 8px;
+}
+:root[data-density="compact"] .message-row.grouped,
+:root[data-density="compact"] .message-row + .message-row.same-sender {
+  margin-top: 1px;
+}
+:root[data-density="compact"] .message-time { font-size: 10px; }
+
 .message-bubble-outer {
   position: relative;
   display: flex;
