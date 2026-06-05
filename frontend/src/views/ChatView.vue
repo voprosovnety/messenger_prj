@@ -405,7 +405,7 @@
             <span class="reply-bar-text">
               <strong style="color:var(--accent)">Editing</strong>{{ editingText ? ': ' + editingText : '' }}
             </span>
-            <button class="btn-icon" style="padding:4px" @click="cancelEdit">
+            <button class="btn-icon" style="padding:4px" aria-label="Cancel editing" title="Cancel editing" @click="cancelEdit">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
@@ -416,7 +416,7 @@
             <span class="reply-bar-text">
               <strong>{{ replyingTo.sender }}</strong>{{ replyingTo.deleted ? ' · Message deleted' : ': ' + replyPreview(replyingTo) }}
             </span>
-            <button class="btn-icon" style="padding:4px" @click="cancelReply">
+            <button class="btn-icon" style="padding:4px" aria-label="Cancel reply" title="Cancel reply" @click="cancelReply">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
@@ -442,6 +442,8 @@
               <button
                 class="btn-icon"
                 style="position:absolute;top:-6px;right:-6px;background:var(--surface-2);border-radius:50%;width:18px;height:18px;padding:0;display:flex;align-items:center;justify-content:center"
+                aria-label="Remove file"
+                title="Remove file"
                 @click="cancelFile(fi)"
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>

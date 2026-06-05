@@ -116,14 +116,12 @@ const isDark = ref(document.documentElement.getAttribute('data-theme') !== 'ligh
 
 function toggleTheme() {
   isDark.value = !isDark.value
+  // Persist the choice explicitly (including 'dark') so a manual selection is not
+  // forgotten on the next load and overridden by the OS preference. 'dark' has no
+  // dedicated CSS selector — it falls through to the :root defaults, which are dark.
   const theme = isDark.value ? 'dark' : 'light'
-  if (theme === 'dark') {
-    document.documentElement.removeAttribute('data-theme')
-    localStorage.removeItem('theme')
-  } else {
-    document.documentElement.setAttribute('data-theme', 'light')
-    localStorage.setItem('theme', 'light')
-  }
+  document.documentElement.setAttribute('data-theme', theme)
+  localStorage.setItem('theme', theme)
 }
 
 const username = ref('')
